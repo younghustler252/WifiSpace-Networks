@@ -1,0 +1,21 @@
+# Node.js / React
+node_modules/
+
+# Env files
+.env
+server/.env
+client/.env
+
+# Logs
+*.log
+logs/
+
+# Build / output
+build/
+dist/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
