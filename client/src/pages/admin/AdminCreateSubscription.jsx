@@ -12,9 +12,9 @@ const AdminCreateSubscription = () => {
         speedRate: "",
         devicesAllowed: "",
         features: "",
-        mikrotikProfile: "",
         durationDays: "",
         description: "",
+        mikrotikProfile: "", // Added Mikrotik profile
     });
 
     const handleChange = (e) => {
@@ -27,9 +27,9 @@ const AdminCreateSubscription = () => {
         const payload = {
             ...form,
             price: Number(form.price),
-            devicesAllowed: Number(form.devicesAllowed),
-            durationDays: Number(form.durationDays),
-            features: form.features.split(",").map(f => f.trim()),
+            devicesAllowed: Number(form.devicesAllowed) || 1, // default 1
+            durationDays: Number(form.durationDays) || 30,     // default 30
+            features: form.features ? form.features.split(",").map(f => f.trim()) : [],
         };
 
         createPlan(payload, {
@@ -50,7 +50,7 @@ const AdminCreateSubscription = () => {
                             value={form[key]}
                             onChange={handleChange}
                             className="w-full px-4 py-2 border rounded-lg"
-                            required
+                            required={key !== "description"} // description can be optional
                         />
                     </div>
                 ))}

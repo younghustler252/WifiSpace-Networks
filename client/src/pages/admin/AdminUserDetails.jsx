@@ -20,7 +20,7 @@ const AdminUserDetails = () => {
     if (isError) return <p className="text-red-500 text-center">Failed to load user details.</p>;
 
     const user = data.user;
-    const subscription = data.subscription || null;
+    const subscription = data.subscription?.plan || null;
     const usage = data.usage || null;
     const payments = data.recentPayments || [];
 

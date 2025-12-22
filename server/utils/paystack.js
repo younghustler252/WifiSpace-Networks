@@ -1,8 +1,9 @@
 // utils/paystack.js
 const axios = require('axios');
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
-
+const FRONTEND_URL_REDIRECT = process.env.FRONTEND_URL + "/payment-success";
 const PAYSTACK_BASE_URL = 'https://api.paystack.co';
+
 
 const paystackHeaders = {
   Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
@@ -19,6 +20,7 @@ const createPaymentRequest = async (amount, email, planName, planId) => {
         email,
         order_id: planId,
         plan_name: planName,
+        callback_url: FRONTEND_URL_REDIRECT,
       },
       { headers: paystackHeaders }
     );

@@ -17,7 +17,7 @@ const paymentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['pending', 'successful', 'failed'],
+        enum: ['pending', 'successful', 'failed', 'expired'],
         default: 'pending',
         required: true,
     },
@@ -46,7 +46,8 @@ const paymentSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Subscription',  // Reference to the Subscription model
     },
-});
+
+}, { timestamps: true });
 
 const Payment = mongoose.models.Payment || mongoose.model('Payment', paymentSchema);
 module.exports = Payment;

@@ -55,7 +55,7 @@ const register = asyncHandler(async (req, res) => {
 	// Enqueue MikroTik creation job asynchronously
 	await mikrotikQueue.add("createUser", {
 		userId: newUser._id,
-		username: newUser.wsnId,   
+		username: newUser.wsnId,
 		password,
 		profile: profile || "default"
 	});
@@ -73,39 +73,53 @@ const register = asyncHandler(async (req, res) => {
 // Login User
 // ------------------------------------------------------------
 const login = asyncHandler(async (req, res) => {
-    const { email, password } = req.body;
+	const { identifier, password } = req.body; // email OR WSID
 
-    if (!email || !password)
-        return res.status(400).json({ message: "Email and password required." });
+	if (!identifier || !password) {
+		return res.status(400).json({
+			message: "Email or WSID and password required."
+		});
+	}
 
-    const user = await User.findOne({ email });
-    if (!user)
-        return res.status(404).json({ message: "Invalid credentials." });
+	const user = await User.findOne({
+		$or: [
+			{ email: identifier.toLowerCase() },
+			{ wsnId: identifier }
+		]
+	});
 
-    if (!user.password)
-        return res.status(400).json({ message: "This account uses Google login only." });
+	if (!user) {
+		return res.status(404).json({ message: "Invalid credentials." });
+	}
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch)
-        return res.status(400).json({ message: "Invalid credentials." });
+	if (!user.password) {
+		return res.status(400).json({
+			message: "This account uses Google login only."
+		});
+	}
 
-    // ------------------------------------
-    // Ensure MikroTik user exists
-    // ------------------------------------
-    // await mikrotikQueue.add("ensureUserExists", {
-    //     userId: user._id,
-    //     wsnId: user.wsnId,
-    //     password: user.routerPassword || password,
-    //     profile: user.routerProfile || "default"
-    // });
+	const isMatch = await user.matchPassword(password);
+	if (!isMatch) {
+		return res.status(400).json({ message: "Invalid credentials." });
+	}
 
-    const token = generateToken(user);
+	// ------------------------------------
+	// Ensure MikroTik user exists
+	// ------------------------------------
+	await mikrotikQueue.add("ensureUserExists", {
+		userId: user._id,
+		wsnId: user.wsnId,
+		password: user.routerPassword || password,
+		profile: user.routerProfile || "default"
+	});
 
-    res.status(200).json({
-        message: "Login successful.",
-        user,
-        token,
-    });
+	const token = generateToken(user);
+
+	res.status(200).json({
+		message: "Login successful.",
+		user,
+		token,
+	});
 });
 
 

@@ -51,7 +51,7 @@ async function findUserByMongoId(mongoUserId) {
 async function getHotspotUsers() {
     try {
         const raw = await runCommand(['/ip/hotspot/user/print']);
-        
+
         return raw
             .filter(u => u.dynamic !== "true")  // ignore dynamic/temporary users
             .map(formatUser);
@@ -59,6 +59,21 @@ async function getHotspotUsers() {
     } catch (err) {
         console.error("❌ Error fetching RouterOS users:", err);
         throw new Error("Failed to fetch RouterOS users.");
+    }
+}
+
+async function getRouterProfiles() {
+    try {
+        // This command fetches all user profiles
+        const rawProfiles = await runCommand(['/ip/hotspot/user/profile/print']);
+
+        // Map to just profile names
+        const profiles = rawProfiles.map(p => p.name);
+
+        return profiles;
+    } catch (err) {
+        console.error("❌ Error fetching RouterOS profiles:", err);
+        throw new Error("Failed to fetch RouterOS profiles.");
     }
 }
 
@@ -72,7 +87,7 @@ async function addHotspotUser(username, password, profile = "default", mongoUser
             `=name=${username}`,
             `=password=${password}`,
             `=profile=${profile}`,
-            `=comment=${mongoUserId}`  // 🔥 IMPORTANT for DB sync
+            `=comment=${mongoUserId}`
         ]);
 
         return { success: true, message: "User added to MikroTik." };
@@ -212,17 +227,12 @@ async function kickUserSession(sessionId) {
 }
 
 async function checkHotspotUser(username) {
-    const conn = await connectToRouter(); // however you connect
-
-    const users = await conn.write('/ip/hotspot/user/print', [
-        `?name=${username}`
-    ]);
-
+    const users = await runCommand(['/ip/hotspot/user/print', `?name=${username}`]);
     return Array.isArray(users) && users.length > 0;
 }
 
 async function getAllHotspotUsers() {
-    const conn = await connectToRouter();
+    const conn = await runCommand();
 
     const users = await conn.write('/ip/hotspot/user/print');
 
@@ -238,6 +248,7 @@ async function getAllHotspotUsers() {
 // --------------------------------------------------
 module.exports = {
     getHotspotUsers,
+    getRouterProfiles,
     addHotspotUser,
     updateHotspotPassword,
     updateHotspotProfile,

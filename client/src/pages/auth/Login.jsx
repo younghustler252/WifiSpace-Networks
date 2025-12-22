@@ -1,23 +1,38 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { ROUTE } from "../../Routes/Route";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
-import SocialAuthButton from "../../components/ui/SocialAuthButton";
-import { GoogleIcon } from "../../components/ui/GoogleIcon";
-import { Mail, Lock } from "lucide-react";
-import { useLogin, useGoogleAuth } from "../../hooks/useAuthHooks";
+import { Mail, Hash, Lock } from "lucide-react";
+import { useLogin } from "../../hooks/useAuthHooks";
+
+const LOGIN_TYPE_KEY = "lastLoginType";
 
 const Login = () => {
-	const [form, setForm] = useState({ email: "", password: "" });
+	const [useCustomerId, setUseCustomerId] = useState(false);
+	const [form, setForm] = useState({ identifier: "", password: "" });
 	const [error, setError] = useState(null);
 
 	const { login: authLogin } = useAuth();
 	const navigate = useNavigate();
-
 	const loginMutation = useLogin();
-	const googleMutation = useGoogleAuth();
+
+	// ----------------------
+	// Restore last login type
+	// ----------------------
+	useEffect(() => {
+		const saved = localStorage.getItem(LOGIN_TYPE_KEY);
+		if (saved === "customerId") setUseCustomerId(true);
+	}, []);
+
+	const toggleLoginType = () => {
+		const next = !useCustomerId;
+		setUseCustomerId(next);
+		localStorage.setItem(LOGIN_TYPE_KEY, next ? "customerId" : "email");
+		setForm({ identifier: "", password: "" });
+		setError(null);
+	};
 
 	const handleChange = (e) => {
 		setForm({ ...form, [e.target.name]: e.target.value });
@@ -25,20 +40,23 @@ const Login = () => {
 	};
 
 	const validateForm = () => {
-		if (!form.email || !form.password) {
-			setError("Email and password are required.");
+		if (!form.identifier || !form.password) {
+			setError("All fields are required.");
 			return false;
 		}
-		if (!/\S+@\S+\.\S+/.test(form.email)) {
-			setError("Invalid email format");
+
+		// Only validate email format if email mode
+		if (!useCustomerId && !/\S+@\S+\.\S+/.test(form.identifier)) {
+			setError("Please enter a valid email address.");
 			return false;
 		}
+
 		return true;
 	};
 
-	//----------------------
-	// Email/Password Login
-	//----------------------
+	// ----------------------
+	// Login
+	// ----------------------
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError(null);
@@ -49,8 +67,6 @@ const Login = () => {
 			onSuccess: async () => {
 				try {
 					const user = await authLogin(form);
-
-					// Redirect handled here once only
 					if (user.role === "admin") navigate(ROUTE.adminDashboard);
 					else navigate(ROUTE.dashboard);
 				} catch (err) {
@@ -63,44 +79,28 @@ const Login = () => {
 		});
 	};
 
-	//----------------------
-	// Google Login
-	//----------------------
-	const handleGoogleLogin = () => {
-		setError(null);
-
-		googleMutation.mutate(null, {
-			onSuccess: async (userData) => {
-				try {
-					await authLogin(userData);
-
-					if (userData.role === "admin") navigate(ROUTE.adminDashboard);
-					else navigate(ROUTE.dashboard);
-				} catch (err) {
-					setError(err?.message || "Google login failed");
-				}
-			},
-			onError: (err) => {
-				setError(err?.message || "Google login failed");
-			}
-		});
-	};
-
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
-			<h2 className="text-2xl font-semibold text-primary text-center">Login</h2>
+			<h2 className="text-2xl font-semibold text-primary text-center">
+				Login
+			</h2>
 
 			{error && <p className="text-red-500 text-center">{error}</p>}
 
 			<Input
-				label="Email"
-				type="email"
-				icon={<Mail size={18} />}
-				value={form.email}
+				label={useCustomerId ? "Customer ID" : "Email"}
+				type="text"
+				icon={useCustomerId ? <Hash size={18} /> : <Mail size={18} />}
+				value={form.identifier}
 				onChange={handleChange}
-				placeholder="Enter your email"
-				name="email"
+				placeholder={
+					useCustomerId
+						? "Enter your customer ID"
+						: "Enter your email"
+				}
+				name="identifier"
 			/>
+
 
 			<Input
 				label="Password"
@@ -112,17 +112,16 @@ const Login = () => {
 				name="password"
 			/>
 
+			{/* Subtle switch */}
+			<p
+				onClick={toggleLoginType}
+				className="text-sm text-indigo-500 cursor-pointer text-right hover:underline"
+			>
+				{useCustomerId ? "Use email instead" : "Use customer ID instead"}
+			</p>
 			<Button type="submit" loading={loginMutation.isPending} className="w-full">
 				Login
 			</Button>
-
-			<SocialAuthButton
-				icon={<GoogleIcon size={20} />}
-				label="Continue with Google"
-				onClick={handleGoogleLogin}
-				loading={googleMutation.isLoading}
-				className="mt-2"
-			/>
 
 			<p className="text-sm text-center text-primary/70">
 				Don't have an account?{" "}

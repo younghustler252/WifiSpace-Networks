@@ -1,105 +1,112 @@
 import React from "react";
 import { CheckCircle, Star, Zap, Users, TrendingUp } from "lucide-react";
+import { Spinner } from "./ui/Loader";
 
-const SubscriptionCard = ({ plan, isCurrent, onPurchase, onRenew }) => {
-    const {
-        _id,
-        planName,
-        description,
-        price,
-        features,
-        speedRate,
-        devicesAllowed,
-        tier, // optional: e.g., "Basic", "Pro", "Enterprise"
-    } = plan;
+const SubscriptionCard = ({
+    plan,
+    isCurrent,
+    onPurchase,
+    onRenew,
+    isLoading = false,
+    isDisabled = false,
+}) => {
+    const { _id, planName, description, price, features, speedRate, devicesAllowed, tier } = plan;
 
     const handleAction = () => {
-        if (isCurrent) {
-            onRenew(_id, planName, price);
-        } else {
-            onPurchase(_id, planName, price);
-        }
-    };
-
-    // linear colors based on tier
-    const tierlinear = {
-        Basic: "from-blue-400 to-blue-600",
-        Pro: "from-purple-500 to-pink-500",
-        Enterprise: "from-yellow-400 to-orange-500",
+        if (isLoading || isDisabled) return;
+        isCurrent ? onRenew(_id, planName, price) : onPurchase(_id, planName, price);
     };
 
     return (
         <div
-            onClick={handleAction}
-            className={`relative flex flex-col justify-between p-6 rounded-3xl shadow-xl cursor-pointer transform transition-all duration-300 hover:scale-105 border border-transparent
-                ${isCurrent ? "bg-linear-to-r from-green-400 to-green-600 text-white shadow-2xl"
-                    : "bg-card dark:bg-gray-900 hover:shadow-2xl border-gray-200 dark:border-gray-700"}
-            `}
+            onClick={!isLoading && !isDisabled ? handleAction : undefined}
+            className={`relative flex flex-col p-6 rounded-3xl shadow-xl border transition-all duration-300
+        ${isLoading || isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-105"}
+        ${isCurrent
+                    ? "bg-gradient-to-r from-green-500 to-green-600 text-white"
+                    : "bg-card dark:bg-gray-900 border-gray-200 dark:border-gray-700"
+                }`}
         >
-            {/* Animated Badge */}
+            {/* Loading overlay */}
+            {isLoading && (
+                <div className="absolute inset-0 z-20 rounded-3xl bg-black/40 backdrop-blur flex flex-col items-center justify-center gap-2">
+                    <Spinner />
+                    <span className="text-white text-sm font-semibold">
+                        Redirecting to payment…
+                    </span>
+                </div>
+            )}
+
+            {/* Current badge */}
             {isCurrent && (
-                <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-white/20 backdrop-blur text-white text-xs font-bold flex items-center gap-1 animate-pulse">
+                <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-white/20 text-xs flex items-center gap-1">
                     <CheckCircle size={14} /> Current
+                </div>
+            )}
+
+            {/* Pro badge */}
+            {!isCurrent && tier === "Pro" && (
+                <div className="absolute top-4 left-4 flex items-center gap-1 bg-gradient-to-tr from-pink-500 to-purple-500 px-2 py-1 rounded-full text-white animate-bounce">
+                    <TrendingUp size={16} /> Pro
                 </div>
             )}
 
             {/* Header */}
             <div className="mb-4">
-                <h3 className={`text-2xl font-extrabold ${isCurrent ? "text-white" : "text-primary dark:text-white"}`}>
-                    {planName}
-                </h3>
-                {tier && <span className="inline-block mt-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-accent/20 text-accent">{tier}</span>}
-                {description && (
-                    <p className={`mt-2 text-sm ${isCurrent ? "text-white/80" : "text-secondary dark:text-gray-400"}`}>{description}</p>
+                <h3 className="text-2xl font-extrabold">{planName}</h3>
+                {tier && !isCurrent && (
+                    <span className="text-xs font-semibold bg-accent/20 text-accent px-2 py-0.5 rounded-full">
+                        {tier}
+                    </span>
                 )}
+                {description && <p className="text-sm mt-2">{description}</p>}
             </div>
 
-            {/* Price & Stats */}
-            <div className="my-4 flex flex-col gap-3">
-                <div className="flex items-baseline gap-2">
-                    <span className={`text-4xl font-extrabold ${isCurrent ? "text-white" : "text-primary dark:text-white"}`}>₦{price.toLocaleString()}</span>
-                    <span className={`text-sm ${isCurrent ? "text-white/70" : "text-secondary dark:text-gray-400"}`}>/ month</span>
+            {/* Price */}
+            <div className="my-4 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold">{`₦${price.toLocaleString()}`}</span>
+                <span className="text-sm">{"/ month"}</span>
+            </div>
+
+            {/* Stats */}
+            <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                    <Zap size={16} /> {speedRate} Mbps
                 </div>
-                <div className="flex flex-col gap-2 text-sm">
-                    <div className={`flex items-center gap-1 ${isCurrent ? "text-white/80" : "text-secondary dark:text-gray-400"}`}>
-                        <Zap size={16} className={`${isCurrent ? "text-white" : "text-accent"}`} /> {speedRate} Mbps
-                    </div>
-                    <div className={`flex items-center gap-1 ${isCurrent ? "text-white/80" : "text-secondary dark:text-gray-400"}`}>
-                        <Users size={16} className={`${isCurrent ? "text-white" : "text-accent"}`} /> {devicesAllowed} device(s)
-                    </div>
+                <div className="flex items-center gap-2">
+                    <Users size={16} /> {devicesAllowed} device(s)
                 </div>
             </div>
 
             {/* Features */}
             {features?.length > 0 && (
-                <ul className="flex-1 mb-4 space-y-2">
-                    {features.map((feature, idx) => (
-                        <li key={idx} className={`flex items-center gap-2 text-sm ${isCurrent ? "text-white/90" : "text-secondary dark:text-gray-300"}`}>
-                            <Star size={16} className={`${isCurrent ? "text-yellow-300" : "text-accent"}`} /> {feature}
+                <ul className="mt-4 space-y-2">
+                    {features.map((f, i) => (
+                        <li key={i} className="flex items-center gap-2 text-sm">
+                            <Star size={16} className={isCurrent ? "text-yellow-300" : ""} />
+                            {f}
                         </li>
                     ))}
                 </ul>
             )}
 
-            {/* CTA */}
+            {/* CTA button */}
             <button
+                disabled={isLoading || isDisabled}
                 onClick={(e) => {
                     e.stopPropagation();
                     handleAction();
                 }}
-                className={`w-full mt-auto py-2 rounded-xl font-bold shadow-lg transition-all 
-                    ${isCurrent ? "bg-white text-primary hover:bg-white/90" : "bg-accent text-white hover:brightness-105"}
-                `}
+                className={`mt-auto py-2 rounded-xl font-bold transition-all w-full
+          ${isLoading || isDisabled
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : isCurrent
+                            ? "bg-white text-green-600 hover:bg-white/90"
+                            : "bg-accent text-white hover:brightness-105"
+                    }`}
             >
-                {isCurrent ? "Renew Plan" : "Select Plan"}
+                {isLoading ? "Processing…" : isCurrent ? "Renew Plan" : "Select Plan"}
             </button>
-
-            {/* Optional footer icon flair */}
-            {!isCurrent && tier === "Pro" && (
-                <div className="absolute top-4 left-4 p-1 rounded-full bg-linear-to-tr from-pink-500 to-purple-500 text-white animate-bounce">
-                    <TrendingUp size={16} />
-                </div>
-            )}
         </div>
     );
 };

@@ -6,6 +6,7 @@ const { logger } = require('./middleware/logger');
 const { errorHandler } = require("./middleware/errorHandler");
 const { connectRouter } = require('./config/routeros');
 
+
 // Routes
 const routerRoutes = require('./routes/routerRoutes');
 const authRoutes = require('./routes/authRoutes');
@@ -56,6 +57,9 @@ app.use(errorHandler);
 		require('./services/mikrotikWorker');
 		require('./utils/mikrotikSyncCron');
 		require('./utils/subscriptionScheduler');
+		require('./utils/expirePendingPayments');
+
+
 
 		// 4️⃣ Start server
 		const PORT = process.env.PORT || 4000;
