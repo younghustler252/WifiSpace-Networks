@@ -27,6 +27,7 @@ import AdminCreateSubscription from "../pages/admin/AdminCreateSubscription";
 import AdminSubscriptions from "../pages/admin/AdminSubscriptioms";
 import PaymentSuccess from "../pages/PaymentSucceess";
 import Transaction from "../pages/Transactions";
+import AdminPayments from "../pages/admin/AdminPayments";
 
 
 const AppRouter = () => {
@@ -72,6 +73,7 @@ const AppRouter = () => {
 				<Route path="subscriptions" element={<AdminSubscriptions />} />
 				<Route path="subscriptions/create" element={<AdminCreateSubscription />} />
 				<Route path="subscriptions/edit/:id" element={<AdminEditSubscription />} />
+				<Route path="payments" element={<AdminPayments />} />
 			</Route>
 
 		</Routes>

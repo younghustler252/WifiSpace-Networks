@@ -12,6 +12,7 @@ export const ROUTE = {
     adminDashboard: "/admin/dashboard",
     manageUsers: "/admin/users",
     adminSubscriptions: "/admin/subscriptions",
+    adminPayments: "/admin/payments",
 
     //authentication
     login: '/auth/login',

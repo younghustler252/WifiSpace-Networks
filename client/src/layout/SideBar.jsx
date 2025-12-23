@@ -13,6 +13,7 @@ import {
 	Shield,
 	Users,
 	LogOut,
+	Receipt,
 } from "lucide-react";
 
 const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
@@ -36,6 +37,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 		{ name: "Admin Dashboard", path: ROUTE.adminDashboard, icon: Shield },
 		{ name: "Manage Users", path: ROUTE.manageUsers, icon: Users },
 		{ name: "Manage Subscriptions", path: ROUTE.adminSubscriptions, icon: CreditCard },
+		{ name: "Payments", path: ROUTE.adminPayments, icon: Receipt },
 	];
 
 	// Combine nav items based on role

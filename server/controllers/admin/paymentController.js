@@ -8,12 +8,43 @@ const mikrotikQueue = require('../../queues/mikrotikQueue');
    1️⃣ GET ALL PAYMENTS (with filters & pagination)
 ---------------------------------------------------------*/
 const getAllPayments = asyncHandler(async (req, res) => {
-    const { status, planId, userId, startDate, endDate, page = 1, limit = 50 } = req.query;
+    const {
+        status,
+        wsnId,
+        planName,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 50
+    } = req.query;
 
     const query = {};
+
     if (status) query.status = status;
-    if (planId) query.planId = planId;
-    if (userId) query.userId = userId;
+
+    // 🔍 Resolve user by WSN ID
+    if (wsnId) {
+        const user = await User.findOne({ wsnId }).select("_id");
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        query.userId = user._id;
+    }
+
+    // 🔍 Resolve subscription by planName
+    if (planName) {
+        const subscription = await Subscription.findOne({
+            planName: { $regex: planName, $options: "i" } // partial + case-insensitive
+        }).select("_id");
+
+        if (!subscription) {
+            return res.status(404).json({ message: "Subscription not found" });
+        }
+
+        query.planId = subscription._id;
+    }
+
+    // 📅 Date filtering
     if (startDate || endDate) {
         query.createdAt = {};
         if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -21,21 +52,28 @@ const getAllPayments = asyncHandler(async (req, res) => {
     }
 
     const payments = await Payment.find(query)
-        .sort('-createdAt')
+        .sort("-createdAt")
         .skip((page - 1) * limit)
         .limit(Number(limit))
-        .populate('userId', 'firstName lastName email wsnId')
-        .populate('planId', 'planName price durationDays');
+        .populate("userId", "firstName lastName email wsnId")
+        .populate("planId", "planName price durationDays");
 
     const total = await Payment.countDocuments(query);
 
-    res.status(200).json({ payments, page: Number(page), limit: Number(limit), total });
+    res.status(200).json({
+        payments,
+        page: Number(page),
+        limit: Number(limit),
+        total
+    });
 });
+
+
 
 /* --------------------------------------------------------
    2️⃣ GET SINGLE PAYMENT
 ---------------------------------------------------------*/
-const getSinglePayment = asyncHandler(async (req, res) => {
+const getPaymentById = asyncHandler(async (req, res) => {
     const { transactionId } = req.params;
 
     const payment = await Payment.findOne({ transactionId })
@@ -137,7 +175,7 @@ const getPaymentAnalytics = asyncHandler(async (req, res) => {
 
 module.exports = {
     getAllPayments,
-    getSinglePayment,
+    getPaymentById,
     activatePaymentManually,
     getPaymentAnalytics,
 };

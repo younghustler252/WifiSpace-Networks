@@ -118,3 +118,72 @@ export const banUser = async (id, ban = true) => {
         throw handleError(error);
     }
 };
+// --------------------------------------------------
+// 1️⃣ GET ALL PAYMENTS (with filters & pagination)
+// --------------------------------------------------
+export const getAllPayments = async ({
+    status,
+    wsnId,
+    planName,
+    startDate,
+    endDate,
+    page = 1,
+    limit = 50,
+}) => {
+    try {
+        const queryParams = new URLSearchParams();
+
+        if (status) queryParams.append("status", status);
+        if (wsnId) queryParams.append("wsnId", wsnId);
+        if (planName) queryParams.append("planName", planName);
+        if (startDate) queryParams.append("startDate", startDate);
+        if (endDate) queryParams.append("endDate", endDate);
+
+        queryParams.append("page", page);
+        queryParams.append("limit", limit);
+
+        const { data } = await API.get(
+            `/admin/payments?${queryParams.toString()}`
+        );
+
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+// --------------------------------------------------
+// 2️⃣ GET SINGLE PAYMENT
+// --------------------------------------------------
+export const getSinglePayment = async (transactionId) => {
+    try {
+        const { data } = await API.get(`/admin/payments/${transactionId}`);
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+// --------------------------------------------------
+// 3️⃣ MANUAL ACTIVATE PAYMENT
+// --------------------------------------------------
+export const activatePaymentManually = async (transactionId) => {
+    try {
+        const { data } = await API.put(`/admin/payments/activate/${transactionId}`);
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+// --------------------------------------------------
+// 4️⃣ PAYMENT ANALYTICS
+// --------------------------------------------------
+export const getPaymentAnalytics = async () => {
+    try {
+        const { data } = await API.get("/admin/payments/analytics");
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};

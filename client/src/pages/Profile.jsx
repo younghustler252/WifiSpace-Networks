@@ -34,15 +34,19 @@ const Profile = () => {
 		}
 	}, [dashboard.data]);
 
-	if (dashboard.isLoading) return <Spinner message="Loading profile..." />;
-	if (dashboard.isError)
+	if (dashboard.isLoading) {
+		return <Spinner message="Loading profile..." />;
+	}
+
+	if (dashboard.isError) {
 		return (
 			<p className="text-center text-danger">
 				Failed to load profile data.
 			</p>
 		);
+	}
 
-	const { profile, subscription } = dashboard.data;
+	const { profile } = dashboard.data;
 	const themeOptions = ["light", "dark", "system"];
 
 	const saveDetails = () => {
@@ -87,149 +91,149 @@ const Profile = () => {
 	};
 
 	return (
-		<div className="max-w-5xl mx-auto p-6 space-y-8">
-			{/* Header */}
-			<div className="flex flex-col md:flex-row items-center md:justify-between gap-4">
-				<div className="flex items-center gap-4">
-					<Avatar
-						firstName={profile.firstName}
-						lastName={profile.lastName}
-						src={profile.profilePicture}
-						size={72}
-					/>
-					<div>
-						<h1 className="text-2xl font-bold text-primary">{profile.fullName}</h1>
-						<p className="text-secondary">{profile.email}</p>
-						{profile.wsnId && (
-							<p className="text-sm text-muted">Customer ID: {profile.wsnId}</p>
-						)}
-						{subscription && (
-							<p className="text-sm text-green-600 mt-1">
-								Current Plan: {subscription.planName}
-							</p>
-						)}
-					</div>
-				</div>
-				<Button variant="danger" onClick={logout}>
-					Logout
-				</Button>
-			</div>
-
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-				{/* Profile Details */}
-				<div className="card space-y-4">
-					<div className="flex justify-between items-center">
-						<h2 className="section-title">Profile Details</h2>
-						<button
-							className="text-sm text-accent hover:underline"
-							onClick={() => setEditMode(!editMode)}
-						>
-							{editMode ? "Cancel" : "Edit"}
-						</button>
-					</div>
-
-					{editMode ? (
-						<div className="space-y-3">
-							<Input
-								label="Full Name"
-								value={form.fullName}
-								onChange={(e) =>
-									setForm({ ...form, fullName: e.target.value })
-								}
-							/>
-							<Input
-								label="Email"
-								value={form.email}
-								onChange={(e) =>
-									setForm({ ...form, email: e.target.value })
-								}
-							/>
-							<Button onClick={saveDetails} loading={updateDetails.isLoading}>
-								Save Changes
-							</Button>
-						</div>
-					) : (
-						<div className="space-y-1 text-sm text-primary">
-							<p>
-								<strong>Full Name:</strong> {profile.fullName}
-							</p>
-							<p>
-								<strong>Email:</strong> {profile.email}
-							</p>
-						</div>
+		<div className="max-w-4xl mx-auto p-6 space-y-8">
+			{/* --- Profile Header --- */}
+			<div className="flex flex-col sm:flex-row items-center gap-4 p-6 rounded-2xl shadow-md bg-card dark:bg-gray-900">
+				<Avatar
+					firstName={profile.firstName}
+					lastName={profile.lastName}
+					src={profile.profilePicture}
+					size={80}
+				/>
+				<div className="flex-1">
+					<h1 className="text-2xl sm:text-3xl font-bold text-primary">
+						{profile.fullName}
+					</h1>
+					<p className="text-muted-foreground">{profile.email}</p>
+					{profile.wsnId && (
+						<p className="text-sm text-muted mt-1">
+							Customer ID: {profile.wsnId}
+						</p>
 					)}
 				</div>
+			</div>
 
-				{/* Theme & Password */}
-				<div className="space-y-6">
-					{/* Theme Preferences */}
-					<div className="card space-y-3">
-						<h2 className="section-title">Theme Preferences</h2>
-						<div className="flex gap-2">
-							{themeOptions.map((option) => (
-								<button
-									key={option}
-									onClick={() => changeTheme(option)}
-									className={`px-4 py-2 rounded-md text-sm capitalize border transition
-                    ${theme === option
-											? "bg-primary text-white border-primary"
-											: "bg-card text-secondary border-surface hover:bg-surface-hover"
-										}`}
-								>
-									{option}
-								</button>
-							))}
-						</div>
-					</div>
-
-					{/* Change Password */}
-					<div className="card space-y-3">
-						<div className="flex justify-between items-center">
-							<h2 className="section-title">Change Password</h2>
-							<button
-								className="text-sm text-accent hover:underline"
-								onClick={() => setPasswordMode(!passwordMode)}
-							>
-								{passwordMode ? "Cancel" : "Edit"}
-							</button>
-						</div>
-
-						{passwordMode && (
-							<div className="space-y-3">
-								<Input
-									label="Old Password"
-									type="password"
-									value={passwordForm.oldPassword}
-									onChange={(e) =>
-										setPasswordForm({ ...passwordForm, oldPassword: e.target.value })
-									}
-								/>
-								<Input
-									label="New Password"
-									type="password"
-									value={passwordForm.newPassword}
-									onChange={(e) =>
-										setPasswordForm({ ...passwordForm, newPassword: e.target.value })
-									}
-								/>
-								<Input
-									label="Confirm New Password"
-									type="password"
-									value={passwordForm.confirmPassword}
-									onChange={(e) =>
-										setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
-									}
-								/>
-								{passwordError && (
-									<p className="text-sm text-danger">{passwordError}</p>
-								)}
-								<Button onClick={savePassword} loading={passwordChange.isLoading}>
-									Save Password
-								</Button>
-							</div>
-						)}
-					</div>
+			{/* --- Profile Details Card --- */}
+			<div className="card p-6 space-y-4 shadow-sm rounded-2xl border">
+				<div className="flex justify-between items-center">
+					<h2 className="text-xl font-semibold text-primary">Profile Details</h2>
+					<button
+						className="text-sm text-accent hover:underline"
+						onClick={() => setEditMode(!editMode)}
+					>
+						{editMode ? "Cancel" : "Edit"}
+					</button>
 				</div>
+
+				{editMode ? (
+					<div className="space-y-3">
+						<Input
+							label="Full Name"
+							value={form.fullName}
+							onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+						/>
+						<Input
+							label="Email"
+							value={form.email}
+							onChange={(e) => setForm({ ...form, email: e.target.value })}
+						/>
+						<Button
+							onClick={saveDetails}
+							loading={updateDetails.isLoading}
+							className="w-full"
+						>
+							Save Changes
+						</Button>
+					</div>
+				) : (
+					<div className="space-y-2 text-sm text-primary">
+						<p>
+							<strong>Full Name:</strong> {profile.fullName}
+						</p>
+						<p>
+							<strong>Email:</strong> {profile.email}
+						</p>
+					</div>
+				)}
+			</div>
+
+			{/* --- Theme Preferences --- */}
+			<div className="card p-6 space-y-3 shadow-sm rounded-2xl border">
+				<h2 className="text-xl font-semibold text-primary">Theme Preferences</h2>
+				<div className="flex flex-wrap gap-2 mt-2">
+					{themeOptions.map((option) => (
+						<button
+							key={option}
+							onClick={() => changeTheme(option)}
+							className={`px-4 py-2 rounded-md text-sm capitalize border transition
+                ${theme === option
+									? "bg-primary text-white border-primary"
+									: "bg-card text-secondary border-surface hover:bg-surface-hover"
+								}`}
+						>
+							{option}
+						</button>
+					))}
+				</div>
+			</div>
+
+			{/* --- Password Section --- */}
+			<div className="card p-6 space-y-4 shadow-sm rounded-2xl border">
+				<div className="flex justify-between items-center">
+					<h2 className="text-xl font-semibold text-primary">Change Password</h2>
+					<button
+						className="text-sm text-accent hover:underline"
+						onClick={() => setPasswordMode(!passwordMode)}
+					>
+						{passwordMode ? "Cancel" : "Edit"}
+					</button>
+				</div>
+
+				{passwordMode && (
+					<div className="space-y-3">
+						<Input
+							label="Old Password"
+							type="password"
+							value={passwordForm.oldPassword}
+							onChange={(e) =>
+								setPasswordForm({ ...passwordForm, oldPassword: e.target.value })
+							}
+						/>
+						<Input
+							label="New Password"
+							type="password"
+							value={passwordForm.newPassword}
+							onChange={(e) =>
+								setPasswordForm({ ...passwordForm, newPassword: e.target.value })
+							}
+						/>
+						<Input
+							label="Confirm New Password"
+							type="password"
+							value={passwordForm.confirmPassword}
+							onChange={(e) =>
+								setPasswordForm({ ...passwordForm, confirmPassword: e.target.value })
+							}
+						/>
+						{passwordError && (
+							<p className="text-sm text-danger">{passwordError}</p>
+						)}
+						<Button
+							onClick={savePassword}
+							loading={passwordChange.isLoading}
+							className="w-full"
+						>
+							Save Password
+						</Button>
+					</div>
+				)}
+			</div>
+
+			{/* --- Logout Button --- */}
+			<div className="flex justify-center">
+				<Button variant="danger" onClick={logout} className="w-full sm:w-auto">
+					Logout
+				</Button>
 			</div>
 		</div>
 	);
