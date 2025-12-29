@@ -13,12 +13,11 @@ const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-// Mount routes (PLURAL ✔)
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/payments', paymentRoutes);
-app.use('/api/admins', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 // ---------------- DEFAULT ROUTES ----------------
 app.get('/', (req, res) => res.send('✅ Server is running'));
