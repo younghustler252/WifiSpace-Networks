@@ -35,7 +35,7 @@ const Avatar = ({
             alt={`${firstName} ${lastName}`.trim() || "User Avatar"}
             title={`${firstName} ${lastName}`.trim() || "User"}
             loading="lazy"
-            draggable={false}
+            draggable={true}
             className={`rounded-full object-cover transition-all ${borderClass} ${className}`}
             style={dimension}
         />

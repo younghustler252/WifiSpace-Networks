@@ -106,12 +106,17 @@ const login = asyncHandler(async (req, res) => {
 	// ------------------------------------
 	// Ensure MikroTik user exists
 	// ------------------------------------
-	await mikrotikQueue.add("ensureUserExists", {
-		userId: user._id,
-		wsnId: user.wsnId,
-		password: user.routerPassword || password,
-		profile: user.routerProfile || "default"
-	});
+	try {
+		await mikrotikQueue.add("ensureUserExists", {
+			userId: user._id,
+			wsnId: user.wsnId,
+			password: user.routerPassword || password,
+			profile: user.routerProfile || "default"
+		});
+	} catch (err) {
+		console.error("Failed to queue MikroTik sync:", err);
+		// DO NOT block login
+	}
 
 	const token = generateToken(user);
 
