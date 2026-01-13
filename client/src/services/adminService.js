@@ -25,6 +25,16 @@ export const createSubscription = async (subscription) => {
     }
 };
 
+export const getMikrotikProfiles = async (req, res) => {
+    try {
+        const data = await API.get('/admin/mikrotik-profiles')
+         console.log("Service response:", data)
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+}
+
 export const updateSubscription = async (id, updates) => {
     try {
         const { data } = await API.put(`/admin/subscriptions/${id}`, updates);

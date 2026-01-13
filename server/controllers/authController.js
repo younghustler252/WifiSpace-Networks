@@ -73,58 +73,53 @@ const register = asyncHandler(async (req, res) => {
 // Login User
 // ------------------------------------------------------------
 const login = asyncHandler(async (req, res) => {
-	const { identifier, password } = req.body; // email OR WSID
 
-	if (!identifier || !password) {
-		return res.status(400).json({
-			message: "Email or WSID and password required."
-		});
-	}
+    const { identifier, password } = req.body; // email OR WSID
+    if (!identifier || !password) {
+        return res.status(400).json({ message: "Email/WSID and password required." });
+    }
 
-	const user = await User.findOne({
-		$or: [
-			{ email: identifier.toLowerCase() },
-			{ wsnId: identifier }
-		]
-	});
+    // Find user by email or wsnId
+    const user = await User.findOne({
+        $or: [
+            { email: identifier.toLowerCase() },
+            { wsnId: identifier }
+        ]
+    });
 
-	if (!user) {
-		return res.status(404).json({ message: "Invalid credentials." });
-	}
+    if (!user) return res.status(404).json({ message: "Invalid credentials." });
 
-	if (!user.password) {
-		return res.status(400).json({
-			message: "This account uses Google login only."
-		});
-	}
+    if (!user.password) {
+        return res.status(400).json({ message: "This account uses Google login only." });
+    }
 
-	const isMatch = await user.matchPassword(password);
-	if (!isMatch) {
-		return res.status(400).json({ message: "Invalid credentials." });
-	}
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials." });
 
-	// ------------------------------------
-	// Ensure MikroTik user exists
-	// ------------------------------------
-	try {
-		await mikrotikQueue.add("ensureUserExists", {
-			userId: user._id,
-			wsnId: user.wsnId,
-			password: user.routerPassword || password,
-			profile: user.routerProfile || "default"
-		});
-	} catch (err) {
-		console.error("Failed to queue MikroTik sync:", err);
-		// DO NOT block login
-	}
+    // -------------------------------
+    // Fire-and-forget MikroTik sync
+    // -------------------------------
+    try {
+        mikrotikQueue.add("ensureUserExists", {
+            userId: user._id,
+            wsnId: user.wsnId,
+            password: user.routerPassword || password,
+            profile: user.routerProfile || "default",
+        }).catch(err => console.error("MikroTik sync queue error:", err));
+    } catch (err) {
+        console.error("Failed to queue MikroTik sync:", err);
+    }
 
-	const token = generateToken(user);
+    // -------------------------------
+    // Generate JWT token
+    // -------------------------------
+    const token = generateToken(user);
 
-	res.status(200).json({
-		message: "Login successful.",
-		user,
-		token,
-	});
+    res.status(200).json({
+        message: "Login successful.",
+        user,
+        token,
+    });
 });
 
 

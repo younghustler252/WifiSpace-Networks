@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
     getDashboardData,
     createSubscription,
+    getMikrotikProfiles,
     updateSubscription,
     deleteSubscription,
     getAllUsers,
@@ -33,6 +34,14 @@ export const useCreateSubscription = () => {
     return useMutation({
         mutationFn: createSubscription,
         onSuccess: () => queryClient.invalidateQueries(["adminSubscriptions"]),
+    });
+};
+
+export const useMikrotikProfiles = () => {
+    return useQuery({
+        queryKey: ["mikrotikProfiles"],
+        queryFn: getMikrotikProfiles,
+        staleTime: 30000, // optional: 30s cache
     });
 };
 

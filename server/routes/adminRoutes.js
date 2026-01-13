@@ -7,6 +7,7 @@ const { protect, admin } = require("../middleware/authMiddleware");
 // Admin controllers
 const {
     createSubscription,
+    getMikrotikProfiles,
     updateSubscription,
     deleteSubscription,
 } = require("../controllers/admin/subscriptionController");
@@ -36,6 +37,7 @@ router.use(protect, admin);
 // ---------------------------
 // Subscription routes
 // ---------------------------
+router.get("/mikrotik-profiles", getMikrotikProfiles);
 router.post("/subscriptions", createSubscription);
 router.put("/subscriptions/:id", updateSubscription);
 router.delete("/subscriptions/:id", deleteSubscription);

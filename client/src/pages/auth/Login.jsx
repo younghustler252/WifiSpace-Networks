@@ -5,7 +5,6 @@ import { ROUTE } from "../../Routes/Route";
 import Input from "../../components/ui/Input";
 import Button from "../../components/ui/Button";
 import { Mail, Hash, Lock } from "lucide-react";
-import { useLogin } from "../../hooks/useAuthHooks";
 
 const LOGIN_TYPE_KEY = "lastLoginType";
 
@@ -13,14 +12,12 @@ const Login = () => {
 	const [useCustomerId, setUseCustomerId] = useState(false);
 	const [form, setForm] = useState({ identifier: "", password: "" });
 	const [error, setError] = useState(null);
+	const [loading, setLoading] = useState(false);
 
 	const { login: authLogin } = useAuth();
 	const navigate = useNavigate();
-	const loginMutation = useLogin();
 
-	// ----------------------
 	// Restore last login type
-	// ----------------------
 	useEffect(() => {
 		const saved = localStorage.getItem(LOGIN_TYPE_KEY);
 		if (saved === "customerId") setUseCustomerId(true);
@@ -44,13 +41,10 @@ const Login = () => {
 			setError("All fields are required.");
 			return false;
 		}
-
-		// Only validate email format if email mode
 		if (!useCustomerId && !/\S+@\S+\.\S+/.test(form.identifier)) {
 			setError("Please enter a valid email address.");
 			return false;
 		}
-
 		return true;
 	};
 
@@ -60,23 +54,26 @@ const Login = () => {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError(null);
-
 		if (!validateForm()) return;
 
-		loginMutation.mutate(form, {
-			onSuccess: async () => {
-				try {
-					const user = await authLogin(form);
-					if (user.role === "admin") navigate(ROUTE.adminDashboard);
-					else navigate(ROUTE.dashboard);
-				} catch (err) {
-					setError(err?.message || "Login failed");
-				}
-			},
-			onError: (err) => {
-				setError(err?.message || "Login failed");
-			}
-		});
+		setLoading(true);
+
+		try {
+			// Single login call
+			const data = await authLogin(form);
+
+			const token = localStorage.getItem("token");
+
+			
+			if (data.user.role === "admin") navigate(ROUTE.adminDashboard);
+			else navigate(ROUTE.dashboard);
+
+		} catch (err) {
+			setError(err?.message || "Login failed");
+			console.error("Login error:", err);
+		} finally {
+			setLoading(false);
+		}
 	};
 
 	return (
@@ -101,7 +98,6 @@ const Login = () => {
 				name="identifier"
 			/>
 
-
 			<Input
 				label="Password"
 				type="password"
@@ -112,14 +108,14 @@ const Login = () => {
 				name="password"
 			/>
 
-			{/* Subtle switch */}
 			<p
 				onClick={toggleLoginType}
 				className="text-sm text-indigo-500 cursor-pointer text-right hover:underline"
 			>
 				{useCustomerId ? "Use email instead" : "Use customer ID instead"}
 			</p>
-			<Button type="submit" loading={loginMutation.isPending} className="w-full">
+
+			<Button type="submit" loading={loading} className="w-full">
 				Login
 			</Button>
 

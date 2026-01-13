@@ -1,65 +1,32 @@
 require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+const app = require('./app');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// ---------------- ROUTES ----------------
-const authRoutes = require('./routes/authRoutes');
-const userRoutes = require('./routes/userRoutes');
-const subscriptionRoutes = require('./routes/subscriptionRoutes');
-const paymentRoutes = require('./routes/paymentRoutes');
-const adminRoutes = require('./routes/adminRoutes');
-
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/subscriptions', subscriptionRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/admin', adminRoutes);
-
-// ---------------- DEFAULT ROUTES ----------------
-app.get('/', (req, res) => res.send('✅ Server is running'));
-
-app.get('/api/health', (req, res) => {
-	res.status(200).json({ status: 'OK' });
-});
-
-// ---------------- 404 HANDLER ----------------
-app.use((req, res) => {
-	res.status(404).json({
-		message: `Route not found: ${req.originalUrl}`,
-	});
-});
-
-// ---------------- START SERVER IMMEDIATELY ----------------
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`⚡ Server running on port ${PORT}`));
 
-// ---------------- ASYNC STARTUP TASKS ----------------
+const server = app.listen(PORT, () => {
+	console.log(`⚡ Server running on port ${PORT}`);
+});
+
+// Graceful shutdown
+const shutdown = () => {
+	console.log('🛑 Shutting down server...');
+	server.close(() => process.exit(0));
+};
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+// ---- Background bootstrapping ----
 (async () => {
 	try {
-		const connectDB = require('./config/db');
-		const { connectRouter } = require('./config/routeros');
-
-		await connectDB();
-		console.log('✅ MongoDB connected');
-
-		try {
-			await connectRouter();
-			console.log('✅ RouterOS connected');
-		} catch (err) {
-			console.warn('⚠ RouterOS connection failed:', err.message);
-		}
-
-		// Background workers / cron jobs
-		require('./services/mikrotikWorker');
-		require('./utils/mikrotikSyncCron');
-		require('./utils/subscriptionScheduler');
-		require('./utils/expirePendingPayments');
-
+		// Database SHOULD retry but not kill app
+		await require('./loaders/database')();
+		console.log('✅ Database connected');
 	} catch (err) {
-		console.error('❌ Startup error:', err);
+		console.error('❌ Database connection failed:', err);
 	}
+
+	require('./loaders/routeros')
+
+	require('./loaders/jobs')();
+
 })();

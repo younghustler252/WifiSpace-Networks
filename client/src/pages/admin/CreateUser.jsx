@@ -44,11 +44,9 @@ const CreateUser = () => {
         setLoading(true);
         setError(null);
 
-        console.log("Form Data:", formData);  // Debugging: check what data is being sent
 
         try {
             await createUser(formData);
-            console.log("User created successfully");  // Debugging: check if createUser is successful
             navigate("/admin/users");  // Redirect after successful creation
         } catch (error) {
             console.error("Error while creating user:", error);  // Debugging: check if there’s an error

@@ -1,7 +1,11 @@
-const asyncHandler = require("express-async-handler");
 const mongoose = require("mongoose");
+const asyncHandler = require("express-async-handler");
 const Subscription = require("../../models/Subscription");
 const { getRouterProfiles } = require("../../utils/routerosHelpers")
+
+let cachedProfiles = null;
+let cacheTimestamp = 0;
+
 // ------------------------------------------------------------
 // ADMIN: CREATE SUBSCRIPTION PLAN
 // ------------------------------------------------------------
@@ -64,6 +68,30 @@ const createSubscription = asyncHandler(async (req, res) => {
 
     res.status(201).json({ message: "Plan created successfully", plan });
 });
+
+
+const getMikrotikProfiles = asyncHandler(async (req, res) => {
+    console.log("Route hit"); // ✅ should print every request
+
+    const now = Date.now();
+    if (cachedProfiles && now - cacheTimestamp < 30000) {
+        console.log("Returning cached profiles");
+        return res.json({ profiles: cachedProfiles });
+    }
+
+    try {
+        console.log("Calling getRouterProfiles...");
+        const profiles = await getRouterProfiles();
+        console.log("Profiles fetched:", profiles);
+        cachedProfiles = profiles;
+        cacheTimestamp = now;
+        res.json({ profiles });
+    } catch (err) {
+        console.error("Failed to fetch Mikrotik profiles:", err);
+        res.status(500).json({ message: "Unable to fetch Mikrotik profiles" });
+    }
+});
+
 
 // ------------------------------------------------------------
 // ADMIN: UPDATE SUBSCRIPTION PLAN
@@ -136,6 +164,7 @@ const extendUserSubscription = asyncHandler(async (req, res) => {
 
 module.exports = {
     createSubscription,
+    getMikrotikProfiles,
     updateSubscription,
     deleteSubscription,
     extendUserSubscription

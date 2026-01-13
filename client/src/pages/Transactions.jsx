@@ -22,7 +22,6 @@ const Transactions = () => {
     }
 
     const transactions = data?.payments || [];
-    console.log('payments:', transactions)
 
     const filteredTransactions =
         filter === "all"

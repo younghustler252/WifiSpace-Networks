@@ -4,13 +4,15 @@ import { handleError } from "../utils/handleError";
 export const login = async (credentials) => {
     try {
         const { data } = await API.post("/auth/login", credentials);
-        if (data.token) localStorage.setItem("token", data.token);
+        if (data.token) {
+            localStorage.setItem("token", data.token);
+        }
         return data;
     } catch (error) {
-        throw handleError(error);
+        console.error("Login service error:", error.response?.data || error.message);
+        throw error;
     }
 };
-
 export const registerUser = async (userData) => {
     try {
         const { data } = await API.post("/auth/register", userData);

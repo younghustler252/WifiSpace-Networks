@@ -1,133 +1,146 @@
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useCreateSubscription, useMikrotikProfiles } from "../../hooks/useAdmin";
 
-import { getAllPlans } from "../../services/subscriptionService";
-import { useDeleteSubscription } from "../../hooks/useAdmin";
+const AdminCreateSubscription = () => {
+	const navigate = useNavigate();
+	const { mutate: createPlan, isPending } = useCreateSubscription();
+	const { data, isLoading: profilesLoading } = useMikrotikProfiles();
 
-import { Spinner } from "../../components/ui/Loader";
-import DataTable from "../../components/ui/DataTable";
-import RowActions from "../../components/ui/RowActions";
+	console.log("Mikrotik profiles data:", data);
 
-const AdminSubscriptions = () => {
-    const navigate = useNavigate();
+	// Extract profiles array safely
+	const profiles = Array.isArray(data?.data?.profiles) ? data.data.profiles : [];
 
-    const { data: plans = [], isLoading, isError } = useQuery({
-        queryKey: ["adminSubscriptions"],
-        queryFn: getAllPlans,
-    });
+	const formRef = useRef(null);
 
-    const { mutate: deletePlan } = useDeleteSubscription();
+	const [form, setForm] = useState({
+		planName: "",
+		price: "",
+		speedRate: "",
+		devicesAllowed: "",
+		features: "",
+		durationDays: "",
+		mikrotikProfile: "",
+	});
 
-    if (isLoading) return <Spinner message="Loading subscription plans..." />;
-    if (isError) return <p className="text-red-500 text-center">Failed to load plans.</p>;
+	const [errorMessage, setErrorMessage] = useState("");
+	const [successMessage, setSuccessMessage] = useState("");
 
-    const columns = [
-        { key: "plan", label: "Plan" },
-        { key: "price", label: "Price" },
-        { key: "speed", label: "Speed" },
-        { key: "duration", label: "Duration" },
-        { key: "actions", label: "" }, // modern: no "Actions" header
-    ];
+	useEffect(() => {
+		if (errorMessage && formRef.current) {
+			formRef.current.scrollIntoView({ behavior: "smooth" });
+		}
+	}, [errorMessage]);
 
-    return (
-        <div className="max-w-5xl mx-auto p-6 space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-primary">Subscription Plans</h1>
-                <button
-                    onClick={() => navigate("/admin/subscriptions/create")}
-                    className="px-4 py-2 bg-accent text-white rounded-lg shadow-sm hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[rgb(var(--accent)/0.4)]"
-                >
-                    + Create Plan
-                </button>
-            </div>
+	const handleChange = (e) => {
+		const { name, value } = e.target;
+		setForm(prev => ({ ...prev, [name]: value }));
+	};
 
-            <DataTable
-                columns={columns}
-                data={plans}
-                renderRow={(plan) => {
-                    const inUse = plan.activeUsersCount > 0;
+	const handleSubmit = (e) => {
+		e.preventDefault();
+		if (isPending) return;
 
-                    return (
-                        <tr
-                            key={plan._id}
-                            className="group hover:bg-[rgb(var(--border-color)/0.1)] dark:hover:bg-[rgb(var(--border-color)/0.1)] transition-colors"
-                        >
-                            <td className="py-3 px-3 font-medium cursor-pointer" onClick={() => navigate(`/admin/subscriptions/edit/${plan._id}`)}>
-                                {plan.planName}
-                            </td>
-                            <td className="py-3 px-3 cursor-pointer" onClick={() => navigate(`/admin/subscriptions/edit/${plan._id}`)}>
-                                ${plan.price}
-                            </td>
-                            <td className="py-3 px-3 cursor-pointer" onClick={() => navigate(`/admin/subscriptions/edit/${plan._id}`)}>
-                                {plan.speedRate}
-                            </td>
-                            <td className="py-3 px-3 cursor-pointer" onClick={() => navigate(`/admin/subscriptions/edit/${plan._id}`)}>
-                                {plan.durationDays} days
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                                <RowActions
-                                    actions={[
-                                        {
-                                            label: "Edit",
-                                            onClick: () => navigate(`/admin/subscriptions/edit/${plan._id}`),
-                                        },
-                                        {
-                                            label: "Delete",
-                                            variant: "danger",
-                                            disabled: inUse,
-                                            hint: inUse ? "Plan is currently in use" : null,
-                                            onClick: () => {
-                                                if (confirm(`Delete "${plan.planName}"?`)) {
-                                                    deletePlan(plan._id);
-                                                }
-                                            },
-                                        },
-                                    ]}
-                                />
-                            </td>
-                        </tr>
-                    );
-                }}
-                renderCell={(plan, index, key) => {
-                    const inUse = plan.activeUsersCount > 0;
-                    switch (key) {
-                        case "plan":
-                            return plan.planName;
-                        case "price":
-                            return `$${plan.price}`;
-                        case "speed":
-                            return plan.speedRate;
-                        case "duration":
-                            return `${plan.durationDays} days`;
-                        case "actions":
-                            return (
-                                <RowActions
-                                    actions={[
-                                        {
-                                            label: "Edit",
-                                            onClick: () => navigate(`/admin/subscriptions/edit/${plan._id}`),
-                                        },
-                                        {
-                                            label: "Delete",
-                                            variant: "danger",
-                                            disabled: inUse,
-                                            hint: inUse ? "Plan is currently in use" : null,
-                                            onClick: () => {
-                                                if (confirm(`Delete "${plan.planName}"?`)) {
-                                                    deletePlan(plan._id);
-                                                }
-                                            },
-                                        },
-                                    ]}
-                                />
-                            );
-                        default:
-                            return null;
-                    }
-                }}
-            />
-        </div>
-    );
+		setErrorMessage("");
+		setSuccessMessage("");
+
+		const payload = {
+			planName: form.planName,
+			price: Number(form.price),
+			speedRate: form.speedRate,
+			devicesAllowed: Number(form.devicesAllowed) || 1,
+			durationDays: Number(form.durationDays) || 30,
+			features: form.features ? form.features.split(",").map(f => f.trim()) : [],
+			mikrotikProfile: form.mikrotikProfile,
+		};
+
+		createPlan(payload, {
+			onSuccess: () => {
+				setSuccessMessage("Subscription plan created successfully ✅");
+				setForm({
+					planName: "",
+					price: "",
+					speedRate: "",
+					devicesAllowed: "",
+					features: "",
+					durationDays: "",
+					mikrotikProfile: "",
+				});
+				setTimeout(() => navigate("/admin/subscriptions"), 1500);
+			},
+			onError: (error) => {
+				setErrorMessage(
+					error?.response?.data?.message || error?.message || "Failed to create subscription plan"
+				);
+			},
+		});
+	};
+
+	return (
+		<div ref={formRef} className="max-w-3xl mx-auto p-6 space-y-6">
+			<h1 className="text-2xl font-bold text-primary">Create Subscription Plan</h1>
+
+			<form onSubmit={handleSubmit} className="space-y-4 bg-surface p-6 rounded-xl shadow-card">
+				{/* Error / Success messages */}
+				{errorMessage && (
+					<div className="p-3 bg-badge-danger-bg text-danger rounded-lg">{errorMessage}</div>
+				)}
+				{successMessage && (
+					<div className="p-3 bg-badge-success-bg text-success rounded-lg">{successMessage}</div>
+				)}
+
+				{/* Other form inputs */}
+				{Object.keys(form).map((key) => {
+					if (key === "mikrotikProfile") return null;
+
+					return (
+						<div key={key}>
+							<label className="block mb-1 text-primary capitalize">
+								{key.replace(/([A-Z])/g, " $1")}
+							</label>
+							<input
+								name={key}
+								value={form[key]}
+								onChange={handleChange}
+								className="w-full px-4 py-2 border border-border-color rounded-lg bg-card text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+								required
+								autoComplete="off"
+							/>
+						</div>
+					);
+				})}
+
+				{/* Mikrotik profile dropdown */}
+				<div>
+					<label className="block mb-1 text-primary capitalize">Mikrotik Profile</label>
+					<select
+						name="mikrotikProfile"
+						value={form.mikrotikProfile}
+						onChange={handleChange}
+						className="w-full px-4 py-2 border border-border-color rounded-lg bg-card text-primary focus:outline-none focus:ring-1 focus:ring-accent"
+						required
+						disabled={profilesLoading}
+					>
+						<option value="">Select a profile</option>
+						{profiles.map((profile) => (
+							<option key={profile} value={profile}>
+								{profile}
+							</option>
+						))}
+					</select>
+				</div>
+
+				<button
+					type="submit"
+					disabled={isPending || profilesLoading}
+					className={`w-full btn btn-primary ${isPending || profilesLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+				>
+					{isPending ? "Creating plan..." : profilesLoading ? "Loading profiles..." : "Create Plan"}
+				</button>
+			</form>
+		</div>
+	);
 };
 
-export default AdminSubscriptions;
+export default AdminCreateSubscription;
