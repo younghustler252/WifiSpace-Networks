@@ -14,28 +14,41 @@ const Login = () => {
 	const [error, setError] = useState(null);
 	const [loading, setLoading] = useState(false);
 
-	const { login: authLogin } = useAuth();
+	const { login: authLogin, isAuthenticated, user } = useAuth();
 	const navigate = useNavigate();
 
-	// Restore last login type
+	// Restore last login type from localStorage
 	useEffect(() => {
 		const saved = localStorage.getItem(LOGIN_TYPE_KEY);
 		if (saved === "customerId") setUseCustomerId(true);
 	}, []);
 
+	// Redirect if already logged in
+	useEffect(() => {
+		if (isAuthenticated && user) {
+			navigate(user.role === "admin" ? ROUTE.adminDashboard : ROUTE.dashboard);
+		}
+	}, [isAuthenticated, user, navigate]);
+
+	// Toggle between email and customer ID login
 	const toggleLoginType = () => {
-		const next = !useCustomerId;
-		setUseCustomerId(next);
-		localStorage.setItem(LOGIN_TYPE_KEY, next ? "customerId" : "email");
+		setUseCustomerId(prev => {
+			const next = !prev;
+			localStorage.setItem(LOGIN_TYPE_KEY, next ? "customerId" : "email");
+			return next;
+		});
 		setForm({ identifier: "", password: "" });
 		setError(null);
 	};
 
+	// Handle input changes
 	const handleChange = (e) => {
-		setForm({ ...form, [e.target.name]: e.target.value });
+		const { name, value } = e.target;
+		setForm(prev => ({ ...prev, [name]: value.trim() }));
 		if (error) setError(null);
 	};
 
+	// Basic form validation
 	const validateForm = () => {
 		if (!form.identifier || !form.password) {
 			setError("All fields are required.");
@@ -48,28 +61,21 @@ const Login = () => {
 		return true;
 	};
 
-	// ----------------------
-	// Login
-	// ----------------------
+	// Handle form submission
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		setError(null);
+
 		if (!validateForm()) return;
 
 		setLoading(true);
-
 		try {
-			// Single login call
-			const data = await authLogin(form);
-
-			const token = localStorage.getItem("token");
-
-			
-			if (data.user.role === "admin") navigate(ROUTE.adminDashboard);
-			else navigate(ROUTE.dashboard);
-
+			await authLogin(form);
+			// Navigation handled in AuthContext based on role
 		} catch (err) {
-			setError(err?.message || "Login failed");
+			// Display user-friendly error
+			const message = err?.response?.data?.message || err?.message || "Login failed";
+			setError(message);
 			console.error("Login error:", err);
 		} finally {
 			setLoading(false);
@@ -78,11 +84,13 @@ const Login = () => {
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">
-			<h2 className="text-2xl font-semibold text-primary text-center">
-				Login
-			</h2>
+			<h2 className="text-2xl font-semibold text-primary text-center">Login</h2>
 
-			{error && <p className="text-red-500 text-center">{error}</p>}
+			{error && (
+				<p role="alert" className="text-red-500 text-center">
+					{error}
+				</p>
+			)}
 
 			<Input
 				label={useCustomerId ? "Customer ID" : "Email"}
@@ -90,12 +98,9 @@ const Login = () => {
 				icon={useCustomerId ? <Hash size={18} /> : <Mail size={18} />}
 				value={form.identifier}
 				onChange={handleChange}
-				placeholder={
-					useCustomerId
-						? "Enter your customer ID"
-						: "Enter your email"
-				}
+				placeholder={useCustomerId ? "Enter your customer ID" : "Enter your email"}
 				name="identifier"
+				required
 			/>
 
 			<Input
@@ -106,11 +111,14 @@ const Login = () => {
 				onChange={handleChange}
 				placeholder="Enter your password"
 				name="password"
+				required
 			/>
 
 			<p
-				onClick={toggleLoginType}
-				className="text-sm text-indigo-500 cursor-pointer text-right hover:underline"
+				onClick={!loading ? toggleLoginType : undefined}
+				className={`text-sm text-indigo-500 cursor-pointer text-right hover:underline ${
+					loading ? "opacity-50 pointer-events-none" : ""
+				}`}
 			>
 				{useCustomerId ? "Use email instead" : "Use customer ID instead"}
 			</p>
