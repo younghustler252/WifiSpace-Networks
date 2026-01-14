@@ -14,7 +14,7 @@ import AuthLayout from "../layout/AuthLayout";
 
 // User pages
 import Dashboard from "../pages/Dashboard";
-import Profile from "../../../Profile";
+import Profile from "../pages/Profile";
 import Subscription from "../pages/Subscription";
 
 // Admin pages
