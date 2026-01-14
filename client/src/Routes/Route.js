@@ -5,6 +5,7 @@ export const ROUTE = {
     subscriptions: '/subscriptions',
     paymentSuccess: '/payment-success',
     transactions: '/transactions',
+    confirmPayment: '/confirm-payment',
     devices: '/devices',
     profile: '/profile',
 

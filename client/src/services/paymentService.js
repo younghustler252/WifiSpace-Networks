@@ -4,7 +4,7 @@ import { handleError } from "../utils/handleError";
 //--------------------------------------------------
 // 1️⃣ INITIATE PAYMENT
 //--------------------------------------------------
-export const initiatePayment = async ({ userId, planId, amount, email, planName }) => {
+export const initiatePayment = async ({ userId, planId, amount, email, planName, monthsPaid }) => {
     try {
         const { data } = await API.post("/payments/initiate-payment", {
             userId,
@@ -12,6 +12,7 @@ export const initiatePayment = async ({ userId, planId, amount, email, planName 
             amount,
             email,
             planName,
+            monthsPaid,
         });
 
         return data;  // This would return the Paystack payment URL

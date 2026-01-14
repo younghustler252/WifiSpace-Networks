@@ -5,12 +5,13 @@ const { createPaymentRequest, verifyPayment } = require('../utils/paystack');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const mikrotikQueue = require('../queues/mikrotikQueue'); // Add your Mikrotik queue
+const { applySubscription } = require('../services/subscriptionService');
 
 /* --------------------------------------------------------
    1️⃣ INITIATE PAYMENT
 ---------------------------------------------------------*/
 const initiatePayment = asyncHandler(async (req, res) => {
-    let { userId, planId, amount, planName } = req.body;
+    let { userId, planId, amount, monthsPaid } = req.body;
 
     if (!userId) return res.status(400).json({ error: 'userId is required' });
     if (!planId) return res.status(400).json({ error: 'planId is required' });
@@ -21,22 +22,45 @@ const initiatePayment = asyncHandler(async (req, res) => {
     const plan = await Subscription.findById(planId);
     if (!plan) return res.status(404).json({ error: 'Plan not found' });
 
-    const email = user.email;
-
-    // Ensure amount is a valid number
-    amount = Number(amount);
-    if (!amount || amount <= 0) {
-        return res.status(400).json({ error: 'Amount must be a number greater than 0' });
+    if (!monthsPaid || monthsPaid < 1) {
+        return res.status(400).json({ error: 'monthsPaid is required' });
     }
 
-    const paystackResponse = await createPaymentRequest(amount, email, plan.planName, planId);
+    // 🔒 Prevent renewing different plan
+    const now = new Date();
+    const hasActiveSubscription =
+        user.subscription &&
+        user.subscriptionEnd &&
+        new Date(user.subscriptionEnd) > now;
+
+    if (hasActiveSubscription && user.subscription.toString() !== planId.toString()) {
+        return res.status(400).json({
+            error: 'You can only renew your current plan'
+        });
+    }
+
+    // 🔐 Validate amount (recommended)
+    const expectedAmount = plan.price * monthsPaid;
+    if (Number(amount) !== expectedAmount) {
+        return res.status(400).json({ error: 'Invalid payment amount' });
+    }
+
+    const email = user.email;
+
+    const paystackResponse = await createPaymentRequest(
+        expectedAmount,
+        email,
+        plan.planName,
+        planId
+    );
 
     const payment = new Payment({
         userId: user._id,
         wsnId: user.wsnId,
         planId,
         planName: plan.planName,
-        amount,
+        amount: expectedAmount,
+        monthsPaid,
         method: 'paystack',
         status: 'pending',
         transactionId: paystackResponse.data.reference,
@@ -50,62 +74,36 @@ const initiatePayment = asyncHandler(async (req, res) => {
     });
 });
 
+
 /* --------------------------------------------------------
    2️⃣ HANDLE PAYMENT SUCCESS (UPGRADE/DOWNGRADE)
 ---------------------------------------------------------*/
 async function handleSuccessfulPayment(payment) {
-    const plan = await Subscription.findById(payment.planId);
-    const start = new Date();
-    const end = new Date(start.getTime() + (plan?.durationDays || 30) * 24 * 60 * 60 * 1000);
+    if (payment.status === 'successful') return;
 
-    // Update payment
+    const plan = await Subscription.findById(payment.planId);
+    if (!plan) return;
+
+    const monthsPaid = payment.monthsPaid || 1;
+
+    const result = await applySubscription({
+        userId: payment.userId,
+        planId: payment.planId,
+        monthsPaid
+    });
+
     payment.status = 'successful';
-    payment.paymentDate = start;
-    payment.subscriptionStartDate = start;
-    payment.subscriptionEndDate = end;
+    payment.paymentDate = new Date();
+    payment.subscriptionStartDate = result.startDate;
+    payment.subscriptionEndDate = result.endDate;
+    payment.bonusDays = result.bonusDays;
+
     await payment.save();
 
-    // Update user subscription
-    const user = await User.findById(payment.userId);
-    if (!user) return;
-
-    // Check if user already has a plan (upgrade/downgrade)
-    const previousPlanId = user.subscription;
-    const isUpgrade = previousPlanId && previousPlanId.toString() !== plan._id.toString();
-
-    user.subscription = payment.planId;
-    user.subscriptionStatus = 'active';
-    user.subscriptionStart = start;
-    user.subscriptionEnd = end;
-    await user.save();
-
-    // -----------------------------------------------
-    // Mikrotik activation / profile update
-    // -----------------------------------------------
-
-    // Ensure user exists on Mikrotik
-    await mikrotikQueue.add('ensureUserExists', {
-        userId: user._id,
-        wsnId: user.wsnId,
-        password: user.routerPassword || user.password,
-        profile: plan.mikrotikProfile || user.routerProfile || 'default',
-    });
-
-    // Update Mikrotik profile (in case of upgrade/downgrade)
-    if (isUpgrade) {
-        await mikrotikQueue.add('updateProfile', {
-            userId: user._id,
-            wsnId: user.wsnId,
-            profile: plan.mikrotikProfile,
-        });
-    }
-
-    // Enable user on Mikrotik
-    await mikrotikQueue.add('enableUser', {
-        userId: user._id,
-        wsnId: user.wsnId,
-    });
+    return result;
 }
+
+
 
 /* --------------------------------------------------------
    3️⃣ VERIFY PAYMENT (Callback URL)

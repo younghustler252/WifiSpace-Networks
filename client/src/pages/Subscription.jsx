@@ -1,180 +1,202 @@
-import React, { useState } from "react";
+import React from "react";
 import SubscriptionCard from "../components/SubscriptionCard";
-import { useAllPlans, useCurrentSubscription } from "../hooks/useSubscription";
-import { useInitiatePayment } from "../hooks/usePayment";
+import {
+	useAllPlans,
+	useCurrentSubscription
+} from "../hooks/useSubscription";
 import { Spinner } from "../components/ui/Loader";
-import { RefreshCcw } from "lucide-react";
+import CircularProgress from "../components/CircularProgress";
 import { useAuth } from "../hooks/useAuth";
-
-/* --- Helper: Calculate subscription progress --- */
-const getSubscriptionProgress = (start, end) => {
-    if (!start || !end) return { percent: 0, daysLeft: 0, totalDays: 0 };
-    const s = new Date(start);
-    const e = new Date(end);
-    const now = new Date();
-    const totalDays = Math.ceil((e - s) / (1000 * 60 * 60 * 24));
-    const passed = Math.ceil((now - s) / (1000 * 60 * 60 * 24));
-    const daysLeft = Math.max(totalDays - passed, 0);
-
-    // percent = remaining time
-    const percent = Math.min(Math.max(Math.floor((daysLeft / totalDays) * 100), 0), 100);
-
-    return { percent, daysLeft, totalDays };
-};
-
-/* --- Circular Progress --- */
-const CircularProgress = ({ percent }) => {
-    const radius = 40;
-    const stroke = 6;
-    const normalizedRadius = radius - stroke * 2;
-    const circumference = normalizedRadius * 2 * Math.PI;
-    const strokeDashoffset = circumference - (percent / 100) * circumference;
-
-    const getColor = () => {
-        if (percent >= 70) return "#22c55e"; // green
-        if (percent >= 30) return "#eab308"; // yellow
-        return "#ef4444"; // red
-    };
-
-    return (
-        <svg height={radius * 2} width={radius * 2} className="transform -rotate-90">
-            <circle
-                stroke="#e5e7eb"
-                fill="transparent"
-                strokeWidth={stroke}
-                r={normalizedRadius}
-                cx={radius}
-                cy={radius}
-            />
-            <circle
-                stroke={getColor()}
-                fill="transparent"
-                strokeWidth={stroke}
-                r={normalizedRadius}
-                cx={radius}
-                cy={radius}
-                strokeDasharray={`${circumference} ${circumference}`}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                className="transition-all duration-500"
-            />
-            <text
-                x="50%"
-                y="50%"
-                dy="0.35em"
-                textAnchor="middle"
-                className="font-bold text-sm"
-                fill={getColor()}
-            >
-                {percent}%
-            </text>
-        </svg>
-    );
-};
+import { useNavigate } from "react-router-dom";
+import { ROUTE } from "../Routes/Route";
+import { ArrowRight } from "lucide-react";
 
 const Subscription = () => {
-    const { user } = useAuth();
-    const [processingPlanId, setProcessingPlanId] = useState(null);
+	const { user } = useAuth();
+	const navigate = useNavigate();
 
-    const { data: plansData = [], isLoading: plansLoading, isError: plansError } = useAllPlans();
-    const { data: currentSub = null, isLoading: currentSubLoading, isError: currentSubError } = useCurrentSubscription();
-    const { mutateAsync: initiatePayment } = useInitiatePayment();
-    const isAnyProcessing = processingPlanId !== null;
+	const {
+		data: plansData = [],
+		isLoading: plansLoading,
+		isError: plansError
+	} = useAllPlans();
 
-    if (!user) return <p className="text-center text-red-500">Please login to view subscriptions.</p>;
-    if (plansLoading || currentSubLoading) return <Spinner message="Loading subscription data..." />;
-    if (plansError || currentSubError) return <p className="text-red-500 text-center">Failed to load subscription data.</p>;
+	const {
+		data: currentSub = null,
+		isLoading: currentSubLoading,
+		isError: currentSubError
+	} = useCurrentSubscription();
 
-    const { percent, daysLeft, totalDays } = currentSub
-        ? getSubscriptionProgress(currentSub.start, currentSub.end)
-        : { percent: 0, daysLeft: 0, totalDays: 0 };
+	/* ---- Guards ---- */
+	if (!user)
+		return (
+			<p className="text-center text-red-500">
+				Please login to view subscriptions.
+			</p>
+		);
 
-    const handlePurchase = async (planId, planName, amount) => {
-        if (!user?._id) return alert("Please login to purchase a plan.");
-        const numericAmount = Number(amount);
-        if (isNaN(numericAmount) || numericAmount <= 0) return alert("Invalid plan amount.");
+	if (plansLoading || currentSubLoading)
+		return (
+			<Spinner message="Loading subscription details..." />
+		);
 
-        try {
-            setProcessingPlanId(planId);
-            const { paymentUrl } = await initiatePayment({
-                userId: user._id,
-                planId,
-                planName,
-                amount: numericAmount,
-                email: user.email,
-            });
-            window.location.href = paymentUrl;
-        } catch (err) {
-            console.error(err);
-            alert("Failed to initiate payment.");
-            setProcessingPlanId(null);
-        }
-    };
+	if (plansError || currentSubError)
+		return (
+			<p className="text-center text-red-500">
+				Failed to load subscription data.
+			</p>
+		);
 
-    const handleRenew = () => alert("Renewal will be handled after payment upgrade.");
+	/* ---- Progress helper ---- */
+	const getProgress = (start, end) => {
+		if (!start || !end)
+			return {
+				percent: 0,
+				daysLeft: 0,
+				totalDays: 0
+			};
 
-    return (
-        <div className="max-w-6xl mx-auto p-6 space-y-8">
-            <h1 className="text-3xl font-bold text-primary mb-6">Subscription Plans</h1>
+		const s = new Date(start);
+		const e = new Date(end);
+		const now = new Date();
 
-            {/* Current Subscription */}
-            {currentSub ? (
-                <div className="p-6 rounded-2xl border shadow-md bg-card dark:bg-gray-900 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    {/* Plan info */}
-                    <div className="flex-1 space-y-2 text-sm text-muted-foreground">
-                        <p><strong>Plan:</strong> {currentSub.planName}</p>
-                        <p>
-                            <strong>Status:</strong>{" "}
-                            <span
-                                className={`px-2 py-1 rounded-full text-xs font-semibold ${currentSub.status === "active"
-                                    ? "bg-green-100 text-green-700"
-                                    : currentSub.status === "expired"
-                                        ? "bg-red-100 text-red-700"
-                                        : "bg-yellow-100 text-yellow-700"
-                                    }`}
-                            >
-                                {currentSub.status}
-                            </span>
-                        </p>
-                        <p><strong>Expires:</strong> {new Date(currentSub.end).toLocaleDateString()}</p>
-                        <p><strong>Days left:</strong> {daysLeft} / {totalDays}</p>
-                    </div>
+		const totalDays = Math.ceil(
+			(e - s) / (1000 * 60 * 60 * 24)
+		);
+		const usedDays = Math.ceil(
+			(now - s) / (1000 * 60 * 60 * 24)
+		);
+		const daysLeft = Math.max(
+			totalDays - usedDays,
+			0
+		);
+		const percent = Math.min(
+			Math.max(
+				Math.floor((daysLeft / totalDays) * 100),
+				0
+			),
+			100
+		);
 
-                    {/* Circular progress + Renew */}
-                    <div className="flex flex-col items-center gap-2">
-                        <CircularProgress percent={percent} />
-                        <button
-                            onClick={handleRenew}
-                            className="mt-2 px-4 py-2 rounded-xl border border-primary text-primary font-semibold hover:bg-primary/10"
-                        >
-                            Renew
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="p-6 rounded-xl bg-yellow-50 border text-center">
-                    <p className="font-semibold">You do not have an active subscription.</p>
-                    <p className="text-sm">Choose a plan below to get started.</p>
-                </div>
-            )}
+		return { percent, daysLeft, totalDays };
+	};
 
-            {/* Available Plans */}
-            <h2 className="text-xl font-semibold text-primary">Available Plans</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {plansData.map((plan) => (
-                    <SubscriptionCard
-                        key={plan._id}
-                        plan={plan}
-                        isCurrent={plan._id === currentSub?.id}
-                        onPurchase={handlePurchase}
-                        onRenew={handleRenew}
-                        isLoading={processingPlanId === plan._id}
-                        isDisabled={isAnyProcessing && processingPlanId !== plan._id}
-                    />
-                ))}
-            </div>
-        </div>
-    );
+	const { percent, daysLeft, totalDays } = currentSub
+		? getProgress(currentSub.start, currentSub.end)
+		: {
+				percent: 0,
+				daysLeft: 0,
+				totalDays: 0
+		  };
+
+	/* ---- Safe navigation (NORMALIZE PLAN) ---- */
+	const handleSelectPlan = (plan) => {
+		if (!plan) return;
+
+		const normalizedPlan = {
+			_id: plan._id || plan.id, // ✅ supports both flows
+			planName: plan.planName,
+			price: plan.price
+		};
+
+		if (!normalizedPlan._id) {
+			console.error("Invalid plan selected:", plan);
+			return;
+		}
+
+		navigate(ROUTE.confirmPayment, {
+			state: { plan: normalizedPlan }
+		});
+	};
+
+	return (
+		<div className="max-w-6xl mx-auto px-6 py-10 space-y-12">
+			{/* Header */}
+			<div className="space-y-2">
+				<h1 className="text-4xl font-bold tracking-tight">
+					Subscription
+				</h1>
+				<p className="text-muted-foreground max-w-xl">
+					Manage your plan, track usage, or extend your
+					access anytime.
+				</p>
+			</div>
+
+			{/* Current subscription */}
+			{currentSub && (
+				<div className="relative overflow-hidden rounded-3xl border bg-gradient-to-br from-primary/5 to-transparent p-8">
+					<div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
+						<div className="space-y-3">
+							<p className="text-xs uppercase tracking-wide text-muted-foreground">
+								Current plan
+							</p>
+							<h2 className="text-2xl font-bold">
+								{currentSub.planName}
+							</h2>
+
+							<p className="text-sm text-muted-foreground">
+								Expires on{" "}
+								<strong>
+									{new Date(
+										currentSub.end
+									).toLocaleDateString()}
+								</strong>
+							</p>
+
+							<p className="text-sm">
+								<strong>{daysLeft}</strong>{" "}
+								days remaining out of {totalDays}
+							</p>
+						</div>
+
+						<div className="flex items-center gap-6">
+							<CircularProgress percent={percent} />
+
+							{/* Extend plan */}
+							<div
+								onClick={() =>
+									handleSelectPlan({
+										id: currentSub.id, // ✅ backend Subscription ID
+										planName:
+											currentSub.planName,
+										price: currentSub.price
+									})
+								}
+								className="group cursor-pointer flex items-center gap-2 text-primary font-semibold"
+							>
+								Extend plan
+								<ArrowRight
+									size={16}
+									className="group-hover:translate-x-1 transition-transform"
+								/>
+							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Divider */}
+			<div className="flex items-center gap-4">
+				<div className="flex-1 h-px bg-border" />
+				<span className="text-xs uppercase text-muted-foreground tracking-wide">
+					Available plans
+				</span>
+				<div className="flex-1 h-px bg-border" />
+			</div>
+
+			{/* Plans grid */}
+			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+				{plansData.map((plan) => (
+					<SubscriptionCard
+						key={plan._id}
+						plan={plan}
+						isCurrent={plan._id === currentSub?.id}
+						onSelect={handleSelectPlan}
+					/>
+				))}
+			</div>
+		</div>
+	);
 };
 
 export default Subscription;

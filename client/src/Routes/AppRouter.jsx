@@ -8,13 +8,13 @@ import Register from "../pages/auth/Register";
 import Verify from "../pages/auth/Verify";
 
 // Layouts
-import AuthLayout from "../layout/AuthLayout";
 import MainLayout from "../layout/MainLayout";
 import AdminLayout from "../layout/AdminLayout";
+import AuthLayout from "../layout/AuthLayout";
 
 // User pages
 import Dashboard from "../pages/Dashboard";
-import Profile from "../pages/Profile";
+import Profile from "../../../Profile";
 import Subscription from "../pages/Subscription";
 
 // Admin pages
@@ -28,6 +28,7 @@ import AdminSubscriptions from "../pages/admin/AdminSubscriptioms";
 import PaymentSuccess from "../pages/PaymentSucceess";
 import Transaction from "../pages/Transactions";
 import AdminPayments from "../pages/admin/AdminPayments";
+import ConfirmPayment from "../pages/ConfirmPayment";
 
 
 const AppRouter = () => {
@@ -53,6 +54,7 @@ const AppRouter = () => {
 				<Route path={ROUTE.subscriptions} element={<Subscription />} />
 				<Route path={ROUTE.profile} element={<Profile />} />
 				<Route path={ROUTE.transactions} element={<Transaction />} />
+				<Route path={ROUTE.confirmPayment} element={<ConfirmPayment />} />
 				<Route path={ROUTE.paymentSuccess} element={<PaymentSuccess />} />
 
 			</Route>

@@ -1,11 +1,11 @@
 import { useContext, useEffect, useState } from "react";
-import { ThemeContext } from "../context/ThemeContext";
-import { useUser } from "../hooks/useUser";
-import { Spinner } from "../components/ui/Loader";
-import Avatar from "../components/ui/Avatar";
-import Input from "../components/ui/Input";
-import Button from "../components/ui/Button";
-import { useAuth } from "../hooks/useAuth";
+import { ThemeContext } from "./client/src/context/ThemeContext";
+import { useUser } from "./client/src/hooks/useUser";
+import { Spinner } from "./client/src/components/ui/Loader";
+import Avatar from "./client/src/components/ui/Avatar";
+import Input from "./client/src/components/ui/Input";
+import Button from "./client/src/components/ui/Button";
+import { useAuth } from "./client/src/hooks/useAuth";
 import toast from "react-hot-toast";
 
 const Profile = () => {

@@ -4,47 +4,73 @@ const paymentSchema = new mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true,
-        ref: 'User',  // Link to the User model
+        ref: 'User',
     },
+
+    wsnId: {
+        type: String,
+    },
+
+    planId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Subscription',
+        required: true,
+    },
+
+    planName: {
+        type: String,
+        required: true,
+    },
+
     amount: {
         type: Number,
         required: true,
     },
+
+    monthsPaid: {
+        type: Number,
+        required: true,
+        min: 1,
+    },
+
+    bonusDays: {
+        type: Number,
+        default: 0,
+    },
+
     method: {
         type: String,
         enum: ['paystack', 'wallet', 'bank_transfer'],
         required: true,
     },
+
     status: {
         type: String,
         enum: ['pending', 'successful', 'failed', 'expired'],
         default: 'pending',
         required: true,
     },
-    planName: {
-        type: String,
-        required: true,
-    },
+
     transactionId: {
         type: String,
-        unique: true,  // Paystack's transaction reference
+        unique: true,
+        sparse: true, // prevents index issues for non-paystack payments
     },
+
     paymentDate: {
         type: Date,
-        default: Date.now,
     },
+
     subscriptionStartDate: {
         type: Date,
     },
+
     subscriptionEndDate: {
         type: Date,
     },
+
     paymentDetails: {
         type: Object,
-    },
-    planId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Subscription',  // Reference to the Subscription model
     },
 
 }, { timestamps: true });
