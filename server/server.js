@@ -10,7 +10,13 @@ const server = app.listen(PORT, () => {
 // Graceful shutdown
 const shutdown = () => {
 	console.log('🛑 Shutting down server...');
-	server.close(() => process.exit(0));
+	server.close(err => {
+		if (err) {
+			console.error('Error during server shutdown:', err);
+			process.exit(1);
+		}
+		process.exit(0);
+	});
 };
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
@@ -18,15 +24,24 @@ process.on('SIGTERM', shutdown);
 // ---- Background bootstrapping ----
 (async () => {
 	try {
-		// Database SHOULD retry but not kill app
-		await require('./loaders/database')();
-		console.log('✅ Database connected');
+		await require('./loaders/routeros')();  // ensure it's called if it exports a function
+		console.log('✅ RouterOS initialized');
 	} catch (err) {
-		console.error('❌ Database connection failed:', err);
+		console.error('❌ RouterOS init failed:', err);
 	}
 
-	require('./loaders/routeros')
+	try {
+		
+		await require('./loaders/database')();
+		console.log('✅ Database initialized');
+	} catch (err) {
+		console.error('❌ Database init failed:', err);
+	}
 
-	require('./loaders/jobs')();
-
+	try {
+		await require('./loaders/jobs')();
+		console.log('✅ Jobs initialized');
+	} catch (err) {
+		console.error('❌ Jobs init failed:', err);
+	}
 })();

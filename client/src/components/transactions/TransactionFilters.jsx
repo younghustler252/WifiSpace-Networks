@@ -1,4 +1,4 @@
-const FILTERS = ["all", "successful", "pending", "failed"];
+const FILTERS = ["all", "successful", "pending", "expired" , "failed"];
 
 const TransactionFilters = ({ active, onChange }) => {
     return (

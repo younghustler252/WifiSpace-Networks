@@ -71,7 +71,7 @@ const createSubscription = asyncHandler(async (req, res) => {
 
 
 const getMikrotikProfiles = asyncHandler(async (req, res) => {
-    console.log("Route hit"); // ✅ should print every request
+    console.log("mikrotik Route hit"); // ✅ should print every request
 
     const now = Date.now();
     if (cachedProfiles && now - cacheTimestamp < 30000) {
