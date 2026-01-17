@@ -124,7 +124,10 @@ const userSchema = new mongoose.Schema({
 	},
 	nin: {
 		type: Number,
-		unique: true
+		index: {
+			unique: true,
+			partialFilterExpression: { nin: { $exists: true, $ne: null } }
+		}
 	},
 	address: {
 		type: String,
