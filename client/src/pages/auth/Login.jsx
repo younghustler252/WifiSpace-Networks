@@ -71,16 +71,18 @@ const Login = () => {
 		setLoading(true);
 		try {
 			await authLogin(form);
-			// Navigation handled in AuthContext based on role
+			// success → context handles navigation
 		} catch (err) {
-			// Display user-friendly error
-			const message = err?.response?.data?.message || err?.message || "Login failed";
+			const message =
+				err?.response?.data?.message ||
+				err?.message ||
+				"Invalid credentials";
 			setError(message);
-			console.error("Login error:", err);
 		} finally {
 			setLoading(false);
 		}
 	};
+
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-6">

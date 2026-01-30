@@ -41,7 +41,11 @@ export const useMikrotikProfiles = () => {
     return useQuery({
         queryKey: ["mikrotikProfiles"],
         queryFn: getMikrotikProfiles,
-        staleTime: 30000, // optional: 30s cache
+       staleTime: 1000 * 60 * 60, // 1 hour (considered "fresh")
+		cacheTime: 1000 * 60 * 60 * 6, // keep in cache for 6 hours
+		refetchOnWindowFocus: false,
+		refetchOnReconnect: false,
+		refetchOnMount: false,
     });
 };
 

@@ -1,18 +1,21 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useCreateSubscription, useMikrotikProfiles } from "../../hooks/useAdmin";
+import {
+	useCreateSubscription,
+	useMikrotikProfiles,
+} from "../../hooks/useAdmin";
 
 const AdminCreateSubscription = () => {
 	const navigate = useNavigate();
+	const formRef = useRef(null);
+
 	const { mutate: createPlan, isPending } = useCreateSubscription();
 	const { data, isLoading: profilesLoading } = useMikrotikProfiles();
 
-    console.log("Mikrotik profiles data:", data);
-
-	// Directly get profiles array from data
-	const profiles = Array.isArray(data?.data?.profiles) ? data.data.profiles : [];
-
-	const formRef = useRef(null);
+	// Safely extract profiles
+	const profiles = Array.isArray(data?.data?.profiles)
+		? data.data.profiles
+		: [];
 
 	const [form, setForm] = useState({
 		planName: "",
@@ -21,7 +24,7 @@ const AdminCreateSubscription = () => {
 		devicesAllowed: "",
 		features: "",
 		durationDays: "",
-		mikrotikProfile: "",
+		mikrotikProfile: "", // OPTIONAL
 	});
 
 	const [errorMessage, setErrorMessage] = useState("");
@@ -35,7 +38,7 @@ const AdminCreateSubscription = () => {
 
 	const handleChange = (e) => {
 		const { name, value } = e.target;
-		setForm(prev => ({ ...prev, [name]: value }));
+		setForm((prev) => ({ ...prev, [name]: value }));
 	};
 
 	const handleSubmit = (e) => {
@@ -51,9 +54,15 @@ const AdminCreateSubscription = () => {
 			speedRate: form.speedRate,
 			devicesAllowed: Number(form.devicesAllowed) || 1,
 			durationDays: Number(form.durationDays) || 30,
-			features: form.features ? form.features.split(",").map(f => f.trim()) : [],
-			mikrotikProfile: form.mikrotikProfile,
+			features: form.features
+				? form.features.split(",").map((f) => f.trim())
+				: [],
 		};
+
+		// ✅ Only include Mikrotik profile if selected
+		if (form.mikrotikProfile) {
+			payload.mikrotikProfile = form.mikrotikProfile;
+		}
 
 		createPlan(payload, {
 			onSuccess: () => {
@@ -71,7 +80,9 @@ const AdminCreateSubscription = () => {
 			},
 			onError: (error) => {
 				setErrorMessage(
-					error?.response?.data?.message || error?.message || "Failed to create subscription plan"
+					error?.response?.data?.message ||
+						error?.message ||
+						"Failed to create subscription plan"
 				);
 			},
 		});
@@ -79,18 +90,28 @@ const AdminCreateSubscription = () => {
 
 	return (
 		<div ref={formRef} className="max-w-3xl mx-auto p-6 space-y-6">
-			<h1 className="text-2xl font-bold text-primary">Create Subscription Plan</h1>
+			<h1 className="text-2xl font-bold text-primary">
+				Create Subscription Plan
+			</h1>
 
-			<form onSubmit={handleSubmit} className="space-y-4 bg-surface p-6 rounded-xl shadow">
+			<form
+				onSubmit={handleSubmit}
+				className="space-y-4 bg-surface p-6 rounded-xl shadow"
+			>
 				{errorMessage && (
-					<div className="p-3 bg-red-100 text-red-700 rounded-lg">{errorMessage}</div>
-				)}
-				{successMessage && (
-					<div className="p-3 bg-green-100 text-green-700 rounded-lg">{successMessage}</div>
+					<div className="p-3 bg-red-100 text-red-700 rounded-lg">
+						{errorMessage}
+					</div>
 				)}
 
-				{/* Render other inputs */}
-				{Object.keys(form).map((key) => {
+				{successMessage && (
+					<div className="p-3 bg-green-100 text-green-700 rounded-lg">
+						{successMessage}
+					</div>
+				)}
+
+				{/* Text Inputs */}
+				{Object.entries(form).map(([key, value]) => {
 					if (key === "mikrotikProfile") return null;
 
 					return (
@@ -99,40 +120,40 @@ const AdminCreateSubscription = () => {
 								{key.replace(/([A-Z])/g, " $1")}
 							</label>
 							<input
+								type="text"
 								name={key}
-								value={form[key]}
+								value={value}
 								onChange={handleChange}
-								className="w-full px-4 py-2 border rounded-lg"
 								required
 								autoComplete="off"
+								className="w-full px-4 py-2 border rounded-lg"
 							/>
 						</div>
 					);
 				})}
 
-				{/* Mikrotik profile dropdown */}
-				{/* Mikrotik profile dropdown */}
-<div>
-	<label className="block mb-1 text-primary capitalize">Mikrotik Profile</label>
-	<select
-		name="mikrotikProfile"
-		value={form.mikrotikProfile}
-		onChange={handleChange}
-		className="w-full px-4 py-2 border border-border-color rounded-lg
-			bg-[rgb(var(--bg-surface))] text-[rgb(var(--text-primary))] 
-			focus:outline-none focus:ring-1 focus:ring-accent"
-		required
-		disabled={profilesLoading}
-	>
-		<option value="">Select a profile</option>
-		{profiles.map((profile) => (
-			<option key={profile} value={profile}>
-				{profile}
-			</option>
-		))}
-	</select>
-</div>
-
+				{/* Mikrotik Profile (OPTIONAL) */}
+				<div>
+					<label className="block mb-1 text-primary">
+						Mikrotik Profile (Optional)
+					</label>
+					<select
+						name="mikrotikProfile"
+						value={form.mikrotikProfile}
+						onChange={handleChange}
+						disabled={profilesLoading}
+						className="w-full px-4 py-2 border rounded-lg
+							bg-[rgb(var(--bg-surface))] text-[rgb(var(--text-primary))]
+							focus:outline-none focus:ring-1 focus:ring-accent"
+					>
+						<option value="">None</option>
+						{profiles.map((profile) => (
+							<option key={profile} value={profile}>
+								{profile}
+							</option>
+						))}
+					</select>
+				</div>
 
 				<button
 					type="submit"
@@ -143,7 +164,11 @@ const AdminCreateSubscription = () => {
 							: "bg-primary hover:bg-primary/90"
 					}`}
 				>
-					{isPending ? "Creating plan..." : profilesLoading ? "Loading profiles..." : "Create Plan"}
+					{isPending
+						? "Creating plan..."
+						: profilesLoading
+						? "Loading profiles..."
+						: "Create Plan"}
 				</button>
 			</form>
 		</div>

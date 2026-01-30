@@ -1,67 +1,61 @@
 import { useState, useEffect, createContext, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { login as loginService, logout as logoutService, getProfile } from "../services/authService";
+import {
+	login as loginService,
+	logout as logoutService,
+	getProfile,
+} from "../services/authService";
 import { ROUTE } from "../Routes/Route";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
 	const [user, setUser] = useState(null);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState(null);
+	const [bootstrapping, setBootstrapping] = useState(true);
 
 	const navigate = useNavigate();
 
-	// Fetch user profile if token exists
+	// 🔹 App bootstrap (token → profile)
 	useEffect(() => {
 		let isMounted = true;
 
-		const fetchUser = async () => {
+		const initAuth = async () => {
 			const token = localStorage.getItem("token");
-			if (token) {
-				try {
-					const profile = await getProfile();
-					if (isMounted) setUser(profile);
-				} catch (err) {
-					console.error("Failed to load profile:", err);
-					logoutService();
-					if (isMounted) setUser(null);
-				}
+			if (!token) {
+				setBootstrapping(false);
+				return;
 			}
-			if (isMounted) setLoading(false);
+
+			try {
+				const profile = await getProfile();
+				if (isMounted) setUser(profile);
+			} catch {
+				logoutService();
+				if (isMounted) setUser(null);
+			} finally {
+				if (isMounted) setBootstrapping(false);
+			}
 		};
 
-		fetchUser();
-
-		return () => {
-			isMounted = false;
-		};
+		initAuth();
+		return () => (isMounted = false);
 	}, []);
 
-	// Login function with role-based navigation
-	const login = useCallback(async (credentials) => {
-		try {
-			setLoading(true);
-			setError(null);
+	// 🔹 LOGIN (NO GLOBAL LOADING)
+	const login = useCallback(
+		async (credentials) => {
 			const data = await loginService(credentials);
 			setUser(data.user);
 
-			// Redirect automatically based on role
 			if (data.user.role === "admin") navigate(ROUTE.adminDashboard);
 			else navigate(ROUTE.dashboard);
 
 			return data.user;
-		} catch (err) {
-			const message = err?.message || "Login failed";
-			setError(message);
-			throw err;
-		} finally {
-			setLoading(false);
-		}
-	}, [navigate]);
+		},
+		[navigate]
+	);
 
-	// Logout function
-	const logout = useCallback(async () => {
+	const logout = useCallback(() => {
 		logoutService();
 		setUser(null);
 		navigate(ROUTE.login);
@@ -73,9 +67,8 @@ export const AuthProvider = ({ children }) => {
 				user,
 				login,
 				logout,
-				loading,
-				error,
-				isAuthenticated: !loading && !!user
+				bootstrapping,
+				isAuthenticated: !!user,
 			}}
 		>
 			{children}

@@ -30,6 +30,7 @@ import Transaction from "../pages/Transactions";
 import AdminPayments from "../pages/admin/AdminPayments";
 import ConfirmPayment from "../pages/ConfirmPayment";
 
+import NotFound from "../pages/NotFound";
 
 const AppRouter = () => {
 	return (
@@ -56,7 +57,6 @@ const AppRouter = () => {
 				<Route path={ROUTE.transactions} element={<Transaction />} />
 				<Route path={ROUTE.confirmPayment} element={<ConfirmPayment />} />
 				<Route path={ROUTE.paymentSuccess} element={<PaymentSuccess />} />
-
 			</Route>
 
 			{/* ADMIN ROUTES */}
@@ -77,6 +77,9 @@ const AppRouter = () => {
 				<Route path="subscriptions/edit/:id" element={<AdminEditSubscription />} />
 				<Route path="payments" element={<AdminPayments />} />
 			</Route>
+
+			{/* 🔥 404 — MUST BE LAST */}
+			<Route path="*" element={<NotFound />} />
 
 		</Routes>
 	);
