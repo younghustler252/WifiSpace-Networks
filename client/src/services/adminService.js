@@ -1,4 +1,4 @@
-import API from "../axios"; // your axios instance
+import API from "../Api/axios"; // your axios instance
 import { handleError } from "../utils/handleError";
 
 // --------------------------------------------------
