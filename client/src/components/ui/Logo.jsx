@@ -1,4 +1,4 @@
-import { logoDark } from "../../assets";
+import logoDark  from "../../../public/wifispaceDark.png";
 
 const Logo = ({ collapsed }) => {
 	return (
