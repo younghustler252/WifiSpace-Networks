@@ -1,147 +1,99 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getAllPlans } from "../../services/subscriptionService";
-import { useUpdateSubscription } from "../../hooks/useAdmin";
 import { useParams, useNavigate } from "react-router-dom";
-import Input from "../../components/ui/Input";
+import { getAllPlans } from "../../services/subscriptionService";
+import { useUpdateSubscription, useMikrotikProfiles } from "../../hooks/useAdmin";
+import SubscriptionForm from "../../components/SubcriptionForm";
 import BackButton from "../../components/ui/BackButton";
 
 const AdminEditSubscription = () => {
-    const { id } = useParams();
-    const navigate = useNavigate();
+	const { id } = useParams();
+	const navigate = useNavigate();
 
-    const { data: plans, isLoading: loadingPlans } = useQuery({
-        queryKey: ["adminSubscriptions"],
-        queryFn: getAllPlans,
-    });
+	const { data: plans, isLoading: loadingPlans } = useQuery({
+		queryKey: ["adminSubscriptions"],
+		queryFn: getAllPlans,
+	});
 
-    const plan = plans?.find((p) => p._id === id);
-    const { mutate: updatePlan, isLoading } = useUpdateSubscription();
+	const plan = plans?.find((p) => p._id === id);
 
-    const [form, setForm] = useState(null);
+	const { mutate: updatePlan, isLoading: isUpdating } = useUpdateSubscription();
+	const { data: profilesData, isLoading: profilesLoading } = useMikrotikProfiles();
+	const profiles = profilesData?.data?.profiles || [];
 
-    useEffect(() => {
-        if (plan) {
-            setForm({
-                planName: plan.planName,
-                price: plan.price,
-                speedRate: plan.speedRate,
-                devicesAllowed: plan.devicesAllowed,
-                features: plan.features.join(", "),
-                mikrotikProfile: plan.mikrotikProfile,
-                durationDays: plan.durationDays,
-                description: plan.description,
-            });
-        }
-    }, [plan]);
+	const [form, setForm] = useState({
+		planName: "",
+		price: "",
+		speedRate: "10",
+		devicesAllowed: "",
+		features: "",
+		durationDays: "30",
+		mikrotikProfile: "",
+		description: "",
+	});
 
-    if (loadingPlans || !plan || !form)
-        return <p className="text-center p-6">Loading...</p>;
+	const [errorMessage, setErrorMessage] = useState("");
+	const [successMessage, setSuccessMessage] = useState("");
 
-    const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+	useEffect(() => {
+		if (plan) {
+			setForm({
+				planName: plan.planName || "",
+				price: plan.price || "",
+				speedRate: plan.speedRate || "10",
+				devicesAllowed: plan.devicesAllowed || "",
+				features: plan.features ? plan.features.join(", ") : "",
+				durationDays: plan.durationDays || "30",
+				mikrotikProfile: plan.mikrotikProfile || "",
+				description: plan.description || "",
+			});
+		}
+	}, [plan]);
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+	if (loadingPlans || !plan) return <p className="text-center p-6">Loading...</p>;
 
-        const payload = {
-            ...form,
-            features: form.features.split(",").map((f) => f.trim()),
-        };
+	const handleChange = (e) => setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-        updatePlan({ id, updates: payload }, { onSuccess: () => navigate("/admin/subscriptions") });
-    };
+	const handleSubmit = (e) => {
+		e.preventDefault();
+		setErrorMessage("");
+		setSuccessMessage("");
 
-    return (
-        <div className="max-w-3xl mx-auto p-6 space-y-6">
+		const payload = {
+			...form,
+			price: Number(form.price),
+			speedRate: Number(form.speedRate),
+			devicesAllowed: Number(form.devicesAllowed) || 1,
+			durationDays: Number(form.durationDays),
+			features: form.features ? form.features.split(",").map((f) => f.trim()) : [],
+		};
 
-            {/* Back Button */}
-            <BackButton />
+		updatePlan(
+			{ id, updates: payload },
+			{
+				onSuccess: () => {
+					setSuccessMessage("Plan updated successfully ✅");
+					setTimeout(() => navigate("/admin/subscriptions"), 1500);
+				},
+				onError: (err) => setErrorMessage(err?.message || "Failed to update plan"),
+			}
+		);
+	};
 
-            {/* Page Header */}
-            <h1 className="text-2xl font-bold text-primary">Edit Subscription Plan</h1>
-
-            {/* Form */}
-            <form
-                onSubmit={handleSubmit}
-                className="space-y-4 bg-surface p-6 rounded-2xl shadow-md hover:shadow-lg transition"
-            >
-                <Input
-                    label="Plan Name"
-                    name="planName"
-                    value={form.planName}
-                    onChange={handleChange}
-                    placeholder="Enter plan name"
-                />
-
-                <Input
-                    label="Price ($)"
-                    name="price"
-                    type="number"
-                    value={form.price}
-                    onChange={handleChange}
-                    placeholder="Enter price"
-                />
-
-                <Input
-                    label="Speed Rate"
-                    name="speedRate"
-                    value={form.speedRate}
-                    onChange={handleChange}
-                    placeholder="e.g., 100Mbps"
-                />
-
-                <Input
-                    label="Devices Allowed"
-                    name="devicesAllowed"
-                    type="number"
-                    value={form.devicesAllowed}
-                    onChange={handleChange}
-                    placeholder="Number of devices"
-                />
-
-                <Input
-                    label="Features (comma separated)"
-                    name="features"
-                    value={form.features}
-                    onChange={handleChange}
-                    placeholder="Feature1, Feature2, Feature3"
-                />
-
-                <Input
-                    label="MikroTik Profile"
-                    name="mikrotikProfile"
-                    value={form.mikrotikProfile}
-                    onChange={handleChange}
-                    placeholder="MikroTik profile name"
-                />
-
-                <Input
-                    label="Duration (Days)"
-                    name="durationDays"
-                    type="number"
-                    value={form.durationDays}
-                    onChange={handleChange}
-                    placeholder="Number of days"
-                />
-
-                <Input
-                    label="Description"
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    placeholder="Plan description"
-                />
-
-                <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="px-4 py-2 bg-primary text-white rounded-lg w-full hover:bg-primary/90 transition"
-                >
-                    {isLoading ? "Saving..." : "Save Changes"}
-                </button>
-            </form>
-        </div>
-    );
+	return (
+		<SubscriptionForm
+			form={form}
+			onChange={handleChange}
+			onSubmit={handleSubmit}
+			isPending={isUpdating}
+			profiles={profiles}
+			profilesLoading={profilesLoading}
+			errorMessage={errorMessage}
+			successMessage={successMessage}
+			formTitle="Edit Subscription Plan"
+			backButton={<BackButton />}
+		/>
+	);
 };
 
 export default AdminEditSubscription;
