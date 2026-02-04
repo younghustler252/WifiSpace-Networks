@@ -96,6 +96,7 @@ const AdminUserDetails = () => {
 
 	const user = data.user;
 	const subscription = data.subscription || null;
+    console.log("sub", subscription )
 	const usage = data.usage || null;
 	const payments = data.recentPayments || [];
 
@@ -219,7 +220,7 @@ const AdminUserDetails = () => {
 					Current Subscription
 				</h2>
 
-				{subscription ? (
+				{subscription.status === "active" ? (
 					<div className="flex flex-col sm:flex-row gap-6">
 						<div className="flex flex-col items-center gap-2">
 							<CircularProgress
@@ -263,7 +264,7 @@ const AdminUserDetails = () => {
 			</div>
 
 			{/* ================= ASSIGN SUBSCRIPTION ================= */}
-			{!subscription && (
+			{subscription.status === "none" && (
 				<div className="card space-y-4">
 					<h2 className="text-lg font-semibold text-primary">
 						Assign Subscription
