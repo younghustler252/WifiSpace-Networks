@@ -85,12 +85,8 @@ export const getAllUsers = async (filters = {}, sort = "", page = 1, limit = 10)
 
 
 export const createUser = async (userData) => {
-    try {
-        const { data } = await API.post("/admin/users", userData);
-        return data;
-    } catch (error) {
-        throw handleError(error);
-    }
+    const { data } = await API.post("/admin/users", userData);
+    return data;
 };
 
 export const getUserById = async (id) => {
@@ -197,3 +193,56 @@ export const getPaymentAnalytics = async () => {
         throw handleError(error);
     }
 };
+
+// DELETE USER
+export const deleteUserById = async (userId) => {
+    try {
+        const { data } = await API.delete(`/admin/users/${userId}`);
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+// ASSIGN / ACTIVATE SUBSCRIPTION
+export const assignSubscriptionToUser = async (userId, subscriptionData) => {
+    /**
+     * subscriptionData example:
+     * {
+     *    subscriptionId: "123456",
+     *    startDate: "2026-02-03T00:00:00Z",   // optional
+     *    endDate: "2026-03-03T00:00:00Z"      // optional
+     * }
+     */
+    try {
+        const { data } = await API.put(`/admin/users/${userId}/subscription`, subscriptionData);
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+// UPDATE USER INFO (ADMIN)
+export const updateUserById = async (userId, updateData) => {
+    /**
+     * updateData example:
+     * {
+     *    firstName: "John",
+     *    lastName: "Doe",
+     *    email: "john@example.com",
+     *    password: "newpassword",   // optional
+     *    macAddress: "00:11:22:33:44:55", // optional
+     *    address: "123 Street",     // optional
+     *    profile: "premium"         // optional, will update MikroTik
+     * }
+     */
+    try {
+        const { data } = await API.put(`/admin/users/${userId}`, updateData);
+        return data;
+    } catch (error) {
+        throw handleError(error);
+    }
+};
+
+
+

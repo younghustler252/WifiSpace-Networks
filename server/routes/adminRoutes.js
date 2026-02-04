@@ -16,6 +16,9 @@ const {
     getAllUsers,
     createUser,
     getUserById,
+    updateUser,
+    deleteUser,
+    assignSubscription,
     getUserByWsn,
     searchUsers,
     banUser,
@@ -45,9 +48,14 @@ router.delete("/subscriptions/:id", deleteSubscription);
 // ---------------------------
 // User routes
 // ---------------------------
+
+// Search users
 router.get("/users/search", searchUsers);
+
+// Get user by WSN ID
 router.get("/users/wsn/:wsnId", getUserByWsn);
 
+// Get user by ID
 router.get("/users/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -56,9 +64,40 @@ router.get("/users/:id", asyncHandler(async (req, res) => {
     await getUserById(req, res);
 }));
 
+// Get all users
 router.get("/users", getAllUsers);
+
+// Create user
 router.post("/users", createUser);
 
+// Update user info (including password)
+router.put("/users/:id", asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+    }
+    await updateUser(req, res);
+}));
+
+// Delete user
+router.delete("/users/:id", asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+    }
+    await deleteUser(req, res);
+}));
+
+// Assign / activate subscription
+router.put("/users/:userId/subscription", asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+    }
+    await assignSubscription(req, res);
+}));
+
+// Ban / unban user
 router.put("/users/ban/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -67,6 +106,7 @@ router.put("/users/ban/:id", asyncHandler(async (req, res) => {
     await banUser(req, res);
 }));
 
+// Force expire subscription
 router.put("/users/force-expire/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -75,6 +115,7 @@ router.put("/users/force-expire/:id", asyncHandler(async (req, res) => {
     await forceExpireSubscription(req, res);
 }));
 
+// Update user role
 router.put("/users/role/:id", asyncHandler(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {

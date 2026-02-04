@@ -19,20 +19,17 @@ import {
 const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 	const { user } = useAuth();
 
-	// Base nav items
 	const baseNavItems = [
 		{ name: "Dashboard", path: ROUTE.dashboard, icon: Grid },
 		{ name: "Profile", path: ROUTE.profile, icon: ProfileIcon },
 	];
 
-	// User-specific items
 	const userNavItems = [
 		{ name: "Subscriptions", path: ROUTE.subscriptions, icon: CreditCard },
 		{ name: "Transactions", path: ROUTE.transactions, icon: BarChart2 },
 		{ name: "Devices", path: ROUTE.devices, icon: Wifi },
 	];
 
-	// Admin items
 	const adminNavItems = [
 		{ name: "Admin Dashboard", path: ROUTE.adminDashboard, icon: Shield },
 		{ name: "Manage Users", path: ROUTE.manageUsers, icon: Users },
@@ -40,13 +37,9 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 		{ name: "Payments", path: ROUTE.adminPayments, icon: Receipt },
 	];
 
-	// Combine nav items based on role
 	let navItems = [...baseNavItems];
-	if (user?.role === "admin") {
-		navItems = [...navItems, ...userNavItems, ...adminNavItems];
-	} else {
-		navItems = [...navItems, ...userNavItems];
-	}
+	if (user?.role === "admin") navItems = [...navItems, ...userNavItems, ...adminNavItems];
+	else navItems = [...navItems, ...userNavItems];
 
 	const textClass = isCollapsed ? "hidden" : "block";
 
@@ -58,11 +51,9 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
           flex flex-col transition-[width,transform] duration-300
           ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
 			>
-				{/* Sidebar Header */}
+				{/* Header */}
 				<div className="flex items-center justify-between px-4 h-14 border-b border-surface">
 					<Logo collapsed={isCollapsed} />
-
-					{/* Mobile close button */}
 					<button
 						className="lg:hidden focus:outline-none focus:ring-2 focus:ring-accent rounded"
 						onClick={() => setMobileOpen(false)}
@@ -84,10 +75,10 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 										title={isCollapsed ? item.name : undefined}
 										onClick={() => mobileOpen && setMobileOpen(false)}
 										className={({ isActive }) =>
-											`flex items-center gap-3 px-4 py-2 rounded-lg transition-all duration-200 min-w-0
+											`flex items-center gap-3 px-4 py-2 rounded-lg transition-colors duration-200 min-w-0
                       ${isActive
 												? "bg-accent/10 text-accent font-semibold"
-												: "text-secondary hover:bg-surface-hover"
+												: "text-secondary hover:bg-hover hover:text-primary"
 											}`
 										}
 									>
@@ -114,13 +105,11 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 								<div className="font-medium text-primary truncate">
 									{user?.fullName || `${user.firstName} ${user.lastName}`}
 								</div>
-								<div className="text-xs text-secondary truncate">
-									{user?.role || "user"}
-								</div>
+								<div className="text-xs text-secondary truncate">{user?.role || "user"}</div>
 							</div>
 						</div>
 
-						{/* Collapsed Mode */}
+						{/* Collapsed Footer */}
 						{isCollapsed && (
 							<div className="flex justify-center mt-2">
 								<Avatar
@@ -140,7 +129,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, isCollapsed }) => {
 			{mobileOpen && (
 				<div
 					onClick={() => setMobileOpen(false)}
-					className="fixed inset-0 bg-black/40 lg:hidden z-30"
+					className="fixed inset-0 bg-black/40 lg:hidden transition-opacity"
 				/>
 			)}
 		</>

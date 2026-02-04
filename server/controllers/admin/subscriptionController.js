@@ -37,7 +37,7 @@ const createSubscription = asyncHandler(async (req, res) => {
     // -----------------------------
     // 3️⃣ Determine Mikrotik profile
     // -----------------------------
-    let profileToUse = mikrotikProfile || planName; // default to planName if none provided
+    let profileToUse = mikrotikProfile || "default"; // default to planName if none provided
 
     // Optionally, validate profile exists on Mikrotik
     try {

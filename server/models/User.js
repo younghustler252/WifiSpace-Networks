@@ -116,7 +116,8 @@ const userSchema = new mongoose.Schema({
 	wsnId: {
 		type: String,
 		unique: true,
-		sparse: true
+		sparse: true,
+		uppercase: true,
 	},
 
 	phone: {

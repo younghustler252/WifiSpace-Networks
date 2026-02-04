@@ -8,6 +8,9 @@ import {
     getAllUsers,
     createUser as createUserApi,
     getUserById,
+    deleteUserById,
+    updateUserById,
+    assignSubscriptionToUser,
     getUserByWsn,
     searchUsers,
     banUser,
@@ -125,6 +128,55 @@ export const useBanUser = () => {
         mutationFn: ({ id, ban }) => banUser(id, ban),
         onSuccess: () => {
             queryClient.invalidateQueries(["adminUsers"]);
+        },
+    });
+};
+
+
+// ------------------------------------------------------------
+// 2️⃣ Delete User
+// ------------------------------------------------------------
+export const useDeleteUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: deleteUserById,
+        onSuccess: () => {
+            // Invalidate user list so UI updates
+            queryClient.invalidateQueries(["users"]);
+        },
+    });
+};
+
+// ------------------------------------------------------------
+// 3️⃣ Update User
+// ------------------------------------------------------------
+export const useUpdateUser = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ userId, updateData }) => updateUserById(userId, updateData),
+        onSuccess: (_, { userId }) => {
+            // Refetch user info after update
+            queryClient.invalidateQueries(["adminUsers"]);       // user list
+            queryClient.invalidateQueries(["adminUser", userId]); // single user
+        },
+    });
+};
+
+
+// ------------------------------------------------------------
+// 4️⃣ Assign / Activate Subscription
+// ------------------------------------------------------------
+export const useAssignSubscription = () => {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ userId, subscriptionData }) => assignSubscriptionToUser(userId, subscriptionData),
+        onSuccess: (_, { userId }) => {
+            // Refetch user info after subscription assignment
+            queryClient.invalidateQueries(["users"]);
+            queryClient.invalidateQueries(["user", userId]);
         },
     });
 };

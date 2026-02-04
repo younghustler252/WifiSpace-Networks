@@ -1,18 +1,21 @@
-// components/ui/StatsCard.jsx
 import React from "react";
 
-const StatsCard = ({ title, value, icon, color }) => {
+const StatsCard = ({ title, value, icon, color = "bg-accent/10 text-accent", onClick }) => {
     return (
         <div
-            className={`flex items-center p-5 rounded-xl shadow-md bg-surface border border-surface hover:shadow-lg transition-all duration-200`}
+            onClick={onClick}
+            className={`card card-hover flex flex-col justify-between p-6 cursor-pointer transition-transform duration-200 hover:scale-105`}
         >
-            <div className={`p-3 rounded-full text-white ${color} mr-4`}>
+            {/* Icon */}
+            <div className={`w-12 h-12 flex items-center justify-center rounded-full ${color} mb-4`}>
                 {icon}
             </div>
-            <div>
-                <p className="text-gray-500 text-sm">{title}</p>
-                <p className="text-lg font-semibold text-primary">{value}</p>
-            </div>
+
+            {/* Title */}
+            <h3 className="text-sm font-semibold text-secondary">{title}</h3>
+
+            {/* Value */}
+            <p className="mt-1 text-2xl font-bold text-primary">{value}</p>
         </div>
     );
 };

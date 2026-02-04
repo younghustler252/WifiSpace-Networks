@@ -1,10 +1,10 @@
 // controllers/adminController.js
 const asyncHandler = require("express-async-handler");
-const User = require("../models/User");
+const User = require("../../models/User");
 const Subscription = require("../models/subscriptionModel");
 const Payment = require("../models/paymentModel");
-const mikrotikQueue = require("../queues/mikrotikQueue");
-const routerosHelpers = require("../utils/routerosHelpers");
+const mikrotikQueue = require("../../queues/mikrotikQueue");
+const routerosHelpers = require("../../utils/routerosHelpers");
 const validator = require("validator");
 
 // ---------------------------

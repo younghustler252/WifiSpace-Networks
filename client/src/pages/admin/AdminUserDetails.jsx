@@ -1,110 +1,327 @@
+import { useState } from "react";
 import { useParams } from "react-router-dom";
+
 import { FullScreenSpinner } from "../../components/ui/Loader";
 import Avatar from "../../components/ui/Avatar";
 import StatsCard from "../../components/StatsCard";
 import BackButton from "../../components/ui/BackButton";
-
-import { useUserById, useBanUser } from "../../hooks/useAdmin";
-
-import { Wifi, Upload, Download, Users, Clock, DollarSign, Server } from "lucide-react";
 import PaymentsSection from "../../components/PaymentsSection";
+import CircularProgress from "../../components/CircularProgress";
+import StatusBadge from "../../components/ui/StatusBadge";
+
+import {
+	Wifi,
+	Upload,
+	Download,
+	Users,
+	Clock,
+	DollarSign,
+	Server,
+	Calendar,
+} from "lucide-react";
 
 import { formatBytes, formatTime } from "../../utils/formatters";
 
+import {
+	useUserById,
+	useBanUser,
+	useAssignSubscription,
+} from "../../hooks/useAdmin";
+
+import { useAllPlans } from "../../hooks/useSubscription";
+
+/* ------------------------------------------------------------
+   Helpers
+------------------------------------------------------------ */
+const getSubscriptionProgress = (start, end) => {
+	const startDate = new Date(start);
+	const endDate = new Date(end);
+	const today = new Date();
+
+	const totalMs = endDate - startDate;
+	const usedMs = today - startDate;
+
+	const totalDays = Math.max(
+		1,
+		Math.ceil(totalMs / (1000 * 60 * 60 * 24))
+	);
+
+	const usedDays = Math.max(
+		0,
+		Math.ceil(usedMs / (1000 * 60 * 60 * 24))
+	);
+
+	const remainingDays = Math.max(0, totalDays - usedDays);
+
+	const percentRemaining = Math.round(
+		(remainingDays / totalDays) * 100
+	);
+
+	return {
+		totalDays,
+		usedDays,
+		remainingDays,
+		percentRemaining,
+	};
+};
+
+/* ------------------------------------------------------------
+   Component
+------------------------------------------------------------ */
 const AdminUserDetails = () => {
-    const { id } = useParams();
-    const { data, isLoading, isError } = useUserById(id);
-    const { mutate: banUser } = useBanUser();
+	const { id } = useParams();
 
-    if (isLoading) return <FullScreenSpinner message="Loading user details..." />;
-    if (isError) return <p className="text-red-500 text-center">Failed to load user details.</p>;
+	const { data, isLoading, isError } = useUserById(id);
+	const { mutate: banUser } = useBanUser();
+	const {
+		mutate: assignSubscription,
+		isPending: isAssigning,
+	} = useAssignSubscription();
 
-    const user = data.user;
-    const subscription = data.subscription?.plan || null;
-    const usage = data.usage || null;
-    const payments = data.recentPayments || [];
+	const { data: plans = [], isLoading: plansLoading } = useAllPlans();
 
-    const toggleBan = () => banUser({ id: user._id, ban: !user.isBanned });
+	const [selectedPlan, setSelectedPlan] = useState("");
+	const [startDate, setStartDate] = useState("");
+	const [feedback, setFeedback] = useState(null);
 
-    return (
-        <div className="max-w-7xl mx-auto p-6 space-y-8">
+	if (isLoading || plansLoading)
+		return <FullScreenSpinner message="Loading user details..." />;
 
-            {/* Back Button */}
-            <BackButton />
+	if (isError)
+		return (
+			<div className="card text-center text-danger py-6">
+				Failed to load user details.
+			</div>
+		);
 
-            {/* User Header */}
-            <div className="p-6 bg-surface border border-surface rounded-2xl shadow-md flex flex-col sm:flex-row items-center gap-6 hover:shadow-lg transition">
-                <Avatar
-                    src={user?.profilePicture || null}
-                    firstName={user?.firstName}
-                    lastName={user?.lastName}
-                    size={70}
-                />
-                <div className="space-y-1 flex-1">
-                    <h1 className="text-2xl font-bold text-primary">{user.firstName} {user.lastName}</h1>
-                    <p className="text-secondary">{user.email}</p>
-                    {user.wsnId && (
-                        <p className="text-sm text-muted">
-                            WSN ID: <span className="font-medium">{user.wsnId}</span>
-                        </p>
-                    )}
-                    <p className="text-sm text-muted">
-                        NIN: <span className="font-medium">{user.nin || "N/A"}</span>
-                    </p>
-                    <p className="text-sm text-muted">
-                        Address: <span className="font-medium">{user.address || "N/A"}</span>
-                    </p>
-                    <p className="text-sm text-muted">
-                        Role: <span className="font-medium">{user.role || "N/A"}</span>
-                    </p>
-                    <span
-                        className={`inline-block text-xs px-2 py-1 rounded-full font-semibold ${user.isBanned ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}
-                    >
-                        {user.isBanned ? "BANNED" : "ACTIVE"}
-                    </span>
-                </div>
+	const user = data.user;
+	const subscription = data.subscription || null;
+	const usage = data.usage || null;
+	const payments = data.recentPayments || [];
 
-                {/* Ban Button */}
-                <button
-                    onClick={toggleBan}
-                    className={`px-4 py-2 rounded-lg text-white font-medium ${user.isBanned ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} transition`}
-                >
-                    {user.isBanned ? "Unban User" : "Ban User"}
-                </button>
-            </div>
+	const subscriptionMeta = subscription
+		? getSubscriptionProgress(subscription.start, subscription.end)
+		: null;
 
-            {/* Usage Stats Cards */}
-            {usage && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatsCard title="Total Data In" value={formatBytes(usage.totalBytesIn)} icon={<Download size={24} />} color="bg-blue-500" />
-                    <StatsCard title="Total Data Out" value={formatBytes(usage.totalBytesOut)} icon={<Upload size={24} />} color="bg-green-500" />
-                    <StatsCard title="Devices Connected" value={usage.devicesConnected} icon={<Users size={24} />} color="bg-purple-500" />
-                    <StatsCard title="Total Time Online" value={formatTime(usage.totalTimeOnline)} icon={<Clock size={24} />} color="bg-yellow-500" />
-                </div>
-            )}
+	const toggleBan = () =>
+		banUser({ id: user._id, ban: !user.isBanned });
 
-            {/* Subscription Card */}
-            <div className="p-6 bg-surface border border-surface rounded-2xl shadow-md hover:shadow-lg transition">
-                <h2 className="text-lg font-semibold text-primary mb-4">Subscription</h2>
-                {subscription ? (
-                    <div className="grid gap-3 text-primary text-sm">
-                        <div className="flex items-center gap-2"><Server size={18} /> {subscription.planName}</div>
-                        <div className="flex items-center gap-2"><DollarSign size={18} /> Price: ${subscription.price}</div>
-                        <div className="flex items-center gap-2"><Wifi size={18} /> Speed: {subscription.speedRate}</div>
-                        <div className="flex items-center gap-2"><Users size={18} /> Devices: {subscription.devicesAllowed}</div>
-                        {subscription.features && <p className="mt-2"><strong>Features:</strong> {subscription.features.join(", ")}</p>}
-                        <p><strong>MikroTik Profile:</strong> {subscription.mikrotikProfile}</p>
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-sm">No active subscription.</p>
-                )}
-            </div>
+	const handleAssignSubscription = () => {
+		if (!selectedPlan) {
+			setFeedback({
+				type: "error",
+				message: "Please select a subscription plan.",
+			});
+			return;
+		}
 
-            {/* Recent Payments Section */}
-            <PaymentsSection payments={payments} />
+		assignSubscription(
+			{
+				userId: user._id,
+				subscriptionData: {
+					subscriptionId: selectedPlan,
+					startDate: startDate || new Date().toISOString(),
+				},
+			},
+			{
+				onSuccess: () => {
+					setFeedback({
+						type: "success",
+						message: "Subscription assigned successfully.",
+					});
+					setSelectedPlan("");
+					setStartDate("");
+				},
+				onError: (err) => {
+					setFeedback({
+						type: "error",
+						message:
+							err?.response?.data?.message ||
+							"Failed to assign subscription.",
+					});
+				},
+			}
+		);
+	};
 
-        </div>
-    );
+	return (
+		<div className="max-w-7xl mx-auto p-4 md:p-6 space-y-8">
+
+			<BackButton />
+
+			{/* ================= USER HEADER ================= */}
+			<div className="card flex flex-col md:flex-row items-start md:items-center gap-6">
+				<Avatar
+					src={user.profilePicture || null}
+					firstName={user.firstName}
+					lastName={user.lastName}
+					size={72}
+				/>
+
+				<div className="flex-1 space-y-1">
+					<h1 className="text-2xl font-bold text-primary">
+						{user.firstName} {user.lastName}
+					</h1>
+					<p className="text-secondary">{user.email}</p>
+					<p className="text-sm text-muted">
+						WSN ID: {user.wsnId || "N/A"}
+					</p>
+					<p className="text-sm text-muted capitalize">
+						Role: {user.role}
+					</p>
+
+					<div className="mt-2">
+						<StatusBadge
+							status={user.isBanned ? "suspended" : "active"}
+						/>
+					</div>
+				</div>
+
+				<button
+					onClick={toggleBan}
+					className={`btn ${
+						user.isBanned ? "btn-success" : "btn-danger"
+					}`}
+				>
+					{user.isBanned ? "Restore User" : "Suspend User"}
+				</button>
+			</div>
+
+			{/* ================= USAGE STATS ================= */}
+			{usage && (
+				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+					<StatsCard
+						title="Data In"
+						value={formatBytes(usage.totalBytesIn)}
+						icon={<Download size={20} />}
+					/>
+					<StatsCard
+						title="Data Out"
+						value={formatBytes(usage.totalBytesOut)}
+						icon={<Upload size={20} />}
+					/>
+					<StatsCard
+						title="Devices"
+						value={usage.devicesConnected}
+						icon={<Users size={20} />}
+					/>
+					<StatsCard
+						title="Online Time"
+						value={formatTime(usage.totalTimeOnline)}
+						icon={<Clock size={20} />}
+					/>
+				</div>
+			)}
+
+			{/* ================= CURRENT SUBSCRIPTION ================= */}
+			<div className="card space-y-4">
+				<h2 className="text-lg font-semibold text-primary">
+					Current Subscription
+				</h2>
+
+				{subscription ? (
+					<div className="flex flex-col sm:flex-row gap-6">
+						<div className="flex flex-col items-center gap-2">
+							<CircularProgress
+								percent={subscriptionMeta.percentRemaining}
+							/>
+							<p className="text-xs text-muted">
+								{subscriptionMeta.remainingDays} days left
+							</p>
+						</div>
+
+						<div className="grid gap-2 text-sm">
+							<div className="flex items-center gap-2">
+								<Server size={16} />
+								{subscription.plan.planName}
+							</div>
+							<div className="flex items-center gap-2">
+								<DollarSign size={16} />
+								₦{subscription.plan.price}
+							</div>
+							<div className="flex items-center gap-2">
+								<Wifi size={16} />
+								{subscription.plan.speedRate} Mbps
+							</div>
+							<div className="flex items-center gap-2">
+								<Users size={16} />
+								{subscription.plan.devicesAllowed} device(s)
+							</div>
+							<div className="flex items-center gap-2">
+								<Calendar size={16} />
+								{new Date(subscription.start).toDateString()}
+								{" → "}
+								{new Date(subscription.end).toDateString()}
+							</div>
+						</div>
+					</div>
+				) : (
+					<p className="text-sm text-muted">
+						No active subscription.
+					</p>
+				)}
+			</div>
+
+			{/* ================= ASSIGN SUBSCRIPTION ================= */}
+			{!subscription && (
+				<div className="card space-y-4">
+					<h2 className="text-lg font-semibold text-primary">
+						Assign Subscription
+					</h2>
+
+					{feedback && (
+						<div
+							className={`text-sm px-4 py-2 rounded-md ${
+								feedback.type === "success"
+									? "bg-green-100 text-green-700"
+									: "bg-red-100 text-red-700"
+							}`}
+						>
+							{feedback.message}
+						</div>
+					)}
+
+					<div className="grid sm:grid-cols-3 gap-4">
+						<select
+							value={selectedPlan}
+							onChange={(e) =>
+								setSelectedPlan(e.target.value)
+							}
+							className="input"
+						>
+							<option value="">Select Plan</option>
+							{plans.map((plan) => (
+								<option key={plan._id} value={plan._id}>
+									{plan.planName} – ₦{plan.price}
+								</option>
+							))}
+						</select>
+
+						<input
+							type="date"
+							value={startDate}
+							onChange={(e) =>
+								setStartDate(e.target.value)
+							}
+							className="input"
+						/>
+
+						<button
+							onClick={handleAssignSubscription}
+							disabled={isAssigning}
+							className="btn btn-primary"
+						>
+							{isAssigning ? "Assigning..." : "Assign"}
+						</button>
+					</div>
+				</div>
+			)}
+
+			{/* ================= PAYMENTS ================= */}
+			<PaymentsSection payments={payments} />
+
+		</div>
+	);
 };
 
 export default AdminUserDetails;

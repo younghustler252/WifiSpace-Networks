@@ -23,14 +23,13 @@ const getAllUsers = asyncHandler(async (req, res) => {
 
     // Apply filters if present in query
     if (filter) {
-        const filters = JSON.parse(filter); // For example: { wsnId: '001', activeSubscription: true }
+        const filters = JSON.parse(filter); 
         if (filters.wsnId) {
             query.wsnId = { $regex: new RegExp(`^${filters.wsnId}`, "i") };  // Filter by wsnId
         }
         if (filters.activeSubscription !== undefined) {
             query['subscription.isActive'] = filters.activeSubscription;  // Filter by subscription status
         }
-        // Add more filters as needed (e.g., user role, active status)
     }
 
     // Apply sorting if specified in query
@@ -78,9 +77,6 @@ const createUser = asyncHandler(async (req, res) => {
     if (!validateEmail(email))
         return res.status(400).json({ message: "Invalid email format." });
 
-    if (!password)
-        return res.status(400).json({ message: "Password is required." });
-
     if (!validatePassword(password))
         return res.status(400).json({ message: "Password must be at least 6 characters." });
 
@@ -89,43 +85,45 @@ const createUser = asyncHandler(async (req, res) => {
     if (existingUser)
         return res.status(409).json({ message: "Email already registered." });
 
-    // If the admin provides a custom wsnId, ensure it's unique
+    // Ensure custom wsnId is unique
     if (customWsnId) {
         const existingWsnUser = await User.findOne({ wsnId: customWsnId });
-        if (existingWsnUser) {
+        if (existingWsnUser)
             return res.status(409).json({ message: `WSN ID ${customWsnId} is already taken.` });
-        }
     }
 
-    // If no custom wsnId is provided, generate a new one
+    // Generate or use provided WSN ID
     const wsnId = customWsnId || await generateWsnId();
 
-    // Create user in MongoDB with the role and address
+    // Create user in MongoDB
     const newUser = await User.create({
         firstName,
         lastName,
         email,
         password,
         macAddress,
-        role,  // Admin sets role (e.g., admin, user, etc.)
-        address,  // Admin can set address
-        wsnId,  // Use the provided or generated WSN ID
+        role,
+        address,
+        wsnId,
     });
 
-    // Enqueue MikroTik creation job asynchronously
-    await mikrotikQueue.add("createUser", {
+    // 🔹 Queue MikroTik job asynchronously (non-blocking)
+    mikrotikQueue.add("createUser", {
         userId: newUser._id,
         username: newUser.wsnId,
         password,
-        profile: profile || "default"  // Assign a default or custom profile
+        profile: profile || "default"
+    }).catch(err => {
+        console.error("⚠️ MikroTik job failed to enqueue:", err);
+        // Optional: send alert or save in DB for retry
     });
 
-    // Generate JWT token for the new user (optional, depending on your use case)
+    // Generate JWT token (optional)
     const token = generateToken(newUser);
 
-    // Send success response
+    // Send response immediately
     res.status(201).json({
-        message: "User created successfully.",
+        message: "User created successfully. MikroTik initialization may be pending.",
         user: {
             _id: newUser._id,
             firstName: newUser.firstName,
@@ -133,12 +131,13 @@ const createUser = asyncHandler(async (req, res) => {
             email: newUser.email,
             wsnId: newUser.wsnId,
             macAddress: newUser.macAddress,
-            role: newUser.role,  // Admin can assign role
-            address: newUser.address,  // Admin can assign address
+            role: newUser.role,
+            address: newUser.address,
         },
-        token,  // Include token in response (optional)
+        token,
     });
 });
+
 
 
 // ----------------------------------------------------
@@ -350,6 +349,152 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
     });
 });
 
+// ----------------------------------------------------
+// DELETE USER
+// ----------------------------------------------------
+const deleteUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // 🔹 Fire-and-forget MikroTik disable
+    mikrotikQueue.add("disableUser", {
+        userId: user._id,
+        wsnId: user.wsnId,
+    }).catch(err => console.error("⚠️ MikroTik job failed to enqueue:", err));
+
+    // Delete related payments
+    await Payment.deleteMany({ userId: id });
+
+    // Delete subscription if exists
+    if (user.subscription) {
+        await Subscription.findByIdAndDelete(user.subscription);
+    }
+
+    // Delete user
+    await user.deleteOne();
+
+    res.status(200).json({ message: "User deleted successfully" });
+});
+
+
+const updateUser = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const { firstName, lastName, email, macAddress, address, profile, password } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Validate email if provided
+    if (email && !validateEmail(email))
+        return res.status(400).json({ message: "Invalid email format." });
+
+    // Check if new email is already used
+    if (email && email !== user.email) {
+        const emailExists = await User.findOne({ email });
+        if (emailExists) return res.status(409).json({ message: "Email already in use." });
+    }
+
+    // Update fields if provided
+    if (firstName) user.firstName = firstName;
+    if (lastName) user.lastName = lastName;
+    if (email) user.email = email;
+    if (macAddress) user.macAddress = macAddress;
+    if (address) user.address = address;
+
+    // Update password if provided
+    if (password) {
+        if (!validatePassword(password)) {
+            return res.status(400).json({ message: "Password must be at least 6 characters." });
+        }
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(password, salt);
+    }
+
+    await user.save();
+
+    // 🔹 Fire-and-forget MikroTik profile update
+    if (profile) {
+        mikrotikQueue.add("updateUserProfile", {
+            userId: user._id,
+            wsnId: user.wsnId,
+            profile
+        }).catch(err => console.error("⚠️ MikroTik job failed to enqueue:", err));
+    }
+
+    res.status(200).json({
+        message: "User updated successfully",
+        user: {
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            wsnId: user.wsnId,
+            macAddress: user.macAddress,
+            address: user.address,
+            role: user.role,
+        }
+    });
+});
+
+
+// ----------------------------------------------------
+// ASSIGN / ACTIVATE SUBSCRIPTION
+// ----------------------------------------------------
+const assignSubscription = asyncHandler(async (req, res) => {
+    const { userId } = req.params;
+    const { subscriptionId, startDate, endDate } = req.body;
+
+    if (!subscriptionId) {
+        return res.status(400).json({ message: "subscriptionId is required" });
+    }
+
+    // Find user
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Find subscription plan
+    const subscription = await Subscription.findById(subscriptionId);
+    if (!subscription) return res.status(404).json({ message: "Subscription plan not found" });
+
+    // Set dates
+    const start = startDate ? new Date(startDate) : new Date();
+    const end = endDate ? new Date(endDate) : new Date(start.getTime() + subscription.durationDays * 24 * 60 * 60 * 1000);
+
+    // Update user subscription info
+    user.subscription = subscription._id;
+    user.subscriptionStatus = "active";
+    user.subscriptionStart = start;
+    user.subscriptionEnd = end;
+    user.cancelAtPeriodEnd = false;
+
+    await user.save();
+
+    // 🔹 Fire-and-forget: activate user on MikroTik
+    mikrotikQueue.add("enableUser", {
+        userId: user._id,
+        wsnId: user.wsnId,
+        profile: subscription.profile || "default",
+        startDate: start,
+        endDate: end
+    }).catch(err => console.error("⚠️ MikroTik job failed to enqueue:", err));
+
+    res.status(200).json({
+        message: "Subscription assigned and activated successfully",
+        user: {
+            _id: user._id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            wsnId: user.wsnId,
+            subscription: subscription.planName,
+            subscriptionStatus: user.subscriptionStatus,
+            subscriptionStart: user.subscriptionStart,
+            subscriptionEnd: user.subscriptionEnd
+        }
+    });
+});
+
 
 module.exports = {
     getAllUsers,
@@ -357,8 +502,11 @@ module.exports = {
     getUserById,
     getUserByWsn,
     searchUsers,
+    updateUser,
+    deleteUser,
     banUser,
     forceExpireSubscription,
     updateUserRole,
+    assignSubscription,
     getAdminDashboard,
 };

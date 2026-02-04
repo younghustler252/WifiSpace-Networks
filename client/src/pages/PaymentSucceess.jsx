@@ -4,7 +4,7 @@ import { useVerifyPaymentStatus } from "../hooks/usePayment";
 import { Spinner } from "../components/ui/Loader";
 import { CheckCircle, XCircle } from "lucide-react";
 import { ROUTE } from "../Routes/Route";
-import { motion } from "framer-motion"; // For smooth animations
+import { motion } from "framer-motion";
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -22,12 +22,9 @@ const PaymentSuccess = () => {
   } = useVerifyPaymentStatus();
 
   useEffect(() => {
-    if (reference) {
-      verifyPaymentStatus(reference);
-    }
+    if (reference) verifyPaymentStatus(reference);
   }, [reference, verifyPaymentStatus]);
 
-  // Auto redirect after success
   useEffect(() => {
     if (data?.message?.includes("Payment verified")) {
       const timer = setInterval(() => {
@@ -45,30 +42,28 @@ const PaymentSuccess = () => {
 
   if (isLoading)
     return (
-      <div className="flex items-center justify-center min-h-[70vh]">
+      <div className="flex items-center justify-center min-h-[70vh] px-4">
         <Spinner message="Verifying payment..." />
       </div>
     );
 
   if (isError)
     return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-4">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 px-4">
         <motion.div
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
           transition={{ type: "spring", stiffness: 300 }}
         >
-          <XCircle size={60} className="text-red-500" />
+          <XCircle size={70} className="text-red-500" />
         </motion.div>
-        <h2 className="text-2xl font-semibold text-red-700">
-          Payment Failed
-        </h2>
-        <p className="text-red-600 text-center max-w-sm">
+        <h2 className="text-2xl font-bold text-red-700">Payment Failed</h2>
+        <p className="text-center text-red-600 max-w-sm">
           {error?.message || "The payment could not be completed."}
         </p>
         <button
           onClick={() => navigate(ROUTE.subscriptions)}
-          className="mt-4 px-8 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300"
+          className="btn btn-danger w-full sm:w-auto px-6 py-3 rounded-2xl shadow-lg hover:scale-105 transition-transform duration-300"
         >
           Try Again
         </button>
@@ -79,41 +74,38 @@ const PaymentSuccess = () => {
   const success = data?.message?.includes("Payment verified");
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-      <h1 className="text-3xl font-bold text-primary mb-8">Payment Status</h1>
+    <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 py-8">
+      <h1 className="text-3xl font-bold text-primary mb-8 text-center">
+        Payment Status
+      </h1>
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="relative w-full max-w-md p-8 rounded-3xl backdrop-blur-md bg-white/20 border border-white/30 shadow-lg flex flex-col items-center space-y-6"
+        className="w-full max-w-md p-8 rounded-3xl bg-surface border border-border-color shadow-lg flex flex-col items-center space-y-6"
       >
         {success ? (
           <>
             <motion.div
               initial={{ scale: 0 }}
-              animate={{ scale: 1.3 }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 15,
-                repeat: 1,
-                repeatType: "reverse",
-              }}
+              animate={{ scale: 1.2 }}
+              transition={{ type: "spring", stiffness: 300, damping: 15 }}
             >
-              <CheckCircle size={70} className="text-green-500" />
+              <CheckCircle size={70} className="text-success" />
             </motion.div>
 
-            <h2 className="text-2xl font-bold text-green-700">
+            <h2 className="text-2xl font-bold text-success">
               Payment Successful!
             </h2>
 
-            <p className="text-center text-green-600">
-              Your subscription for <strong>{payment?.planName}</strong> is now
+            <p className="text-center text-primary">
+              Your subscription for{" "}
+              <strong className="text-accent">{payment?.planName}</strong> is now
               active.
             </p>
 
-            <p className="text-sm text-green-500">
+            <p className="text-sm text-secondary text-center">
               Redirecting to dashboard in <strong>{countdown}</strong> seconds...
             </p>
 
@@ -121,7 +113,7 @@ const PaymentSuccess = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate(ROUTE.dashboard)}
-              className="mt-4 px-8 py-3 bg-gradient-to-r from-green-400 to-emerald-500 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              className="btn btn-success w-full sm:w-auto px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
             >
               Go to Dashboard Now
             </motion.button>
@@ -136,9 +128,7 @@ const PaymentSuccess = () => {
               <XCircle size={70} className="text-red-500" />
             </motion.div>
 
-            <h2 className="text-2xl font-bold text-red-700">
-              Payment Failed
-            </h2>
+            <h2 className="text-2xl font-bold text-red-700">Payment Failed</h2>
 
             <p className="text-center text-red-600">
               Something went wrong. Please try again.
@@ -148,7 +138,7 @@ const PaymentSuccess = () => {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => navigate(ROUTE.subscriptions)}
-              className="mt-4 px-8 py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+              className="btn btn-danger w-full sm:w-auto px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
             >
               Retry Payment
             </motion.button>
