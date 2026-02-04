@@ -10,64 +10,60 @@ let cacheTimestamp = 0;
 // ADMIN: CREATE SUBSCRIPTION PLAN
 // ------------------------------------------------------------
 const createSubscription = asyncHandler(async (req, res) => {
-    const {
-        planName,
-        price,
-        speedRate,
-        devicesAllowed,
-        features,
-        mikrotikProfile,
-        durationDays,
-        description
-    } = req.body;
+	const {
+		planName,
+		price,
+		speedRate,
+		devicesAllowed,
+		features,
+		mikrotikProfile,
+		durationDays,
+		description,
+	} = req.body;
 
-    // -----------------------------
-    // 1️⃣ Basic validation
-    // -----------------------------
-    if (!planName || price == null || !speedRate) {
-        return res.status(400).json({ message: "Missing required fields: planName, price, or speedRate." });
-    }
+	// 1️⃣ Basic validation
+	if (!planName || price == null || !speedRate) {
+		return res
+			.status(400)
+			.json({ message: "Missing required fields: planName, price, or speedRate." });
+	}
 
-    // -----------------------------
-    // 2️⃣ Check if plan already exists
-    // -----------------------------
-    const existing = await Subscription.findOne({ planName });
-    if (existing) return res.status(400).json({ message: "Plan name already exists." });
+	const existing = await Subscription.findOne({ planName });
+	if (existing)
+		return res.status(400).json({ message: "Plan name already exists." });
 
-    // -----------------------------
-    // 3️⃣ Determine Mikrotik profile
-    // -----------------------------
-    let profileToUse = mikrotikProfile || "default"; // default to planName if none provided
+	let profileToUse = mikrotikProfile || "default";
 
-    // Optionally, validate profile exists on Mikrotik
-    try {
-        const routerProfiles = await getRouterProfiles(); // fetch available profiles from Mikrotik
-        if (!routerProfiles.includes(profileToUse)) {
-            return res.status(400).json({
-                message: `Mikrotik profile "${profileToUse}" does not exist on the router. Available profiles: ${routerProfiles.join(', ')}`
-            });
-        }
-    } catch (err) {
-        console.error("Failed to fetch Mikrotik profiles:", err);
-        return res.status(500).json({ message: "Error validating Mikrotik profile." });
-    }
+	let mikrotikWarning = null;
+	// try {
+	// 	const routerProfiles = await getRouterProfiles();
+	// 	if (!routerProfiles.includes(profileToUse)) {
+	// 		mikrotikWarning = `Mikrotik profile "${profileToUse}" does not exist on the router. Available profiles: ${routerProfiles.join(
+	// 			", "
+	// 		)}.`;
+	// 	}
+	// } catch (err) {
+	// 	console.warn("⚠️ Failed to fetch Mikrotik profiles:", err.message);
+	// 	mikrotikWarning = "Could not validate Mikrotik profile (router offline).";
+	// }
 
-    // -----------------------------
-    // 4️⃣ Create the plan
-    // -----------------------------
-    const plan = await Subscription.create({
-        planName,
-        price,
-        speedRate,
-        devicesAllowed: devicesAllowed || 1,
-        features: Array.isArray(features) ? features : [],
-        mikrotikProfile: profileToUse,
-        durationDays: durationDays || 30,
-        description,
-    });
+	// 5️⃣ Create the plan
+	const plan = await Subscription.create({
+		planName,
+		price,
+		speedRate,
+		devicesAllowed: devicesAllowed || 1,
+		features: Array.isArray(features) ? features : [],
+		mikrotikProfile: profileToUse,
+		durationDays: durationDays || 30,
+		description,
+	});
 
-    res.status(201).json({ message: "Plan created successfully", plan });
+	const response = { message: "Plan created successfully", plan };
+
+	res.status(201).json(response);
 });
+
 
 
 const getMikrotikProfiles = asyncHandler(async (req, res) => {

@@ -9,29 +9,31 @@ export default function AuthLayout() {
 			{/* Left Section: Branding + Professional Message */}
 			<div className="hidden lg:flex items-center justify-center bg-primary/5">
 				<div className="max-w-md text-center px-8">
-					{/* Logo */}
 					<img src={logoDark} alt="Company Logo" className="mx-auto mb-6 w-32 h-auto" />
-
-					{/* Professional Headline */}
-					<h1 className="text-4xl font-bold text-primary">
-						Manage Your Account
-					</h1>
-
-					{/* Tagline / Description */}
+					<h1 className="text-4xl font-bold text-primary">Manage Your Account</h1>
 					<p className="mt-4 text-primary/70 text-lg">
 						Log in to access your subscriptions, reports, and settings.
 					</p>
 				</div>
 			</div>
 
-			{/* Right Section: Authentication Form */}
-			<div className="flex items-center justify-center px-6">
-				<div className="w-full max-w-md space-y-6">
+			{/* Right Section: Authentication Form + Mobile Branding */}
+			<div className="flex flex-col items-center justify-center px-6 py-12 lg:py-0">
+				
+				{/* Mobile Branding (visible on small screens only) */}
+				<div className="lg:hidden text-center mb-8">
+					<img src={logoDark} alt="Company Logo" className="mx-auto mb-4 w-24 h-auto" />
+					<h1 className="text-2xl font-bold text-primary">Manage Your Account</h1>
+					<p className="mt-2 text-primary/70 text-base">
+						Log in to access your subscriptions, reports, and settings.
+					</p>
+				</div>
 
+				{/* Auth Form */}
+				<div className="w-full max-w-md space-y-6">
 					<Card>
 						<Outlet />
 					</Card>
-
 				</div>
 			</div>
 

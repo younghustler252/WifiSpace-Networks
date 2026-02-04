@@ -141,6 +141,7 @@ const SubscriptionForm = ({
 							name="mikrotikProfile"
 							value={form.mikrotikProfile}
 							onChange={onChange}
+							disabled={profilesLoading || profiles.length === 0}
 							className="w-full px-4 py-2 border border-surface rounded-md bg-card text-primary focus:outline-none focus-ring"
 						>
 							<option value="">None</option>

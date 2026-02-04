@@ -233,19 +233,19 @@ const AdminUserDetails = () => {
 						<div className="grid gap-2 text-sm">
 							<div className="flex items-center gap-2">
 								<Server size={16} />
-								{subscription.plan.planName}
+								{subscription.plan?.planName}
 							</div>
 							<div className="flex items-center gap-2">
 								<DollarSign size={16} />
-								₦{subscription.plan.price}
+								₦{subscription.plan?.price}
 							</div>
 							<div className="flex items-center gap-2">
 								<Wifi size={16} />
-								{subscription.plan.speedRate} Mbps
+								{subscription.plan?.speedRate} Mbps
 							</div>
 							<div className="flex items-center gap-2">
 								<Users size={16} />
-								{subscription.plan.devicesAllowed} device(s)
+								{subscription.plan?.devicesAllowed} device(s)
 							</div>
 							<div className="flex items-center gap-2">
 								<Calendar size={16} />

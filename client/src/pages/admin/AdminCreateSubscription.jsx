@@ -6,10 +6,15 @@ import BackButton from "../../components/ui/BackButton";
 
 const AdminCreateSubscription = () => {
 	const navigate = useNavigate();
-	const { mutate: createPlan, isPending } = useCreateSubscription();
-	const { data, isLoading } = useMikrotikProfiles();
-	const profiles = data?.data?.profiles || [];
 
+	// ✅ Use React Query mutation
+	const { mutate: createPlan, status, error, isError, isSuccess, isPending, data } = useCreateSubscription();
+
+	// ✅ Load Mikrotik profiles
+	const { data: profileData, isLoading: profilesLoading } = useMikrotikProfiles();
+	const profiles = profileData?.data?.profiles || [];
+
+	// Form state
 	const [form, setForm] = useState({
 		planName: "",
 		price: "",
@@ -19,12 +24,18 @@ const AdminCreateSubscription = () => {
 		durationDays: "30",
 		mikrotikProfile: "",
 	});
+
 	const [errorMessage, setErrorMessage] = useState("");
 	const [successMessage, setSuccessMessage] = useState("");
 
-	const handleChange = e => setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+	// Handle input change
+	const handleChange = (e) => {
+		const { name, value } = e.target;
+		setForm((prev) => ({ ...prev, [name]: value }));
+	};
 
-	const handleSubmit = e => {
+	// Handle form submit
+	const handleSubmit = (e) => {
 		e.preventDefault();
 		setErrorMessage("");
 		setSuccessMessage("");
@@ -35,17 +46,32 @@ const AdminCreateSubscription = () => {
 			speedRate: Number(form.speedRate),
 			devicesAllowed: Number(form.devicesAllowed) || 1,
 			durationDays: Number(form.durationDays),
-			features: form.features ? form.features.split(",").map(f => f.trim()) : [],
+			features: form.features ? form.features.split(",").map((f) => f.trim()) : [],
 			mikrotikProfile: form.mikrotikProfile || null,
 		};
 
+		// ✅ Call mutation
 		createPlan(payload, {
-			onSuccess: () => {
-				setSuccessMessage("Plan created successfully ✅");
-				setForm({ planName: "", price: "", speedRate: "10", devicesAllowed: "", features: "", durationDays: "30", mikrotikProfile: "" });
+			onSuccess: (data) => {
+				if(isSuccess) {
+					console.log("plan created successful")
+				}
+				setSuccessMessage(data?.message || "Plan created successfully ✅");
+				setForm({
+					planName: "",
+					price: "",
+					speedRate: "10",
+					devicesAllowed: "",
+					features: "",
+					durationDays: "30",
+					mikrotikProfile: "",
+				});
+				// Navigate after short delay
 				setTimeout(() => navigate("/admin/subscriptions"), 1500);
 			},
-			onError: err => setErrorMessage(err?.message || "Failed to create plan"),
+			onError: (err) => {
+				setErrorMessage(err?.message || "Failed to create plan");
+			},
 		});
 	};
 
@@ -54,10 +80,10 @@ const AdminCreateSubscription = () => {
 			form={form}
 			onChange={handleChange}
 			onSubmit={handleSubmit}
-			isPending={isPending}
+			isPending={isPending}               // React Query drives spinner
 			profiles={profiles}
-			profilesLoading={isLoading}
-			errorMessage={errorMessage}
+			profilesLoading={profilesLoading}
+			errorMessage={errorMessage || (isError ? error?.message : "")}  // show React Query error if exists
 			successMessage={successMessage}
 			formTitle="Create Subscription Plan"
 			backButton={<BackButton />}

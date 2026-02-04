@@ -7,7 +7,7 @@ const PQueue = require("p-queue").default;
 const config = {
 	host: process.env.ROUTEROS_HOST,
 	user: process.env.ROUTEROS_USER,
-	password: process.env.ROUTEROS_PASS,
+	// password: process.env.ROUTEROS_PASS,
 	port: Number(process.env.ROUTEROS_PORT) || 8728,
 	timeout: 10000,
 	ssl: false,
