@@ -17,51 +17,119 @@ const validatePassword = (password) => password && password.length >= 6;
 // 1️⃣ GET ALL USERS
 // ----------------------------------------------------
 const getAllUsers = asyncHandler(async (req, res) => {
-    const { filter, sort, limit = 10, page = 1 } = req.query;  // Parse query parameters
-    const query = {};
-    let sortOption = { "wsnId": 1 };  // Default sorting by `wsnId`
+    const { filter, sort, limit = 10, page = 1 } = req.query;
 
-    // Apply filters if present in query
+    const query = {};
+    let sortOption = { wsnId: 1 };
+
+    // -----------------------------
+    // Parse & Apply Filters
+    // -----------------------------
     if (filter) {
-        const filters = JSON.parse(filter); 
-        if (filters.wsnId) {
-            query.wsnId = { $regex: new RegExp(`^${filters.wsnId}`, "i") };  // Filter by wsnId
+        let filters;
+
+        try {
+            filters = JSON.parse(filter);
+        } catch (err) {
+            return res.status(400).json({ message: "Invalid filter JSON" });
         }
-        if (filters.activeSubscription !== undefined) {
-            query['subscription.isActive'] = filters.activeSubscription;  // Filter by subscription status
+
+        // 🔍 WSN ID (prefix search)
+        if (filters.wsnId) {
+            query.wsnId = { $regex: new RegExp(`^${filters.wsnId}`, "i") };
+        }
+
+        // 🔍 Email (partial match)
+        if (filters.email) {
+            query.email = { $regex: new RegExp(filters.email, "i") };
+        }
+
+        // 🔍 Name search
+        if (filters.name) {
+            query.$or = [
+                { firstName: { $regex: filters.name, $options: "i" } },
+                { lastName: { $regex: filters.name, $options: "i" } },
+            ];
+        }
+
+        // 🔍 Role
+        if (filters.role) {
+            query.role = filters.role;
+        }
+
+        if (filters.subscriptionStatus) {
+            query.subscriptionStatus = filters.subscriptionStatus;
+        }
+
+        // 🔍 Email verified
+        if (filters.isVerified !== undefined) {
+            query.isVerified = filters.isVerified;
+        }
+
+        // 🔍 MikroTik sync state
+        if (filters.hotspotSynced !== undefined) {
+            query.hotspotSynced = filters.hotspotSynced;
+        }
+
+        // 🔍 Date range
+        if (filters.createdFrom || filters.createdTo) {
+            query.createdAt = {};
+            if (filters.createdFrom) {
+                query.createdAt.$gte = new Date(filters.createdFrom);
+            }
+            if (filters.createdTo) {
+                query.createdAt.$lte = new Date(filters.createdTo);
+            }
         }
     }
 
-    // Apply sorting if specified in query
+    // -----------------------------
+    // Sorting
+    // -----------------------------
     if (sort) {
-        const sortFields = sort.split(",");  // For example: 'wsnId,-createdAt'
-        sortOption = sortFields.reduce((acc, field) => {
-            const direction = field.startsWith('-') ? -1 : 1;
-            acc[field.replace(/^[-+]/, '')] = direction;
+        sortOption = sort.split(",").reduce((acc, field) => {
+            const direction = field.startsWith("-") ? -1 : 1;
+            acc[field.replace(/^[-+]/, "")] = direction;
             return acc;
         }, {});
     }
 
-    try {
-        const users = await User.find(query)  // Apply filters
+    // -----------------------------
+    // Pagination
+    // -----------------------------
+    const pageNum = Math.max(Number(page), 1);
+    const limitNum = Math.min(Math.max(Number(limit), 1), 100);
+    const skip = (pageNum - 1) * limitNum;
+
+    // -----------------------------
+    // Query Execution
+    // -----------------------------
+    const [users, totalCount] = await Promise.all([
+        User.find(query)
             .select("-password -verificationToken -googleId")
-            .populate("subscription")  // Make sure to populate the subscription details
-            .sort(sortOption)  // Apply sorting
-            .skip((page - 1) * limit)  // Pagination: skip items for the current page
-            .limit(Number(limit));  // Pagination: limit the number of users returned
+            .populate("subscription")
+            .sort(sortOption)
+            .skip(skip)
+            .limit(limitNum)
+            .lean(),
 
-        const totalCount = await User.countDocuments(query);  // Get total count for pagination
+        User.countDocuments(query),
+    ]);
 
-        res.status(200).json({
-            users,
+    // -----------------------------
+    // Response
+    // -----------------------------
+    res.status(200).json({
+        users,
+        meta: {
             totalCount,
-            page,
-            totalPages: Math.ceil(totalCount / limit),
-        });
-    } catch (error) {
-        res.status(500).json({ message: "Error fetching users", error: error.message });
-    }
+            page: pageNum,
+            limit: limitNum,
+            totalPages: Math.ceil(totalCount / limitNum),
+        },
+    });
 });
+
 
 
 /// ------------------------------------------------------------
@@ -259,6 +327,8 @@ const forceExpireSubscription = asyncHandler(async (req, res) => {
     res.status(200).json({ message: "Subscription force-expired successfully" });
 });
 
+
+
 // ----------------------------------------------------
 // 7️⃣ PROMOTE / DEMOTE USER ROLE
 // ----------------------------------------------------
@@ -290,6 +360,7 @@ const getAdminDashboard = asyncHandler(async (req, res) => {
     // --------------------------
     const totalUsers = await User.countDocuments();
     const activeSubscriptions = await User.countDocuments({ subscriptionStatus: "active" });
+    const inActiveSubscriptions = await User.countDocuments({ subscriptionStatus: { $ne: "active" } });
     const totalPayments = await Payment.countDocuments({ status: "successful" });
 
     const totalRevenueAgg = await Payment.aggregate([

@@ -32,7 +32,7 @@ const AdminDashboard = () => {
 				navigate("/admin/users");
 				break;
 			case "subscriptions":
-				navigate("/subscriptions");
+				navigate("/admin/users?subscriptionStatus=active");
 				break;
 			case "revenue":
 				// maybe open revenue report

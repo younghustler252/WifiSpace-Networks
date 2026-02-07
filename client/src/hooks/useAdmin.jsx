@@ -88,14 +88,24 @@ export const useDeleteSubscription = () => {
 // ------------------------------------------------------------
 // 3️⃣ Users (Admin)
 // ------------------------------------------------------------
-export const useAllUsers = (filters = {}, sort = "", page = 1, limit = 10) => {
-    return useQuery({
-        queryKey: ["adminUsers", filters, sort, page, limit],
-        queryFn: () => getAllUsers(filters, sort, page, limit),  // Pass parameters to getAllUsers
-        staleTime: 1000 * 60 * 5,
-        refetchOnWindowFocus: false,
-    });
+export const useAllUsers = (
+  filters = {},
+  sort = "",
+  page = 1,
+  limit = 10,
+  options = {}
+) => {
+  return useQuery({
+    queryKey: ["adminUsers", filters, sort, page, limit],
+    queryFn: () => getAllUsers(filters, sort, page, limit),
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+    keepPreviousData: true,
+    ...options,
+  });
 };
+
+
 
 export const useUserById = (id) => {
     return useQuery({

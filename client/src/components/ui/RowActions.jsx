@@ -14,6 +14,7 @@ const RowActions = ({ actions }) => {
 					text-secondary
 					hover:bg-hover hover:text-primary
 					focus-ring
+					
 				"
 			>
 				⋮
@@ -24,6 +25,7 @@ const RowActions = ({ actions }) => {
 					className="
 						absolute right-0 mt-2 w-44 z-20
 						card p-1
+						flex flex-col
 					"
 					onMouseLeave={() => setOpen(false)}
 				>
