@@ -78,8 +78,11 @@ const AdminManageUsers = () => {
 	};
 
 	const handleRowClick = (user) => {
-		navigate(`${ROUTE.manageUsers}/edit/${user._id}`);
+		navigate(`${ROUTE.manageUsers}/user/${user._id}`);
 	};
+	const handleEditClick = (user) => {
+		navigate(`${ROUTE.manageUsers}/user/${user._id}`)
+	}
 
 	const handleFilterChange = (key, value) => {
 		setFilters((prev) => ({ ...prev, [key]: value }));
@@ -255,7 +258,7 @@ const AdminManageUsers = () => {
 											label: "Edit",
 											onClick: (e) => {
 												e.stopPropagation();
-												handleRowClick(user);
+												handleEditClick(user);
 											},
 										},
 										{
