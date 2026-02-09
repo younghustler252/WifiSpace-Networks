@@ -70,8 +70,8 @@ const Dashboard = () => {
 
 				{subscription ? (
 					<div className="space-y-1 text-sm">
-						<p className="font-medium">{subscription.plan.planName}</p>
-						<p>₦{subscription.plan.price}</p>
+						<p className="font-medium">{subscription.planName}</p>
+						<p>₦{subscription.price}</p>
 						<p>
 							{new Date(subscription.start).toDateString()} →{" "}
 							{new Date(subscription.end).toDateString()}
