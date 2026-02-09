@@ -78,10 +78,10 @@ const AdminManageUsers = () => {
 	};
 
 	const handleRowClick = (user) => {
-		navigate(`${ROUTE.manageUsers}/user/${user._id}`);
+		navigate(`${ROUTE.manageUsers}/${user._id}`);
 	};
 	const handleEditClick = (user) => {
-		navigate(`${ROUTE.manageUsers}/user/${user._id}`)
+		navigate(`${ROUTE.manageUsers}/edit/${user._id}`)
 	}
 
 	const handleFilterChange = (key, value) => {
