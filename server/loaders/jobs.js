@@ -1,6 +1,8 @@
 module.exports = () => {
-	require('../services/mikrotikWorker');
+	require('../worker/mikrotikWorker');
 	require('../utils/mikrotikSyncCron');
-	require('../utils/subscriptionScheduler');
+	require('../jobs/subscriptionScheduler');
+	require('../jobs/subscriptionExpiry');
 	require('../utils/expirePendingPayments');
+
 };

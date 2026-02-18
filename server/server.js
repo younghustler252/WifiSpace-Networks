@@ -25,6 +25,7 @@ process.on('SIGTERM', shutdown);
 // --- Background Bootstrapping ---
 (async () => {
     // Start DB first — critical
+    
     try {
         await require('./loaders/database')();
         console.log('✅ Database initialized');

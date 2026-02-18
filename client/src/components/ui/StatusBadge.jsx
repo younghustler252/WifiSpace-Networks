@@ -7,6 +7,16 @@ const StatusBadge = ({ status }) => {
       label = "Active";
       className = "badge-success";
       break;
+    case "successful":
+      label = "Successful";
+      className = "badge-success";
+      break;
+
+    case "pending":
+      label = "Pending";
+      className = "badge-warning";
+      break;
+
     case "suspended":
       label = "Suspended";
       className = "badge-danger";

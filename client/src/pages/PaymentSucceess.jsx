@@ -21,24 +21,35 @@ const PaymentSuccess = () => {
     error,
   } = useVerifyPaymentStatus();
 
+  // Call API to verify payment
   useEffect(() => {
-    if (reference) verifyPaymentStatus(reference);
+    if (reference) {
+      verifyPaymentStatus(reference).catch((err) => {
+        console.error("Payment verification error:", err);
+      });
+    }
   }, [reference, verifyPaymentStatus]);
 
+  // Determine success flag
+  const success = data?.payment?.status === "successful";
+
+  // Countdown redirect
   useEffect(() => {
-    if (data?.message?.includes("Payment verified")) {
-      const timer = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            navigate(ROUTE.dashboard);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-  }, [data, navigate]);
+    if (!success) return;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate(ROUTE.dashboard);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer); // Cleanup on unmount
+  }, [success, navigate]);
 
   if (isLoading)
     return (
@@ -59,7 +70,7 @@ const PaymentSuccess = () => {
         </motion.div>
         <h2 className="text-2xl font-bold text-red-700">Payment Failed</h2>
         <p className="text-center text-red-600 max-w-sm">
-          {error?.message || "The payment could not be completed."}
+          {error?.response?.data?.message || error?.message || "The payment could not be completed."}
         </p>
         <button
           onClick={() => navigate(ROUTE.subscriptions)}
@@ -71,7 +82,6 @@ const PaymentSuccess = () => {
     );
 
   const payment = data?.payment;
-  const success = data?.message?.includes("Payment verified");
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 py-8">
@@ -131,7 +141,7 @@ const PaymentSuccess = () => {
             <h2 className="text-2xl font-bold text-red-700">Payment Failed</h2>
 
             <p className="text-center text-red-600">
-              Something went wrong. Please try again.
+              {data?.message || "Something went wrong. Please try again."}
             </p>
 
             <motion.button

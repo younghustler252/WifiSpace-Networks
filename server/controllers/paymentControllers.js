@@ -5,7 +5,8 @@ const { createPaymentRequest, verifyPayment } = require('../utils/paystack');
 const asyncHandler = require('express-async-handler');
 const crypto = require('crypto');
 const mikrotikQueue = require('../queues/mikrotikQueue'); // Add your Mikrotik queue
-const { applySubscription } = require('../services/subscriptionService');
+const { applySubscription } = require('../services/subscription.service');
+const { notify } = require('../services/notification.service');
 
 /* --------------------------------------------------------
    1️⃣ INITIATE PAYMENT
@@ -79,29 +80,90 @@ const initiatePayment = asyncHandler(async (req, res) => {
    2️⃣ HANDLE PAYMENT SUCCESS (UPGRADE/DOWNGRADE)
 ---------------------------------------------------------*/
 async function handleSuccessfulPayment(payment) {
-    if (payment.status === 'successful') return;
+    try {
+        // 1️⃣ Prevent double processing
+        if (payment.status === "successful") return null;
 
-    const plan = await Subscription.findById(payment.planId);
-    if (!plan) return;
+        // 2️⃣ Load user and plan
+        const user = await User.findById(payment.userId);
+        if (!user) {
+            console.error("User not found for payment:", payment._id);
+            return null;
+        }
 
-    const monthsPaid = payment.monthsPaid || 1;
+        const plan = await Subscription.findById(payment.planId);
+        if (!plan) {
+            console.error("Subscription plan not found:", payment.planId);
+            return null;
+        }
 
-    const result = await applySubscription({
-        userId: payment.userId,
-        planId: payment.planId,
-        monthsPaid
-    });
+        const monthsPaid = payment.monthsPaid || 1;
 
-    payment.status = 'successful';
-    payment.paymentDate = new Date();
-    payment.subscriptionStartDate = result.startDate;
-    payment.subscriptionEndDate = result.endDate;
-    payment.bonusDays = result.bonusDays;
+        // 3️⃣ Apply subscription
+        const result = await applySubscription({
+            userId: payment.userId,
+            planId: payment.planId,
+            monthsPaid
+        });
 
-    await payment.save();
+        // 4️⃣ Update payment record
+        payment.status = "successful";
+        payment.paymentDate = new Date();
+        payment.subscriptionStartDate = result.startDate;
+        payment.subscriptionEndDate = result.endDate;
+        payment.bonusDays = result.bonusDays;
 
-    return result;
+        await payment.save();
+
+        // 5️⃣ Notify user
+        await notify({
+            user, // full user object for template
+            type: "subscription_activated",
+            title: "Subscription Activated 🚀",
+            message: `Your ${plan.planName} plan is now active until ${new Date(result.endDate).toLocaleDateString("en-ZA", {
+                weekday: "short",
+                year: "numeric",
+                month: "short",
+                day: "numeric"
+            })}.`,
+            metadata: {
+                subscription: plan,
+                startDate: result.startDate,
+                endDate: result.endDate,
+                bonusDays: result.bonusDays
+            },
+            groupKey: `subscription_${user._id}_${plan._id}_${result.endDate.getTime()}`
+        });
+
+        // 6️⃣ Notify admins
+        const admins = await User.find({ role: "admin" });
+
+        for (const admin of admins) {
+            await notify({
+                user: admin,
+                type: "admin_subscription_created",
+                title: "New Subscription Activated",
+                message: `${user.fullName} activated ${plan.planName}.`,
+                metadata: {
+                    user,
+                    subscription: plan,
+                    startDate: result.startDate,
+                    endDate: result.endDate,
+                    reference: payment._id
+                },
+                groupKey: `admin_subscription_${payment._id}`
+            });
+        }
+
+        return result;
+
+    } catch (error) {
+        console.error("handleSuccessfulPayment error:", error);
+        throw error;
+    }
 }
+
+
 
 
 
@@ -110,23 +172,83 @@ async function handleSuccessfulPayment(payment) {
 ---------------------------------------------------------*/
 const verifyPaymentStatus = asyncHandler(async (req, res) => {
     const { reference } = req.query;
-    if (!reference) return res.status(400).json({ error: 'Transaction reference required' });
 
+    if (!reference) {
+        return res.status(400).json({ error: "Transaction reference required" });
+    }
+
+    // -------------------------------------------------
+    // 1️⃣ Verify from payment provider
+    // -------------------------------------------------
     const verifyResponse = await verifyPayment(reference);
     const { data } = verifyResponse;
 
+    // -------------------------------------------------
+    // 2️⃣ Find local payment
+    // -------------------------------------------------
     const payment = await Payment.findOne({ transactionId: reference });
-    if (!payment) return res.status(404).json({ error: 'Payment not found' });
 
-    if (data.status === 'success') {
-        await handleSuccessfulPayment(payment);
-        return res.status(200).json({ message: 'Payment verified and user activated successfully', payment });
+    if (!payment) {
+        return res.status(404).json({ error: "Payment not found" });
     }
 
-    payment.status = 'failed';
+    // -------------------------------------------------
+    // 3️⃣ Prevent double-processing
+    // -------------------------------------------------
+    if (payment.status === "successful") {
+        return res.status(200).json({
+            message: "Payment already processed",
+            payment
+        });
+    }
+
+    // -------------------------------------------------
+    // 4️⃣ Load user once (needed for notifications)
+    // -------------------------------------------------
+    const user = await User.findById(payment.userId);
+    if (!user) {
+        return res.status(404).json({ error: "User not found" });
+    }
+
+    // -------------------------------------------------
+    // 5️⃣ SUCCESS
+    // -------------------------------------------------
+    if (data.status === "success") {
+
+        await handleSuccessfulPayment(payment);
+
+        return res.status(200).json({
+            message: "Payment verified and user activated successfully",
+            payment
+        });
+    }
+
+    // -------------------------------------------------
+    // 6️⃣ FAILURE
+    // -------------------------------------------------
+    payment.status = "failed";
     await payment.save();
-    res.status(400).json({ message: 'Payment failed', payment });
+
+    await notify({
+        user, // ✅ full user object
+        type: "payment_failed",
+        title: "Payment Failed ❌",
+        message: `Your payment of ₦${payment.amount} for ${payment.planName} failed.`,
+        metadata: {
+            planName: payment.planName,
+            amount: payment.amount,
+            paymentId: payment._id
+        },
+        groupKey: `payment_${payment._id}`,
+        overrideChannels: ["inApp", "email", "whatsapp"]
+    });
+
+    return res.status(400).json({
+        message: "Payment failed",
+        payment
+    });
 });
+
 
 /* --------------------------------------------------------
    4️⃣ PAYSTACK WEBHOOK

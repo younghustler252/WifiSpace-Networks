@@ -3,6 +3,7 @@ const Subscription = require("../models/Subscription");
 const Payment = require("../models/Payment");
 const User = require("../models/User");
 const mikrotikQueue = require("../queues/mikrotikQueue");
+const { notify } = require("../services/notification.service");
 
 // ------------------------------------------------------------
 // USER + ADMIN: GET ALL PLANS
@@ -156,6 +157,7 @@ const deactivateExpiredSubscriptions = asyncHandler(async () => {
     });
 
     for (const user of users) {
+        // 1️⃣ Deactivate subscription
         user.subscriptionStatus = "expired";
         user.subscription = null;
         user.subscriptionStart = null;
@@ -163,12 +165,26 @@ const deactivateExpiredSubscriptions = asyncHandler(async () => {
         user.cancelAtPeriodEnd = false;
         await user.save();
 
+        // 2️⃣ Send notification using template
+        await notify({
+            user,
+            type: "subscription_expired",
+            metadata: {
+                planName: user.subscription?.planName || "Your plan",
+                expiryDate: user.subscriptionEnd
+            },
+            groupKey: `subscription_expired_${user._id}`,
+            overrideChannels: ["inApp", "email", "whatsapp"] // escalate for critical info
+        });
+
+        // 3️⃣ Add to queue to disable service
         await mikrotikQueue.add("disableUser", {
             userId: user._id,
             wsnId: user.wsnId,
         });
     }
 });
+
 
 
 module.exports = {
