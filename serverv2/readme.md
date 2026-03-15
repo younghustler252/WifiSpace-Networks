@@ -1,0 +1,5 @@
+
+}
+
+
+so lets do the usecase hw will the folder structur be should look like /user /admin /shared and also we will use import { AppError } from "./app-error.js"; export class ForbiddenError extends AppError { constructor(message = "Forbidden", code = "FORBIDDEN") { super(message, 403, code); } } import { AppError } from "./app-error.js"; export class UnauthorizedError extends AppError { constructor(message = "Unauthorized", code = "UNAUTHORIZED") { super(message, 401, code); } }import { AppError } from "./app-error.js"; export class ValidationError extends AppError { constructor(message = "Validation failed", details = null) { super(message, 400, "VALIDATION_ERROR", details); } } innit so alos we want admin to crete the accout if business reuiremnt is nt available it shouldnt forbidd it should create but status should be pending but if it is user it should rre those details and still put avvount itn pending after theen admin or staff activate
