@@ -9,10 +9,12 @@ const planSchema = new mongoose.Schema(
 			trim: true
 		},
 
-		type: {
+		accountType: {
 			type: String,
-			required: true,
-			enum: ["personal", "business"]
+			enum: ["personal", "business"],
+			required: function () {
+				return this.serviceType === "pppoe";
+			}
 		},
 
 		price: {
@@ -27,11 +29,15 @@ const planSchema = new mongoose.Schema(
 			trim: true
 		},
 
-		durationDays: {
-			type: Number,
-			default: 30,
-			min: 1
-		},
+		durationValue: { type: Number, required: true }, // e.g., 1, 30, 12
+        durationUnit: { 
+            type: String, 
+            enum: ["minutes", "hours", "days", "months"], 
+            default: "days" 
+        },
+
+       
+        dataLimitBytes: { type: Number, default: 0 }, 
 
 		devicesAllowed: {
 			type: Number,
@@ -49,11 +55,30 @@ const planSchema = new mongoose.Schema(
 			required: true,
 			trim: true
 		},
+
 		status: {
 			type: String,
 			enum: ["active", "inactive"],
 			default: "active"
-		}
+		},
+		serviceType: {
+			type: String,
+			enum: ["pppoe", "hotspot"],
+			required: true
+		},
+		// 🔥 BONUS RULE ENGINE (THIS IS THE KEY UPGRADE)
+		bonusRules: [
+			{
+				minCycles: {
+					type: Number,
+					required: true
+				},
+				bonusDays: {
+					type: Number,
+					required: true
+				}
+			}
+		]
 	},
 	{ timestamps: true }
 );

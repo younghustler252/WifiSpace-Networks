@@ -1,4 +1,3 @@
-// modules/payments/domain/payment.entity.js
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 
 export class Payment {
@@ -9,21 +8,20 @@ export class Payment {
 		wsnId = null,
 		planId,
 		amount,
-		monthsPaid,
+		cycles,
 		bonusDays = 0,
 		method,
 		status = "pending",
 		transactionId = null,
 		paymentDate = new Date(),
-		subscriptionStartDate = null,
-		subscriptionEndDate = null,
-		paymentDetails = {}
+		paymentDetails = {},
+		processed = false
 	}) {
 		this.validate({
 			userId,
 			planId,
 			amount,
-			monthsPaid,
+			cycles,
 			method,
 			status
 		});
@@ -34,31 +32,84 @@ export class Payment {
 		this.wsnId = wsnId;
 		this.planId = planId;
 		this.amount = amount;
-		this.monthsPaid = monthsPaid;
+		this.cycles = cycles;
 		this.bonusDays = bonusDays;
 		this.method = method;
 		this.status = status;
 		this.transactionId = transactionId;
 		this.paymentDate = paymentDate;
-		this.subscriptionStartDate = subscriptionStartDate;
-		this.subscriptionEndDate = subscriptionEndDate;
 		this.paymentDetails = paymentDetails;
+
+		// idempotency flag
+		this.processed = processed;
 	}
 
-	validate({ userId, planId, amount, monthsPaid, method, status }) {
-		const validMethods = ["paystack", "wallet", "bank_transfer"];
-		const validStatus = ["pending", "successful", "failed", "expired"];
+	validate({
+		userId,
+		planId,
+		amount,
+		cycles,
+		method,
+		status
+	}) {
+		const validMethods = [
+			"paystack",
+			"credit_card",
+			"bank_transfer"
+		];
 
-		if (!userId) throw new ValidationError("User ID is required");
-		if (!planId) throw new ValidationError("Plan ID is required");
-		if (!amount || amount <= 0) throw new ValidationError("Amount must be positive");
-		if (!monthsPaid || monthsPaid < 1) throw new ValidationError("Months paid must be at least 1");
-		if (!validMethods.includes(method)) throw new ValidationError("Invalid payment method");
-		if (!validStatus.includes(status)) throw new ValidationError("Invalid payment status");
+		const validStatus = [
+			"pending",
+			"successful",
+			"failed",
+			"expired"
+		];
+
+		if (!userId)
+			throw new ValidationError("User ID is required");
+
+		if (!planId)
+			throw new ValidationError("Plan ID is required");
+
+		if (!amount || amount <= 0)
+			throw new ValidationError(
+				"Amount must be positive"
+			);
+
+		if (!cycles || cycles < 1)
+			throw new ValidationError(
+				"Cycles must be at least 1"
+			);
+
+		if (!validMethods.includes(method)) {
+			throw new ValidationError("Invalid payment method");
+		}
+
+		if (!validStatus.includes(status)) {
+			throw new ValidationError("Invalid payment status");
+		}
 	}
 
-	markSuccessful() { this.status = "successful"; }
-	markFailed() { this.status = "failed"; }
-	markPending() { this.status = "pending"; }
-	markExpired() { this.status = "expired"; }
+	// ==============================
+	// STATE METHODS
+	// ==============================
+	markSuccessful() {
+		this.status = "successful";
+	}
+
+	markFailed() {
+		this.status = "failed";
+	}
+
+	markPending() {
+		this.status = "pending";
+	}
+
+	markExpired() {
+		this.status = "expired";
+	}
+
+	markProcessed() {
+		this.processed = true;
+	}
 }

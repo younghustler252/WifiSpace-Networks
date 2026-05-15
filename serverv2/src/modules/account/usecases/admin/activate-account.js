@@ -1,4 +1,4 @@
-import PERMISSION from "../../../../shared/constants/permissions.js";
+import {PERMISSION } from "../../../../shared/constants/permissions.js";
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";

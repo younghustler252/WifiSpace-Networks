@@ -9,6 +9,11 @@ export class TokenService {
 		this.tokenBlacklist = tokenBlacklist; // optional, could be Redis or in-memory
 	}
 
+	generate(payload, expiresIn = "1h") {
+		if (!this.secret) throw new Error("JWT secret is not set");
+		return jwt.sign(payload, this.secret, { expiresIn });
+	}
+	
 	// ----------------------------
 	// Generate Access & Refresh Tokens
 	// ----------------------------

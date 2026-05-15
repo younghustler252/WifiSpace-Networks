@@ -1,4 +1,4 @@
-import { PERMISSION } from "../../domain/constants/permissions.js";
+import {PERMISSION} from "../../../../shared/constants/permissions.js";
 
 export class DeleteAccount {
 	constructor(accountRepository, permissionService) {

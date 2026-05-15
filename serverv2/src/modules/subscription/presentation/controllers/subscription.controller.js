@@ -40,8 +40,12 @@ export class SubscriptionController {
 		return successResponse({ res, data: subscriptions });
 	};
 
-	getActiveSubscription = async (req, res) => {
-		const subscription = await this.usecases.getActiveSubscription.execute(req.params.accountId);
+	getCurrentSubscription = async (req, res) => {
+		const subscription =
+			await this.usecases.getCurrentSubscription.execute({
+				accountId: req.params.accountId,
+			});
+
 		return successResponse({ res, data: subscription });
 	};
 

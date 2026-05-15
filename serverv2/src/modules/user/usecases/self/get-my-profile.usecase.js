@@ -1,8 +1,6 @@
 // modules/user/usecases/self/get-my-profile.usecase.js
 
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { mapUserToDTO } from "../../domain/user-mapper.js";
-
+import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 export class GetMyProfile {
 	constructor(userRepository, auditService) {
 		this.userRepository = userRepository;
@@ -28,6 +26,6 @@ export class GetMyProfile {
 		}
 
 		// 3️⃣ Return safe user data
-		return mapUserToDTO(user);
+		return user;
 	}
 }

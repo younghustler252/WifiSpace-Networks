@@ -40,4 +40,6 @@ export class UserRepository {
 	async delete(id) {
 		throw new Error("Method 'delete()' must be implemented.");
 	}
+
+	
 }

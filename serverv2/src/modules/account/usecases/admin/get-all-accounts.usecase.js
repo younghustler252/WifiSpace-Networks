@@ -1,57 +1,49 @@
-import { ACCOUNT_TYPES, PROFILE_STATUSES, SERVICE_TYPES } from "../../domain/account.enum.js";
-import PERMISSION from "../../../../shared/constants/permissions.js";
+import { ACCOUNT_TYPE_LIST, PROFILE_STATUS_LIST, SERVICE_TYPE_LIST } from "../../domain/account.enum.js";
 
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetAllAccounts {
-
-	constructor(accountRepository, permissionService, auditService) {
+	constructor(accountRepository, permissionService) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
-		this.auditService = auditService;
 	}
 
-	/**
-	 * Fetch all accounts with optional filters
-	 * @param {Object} currentUser - the admin/staff performing the action
-	 * @param {Object} filters - optional filters
-	 * @param {string} [filters.accountType] - personal/business
-	 * @param {string} [filters.serviceType] - pppoe/hotspot
-	 * @param {string} [filters.profileStatus] - pending/active/suspended/canceled
-	 * @param {string} [filters.userId] - specific user
-	 * @param {Date} [filters.createdAfter]
-	 * @param {Date} [filters.createdBefore]
-	 * @param {Object} context - { ip, userAgent } for audit logging
-	 */
-	async execute(currentUser, filters = {}, context = {}) {
+	async execute(currentUser, params = {}) {
+		if (!currentUser) {
+			throw new Error("Unauthorized");
+		}
+
+		
+
+		const {
+			accountType,
+			serviceType,
+			profileStatus,
+			userId,
+			createdAfter,
+			createdBefore,
+			sort = "wsnid_desc",
+			skip = 0,
+			limit = 50,
+		} = params;
 
 		// ----------------------------
-		// Permission Check
+		// VALIDATION
 		// ----------------------------
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.ACCOUNT.VIEW
-		);
-
-		// ----------------------------
-		// Validate filters
-		// ----------------------------
-		const { accountType, serviceType, profileStatus, userId, createdAfter, createdBefore } = filters;
-
-		if (accountType && !ACCOUNT_TYPES.includes(accountType)) {
+		if (accountType && !ACCOUNT_TYPE_LIST.includes(accountType)) {
 			throw new ValidationError(`Invalid accountType: ${accountType}`);
 		}
 
-		if (serviceType && !SERVICE_TYPES.includes(serviceType)) {
+		if (serviceType && !SERVICE_TYPE_LIST.includes(serviceType)) {
 			throw new ValidationError(`Invalid serviceType: ${serviceType}`);
 		}
 
-		if (profileStatus && !PROFILE_STATUSES.includes(profileStatus)) {
+		if (profileStatus && !PROFILE_STATUS_LIST.includes(profileStatus)) {
 			throw new ValidationError(`Invalid profileStatus: ${profileStatus}`);
 		}
 
 		// ----------------------------
-		// Build repository query
+		// QUERY
 		// ----------------------------
 		const query = {};
 
@@ -59,31 +51,37 @@ export class GetAllAccounts {
 		if (serviceType) query.serviceType = serviceType;
 		if (profileStatus) query.profileStatus = profileStatus;
 		if (userId) query.userId = userId;
+
 		if (createdAfter || createdBefore) query.createdAt = {};
 		if (createdAfter) query.createdAt.$gte = createdAfter;
 		if (createdBefore) query.createdAt.$lte = createdBefore;
 
 		// ----------------------------
-		// Fetch from repository
+		// SORT
 		// ----------------------------
-		const accounts = await this.accountRepository.findAll(query);
+		const sortOptions = {
+			wsnid_desc: { wsnId: -1 },
+			wsnid_asc: { wsnId: 1 },
+			newest: { createdAt: -1 },
+			oldest: { createdAt: 1 },
+		};
+
+		const safeSort = sortOptions[sort] || sortOptions.wsnid_desc;
 
 		// ----------------------------
-		// Audit Log
+		// PAGINATION
 		// ----------------------------
-		await this.auditService.log({
-			actorId: currentUser.id,
-			action: "ACCOUNT_LIST_VIEWED",
-			targetId: null,
-			resource: "Account",
-			metadata: {
-				filters,
-				resultCount: accounts.length
-			},
-			ip: context.ip,
-			userAgent: context.userAgent
-		});
+		const safeLimit = Math.min(Number(limit) || 50, 100);
+		const safeSkip = Math.max(Number(skip) || 0, 0);
 
-		return accounts;
+		// ----------------------------
+		// FETCH
+		// ----------------------------
+		return this.accountRepository.findAll(
+			query,
+			safeSort,
+			safeSkip,
+			safeLimit
+		);
 	}
 }

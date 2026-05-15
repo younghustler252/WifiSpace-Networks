@@ -1,89 +1,89 @@
-// routes/payment.routes.js
 import { Router } from "express";
+import asyncHandler from "express-async-handler";
 
-import PERMISSION from "../../../../shared/constants/permissions.js";
-import { authMiddleware } from "../../auth/presentation/middleware/auth.middleware.js";
-import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
+import { PERMISSION } from "../../../shared/constants/permissions.js";
+import { authMiddleware } from "../../../shared/middleware/auth.middleware.js";
+import { requirePermission } from "../../../shared/middleware/permission.middleware.js";
 
 export default function paymentRoutes({
 	paymentController,
 	paymentAdminController,
-	permissionService
+	permissionService,
+	userRepository
 }) {
-
 	const router = Router();
 
-	// ----------------------------
-	// USER ROUTES
-	// ----------------------------
+	// helper (same pattern as subscription)
+	const auth = (roles = []) =>
+		authMiddleware({ userRepository }, roles);
 
-	// Create payment via Paystack
+	// -----------------------------
+	// USER ROUTES
+	// -----------------------------
+
+	// Create payment (Paystack init)
 	router.post(
 		"/",
-		authMiddleware(),
-		paymentController.createPayment
+		auth(),
+		asyncHandler(paymentController.createPayment)
 	);
-
-	// Confirm payment (Paystack callback)
+	
+	router.get(
+		"/all",
+		auth(["customer","staff", "superadmin"]),
+		asyncHandler(paymentController.getPayments)
+	);
+	// Confirm payment (verify Paystack)
 	router.post(
 		"/confirm",
-		authMiddleware(),
-		paymentController.confirmPayment
+		auth(),
+		asyncHandler(paymentController.confirmPayment)
 	);
 
-	// Get my payments
+	// Get current user's payments
 	router.get(
 		"/me",
-		authMiddleware(),
-		paymentController.getMyPayments
+		auth(),
+		asyncHandler(paymentController.getMyPayments)
 	);
 
-	// ----------------------------
-	// ADMIN ROUTES
-	// ----------------------------
+	// Get payment by ID (owned)
+	router.get(
+		"/:id",
+		auth(),
+		asyncHandler(paymentController.getPaymentById)
+	);
 
-	// Admin create payment for user
+	router.post("/webhook/paystack",auth(), asyncHandler(paymentController.handleWebhook));
+
+	// -----------------------------
+	// ADMIN ROUTES
+	// -----------------------------
+
+	// Admin create payment
 	router.post(
 		"/admin",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(
-			PERMISSION.PAYMENT.CREATE,
-			permissionService
-		),
-		paymentAdminController.createPayment
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.PAYMENT.CREATE, permissionService),
+		asyncHandler(paymentAdminController.createPayment)
 	);
-
-	// Admin update payment status
+	
+	// Admin update payment
 	router.patch(
-		"/admin/status",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(
-			PERMISSION.PAYMENT.UPDATE,
-			permissionService
-		),
-		paymentAdminController.updatePaymentStatus
+		"/admin/:id",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.PAYMENT.UPDATE, permissionService),
+		asyncHandler(paymentAdminController.updatePayment)
 	);
 
-	// Admin get all payments (with filters)
-	router.get(
-		"/admin",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(
-			PERMISSION.PAYMENT.READ,
-			permissionService
-		),
-		paymentAdminController.getPayments
-	);
+	// Admin get all payments
 
 	// Admin get payment by ID
 	router.get(
 		"/admin/:id",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(
-			PERMISSION.PAYMENT.READ,
-			permissionService
-		),
-		paymentAdminController.getPaymentById
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.PAYMENT.READ, permissionService),
+		asyncHandler(paymentAdminController.getPaymentById)
 	);
 
 	return router;

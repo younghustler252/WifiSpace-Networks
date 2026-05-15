@@ -1,7 +1,6 @@
 import { Account } from "../../domain/account.entity.js";
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
-
-import PERMISSION from "../../../../shared/constants/permissions.js";
+import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
@@ -10,23 +9,18 @@ export class CreateAccount {
 	constructor(
 		accountRepository,
 		permissionService,
-		auditService
+		auditService,
+		analyticsTracker
 	) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;
+		this.analyticsTracker = analyticsTracker;
 	}
 
 	async execute(currentUser, data, context = {}) {
 
-		// ----------------------------
-		// Permission Check
-		// ----------------------------
-
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.ACCOUNT.CREATE
-		);
+		
 
 		// ----------------------------
 		// Create Domain Entity
@@ -40,9 +34,9 @@ export class CreateAccount {
 		// Business Validation
 		// ----------------------------
 
-		if (account.needsBusinessVerification()) {
-			account.profileStatus = PROFILE_STATUSES.PENDING;
-		}
+		// if (account.needsBusinessVerification()) {
+		// 	account.profileStatus = PROFILE_STATUSES.PENDING;
+		// }
 
 		// ----------------------------
 		// Persist Account
@@ -68,6 +62,21 @@ export class CreateAccount {
 			userAgent: context.userAgent
 		});
 
+		try {
+			await this.analyticsTracker.track(
+				ANALYTICS_EVENTS.ACCOUNT_CREATED,
+				{
+					accountType: createdAccount.accountType,
+					serviceType: createdAccount.serviceType,
+					profileStatus: createdAccount.profileStatus
+				}
+			);
+		} catch (err) {
+			console.error("Analytics tracking failed:", {
+				event: "ACCOUNT_CREATED",
+				error: err.message
+			});
+		}
 		return createdAccount;
 	}
 }

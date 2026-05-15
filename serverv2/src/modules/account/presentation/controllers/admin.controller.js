@@ -1,5 +1,5 @@
-import { asyncHandler } from "../../../shared/utils/async-handler.js";
-import { successResponse } from "../../../shared/utils/api-response.js";
+import expressAsyncHandler from "express-async-handler";
+import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class AdminAccountController {
 
@@ -13,7 +13,7 @@ export class AdminAccountController {
 		this.getAllAccountsUseCase = getAllAccounts;
 	}
 
-	createAccount = asyncHandler(async (req, res) => {
+	createAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.createAccountUseCase.execute(
 			req.user,
@@ -34,7 +34,7 @@ export class AdminAccountController {
 	});
 
 
-	updateAccount = asyncHandler(async (req, res) => {
+	updateAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.updateAccountUseCase.execute(
 			req.user,
@@ -55,7 +55,7 @@ export class AdminAccountController {
 	});
 
 
-	deleteAccount = asyncHandler(async (req, res) => {
+	deleteAccount = expressAsyncHandler(async (req, res) => {
 
 		await this.deleteAccountUseCase.execute(
 			req.user,
@@ -74,7 +74,7 @@ export class AdminAccountController {
 	});
 
 
-	activateAccount = asyncHandler(async (req, res) => {
+	activateAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.activateAccountUseCase.execute(
 			req.user,
@@ -90,7 +90,7 @@ export class AdminAccountController {
 	});
 
 
-	suspendAccount = asyncHandler(async (req, res) => {
+	suspendAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.suspendAccountUseCase.execute(
 			req.user,
@@ -106,7 +106,7 @@ export class AdminAccountController {
 	});
 
 
-	transferAccount = asyncHandler(async (req, res) => {
+	transferAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.transferAccountUseCase.execute(
 			req.user,
@@ -123,7 +123,7 @@ export class AdminAccountController {
 	});
 
 
-	getAllAccounts = asyncHandler(async (req, res) => {
+	getAllAccounts = expressAsyncHandler(async (req, res) => {
 
 		const accounts = await this.getAllAccountsUseCase.execute(
 			req.user,
@@ -133,6 +133,8 @@ export class AdminAccountController {
 				userAgent: req.get("User-Agent")
 			}
 		);
+		// console.log("accounts", accounts);
+		
 
 		return successResponse({
 			res,

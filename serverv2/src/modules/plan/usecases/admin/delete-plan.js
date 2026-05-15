@@ -1,20 +1,20 @@
-import PERMISSION from "../../../../shared/constants/permissions.js";
+import { PERMISSION } from "../../../../shared/constants/permissions.js";
 
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
-export class UpdatePlan {
+export class DeletePlan {
 
-	constructor(planRepository, permissionService) {
+	constructor(planRepository, permissionService, auditService) {
 		this.planRepository = planRepository;
-		this.permissionService = permissionService;
+		this.auditService = auditService;
 	}
 
-	async execute(currentUser, planId, data) {
+	async execute(currentUser, planId, context = {}) {
 
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.PLAN.UPDATE
-		);
+		// ----------------------------
+		// Fetch Plan
+		// ----------------------------
 
 		const plan = await this.planRepository.findById(planId);
 
@@ -22,6 +22,40 @@ export class UpdatePlan {
 			throw new NotFoundError("Plan not found");
 		}
 
-		return this.planRepository.update(planId, data);
+		// ----------------------------
+		// Business Rule (based on your model)
+		// ----------------------------
+
+		if (plan.status === "active") {
+			throw new ValidationError(
+				"Active plan cannot be deleted. Deactivate it first."
+			);
+		}
+
+		// ----------------------------
+		// Delete (hard delete)
+		// ----------------------------
+
+		await this.planRepository.delete(planId);
+
+		// ----------------------------
+		// Audit Log
+		// ----------------------------
+
+		await this.auditService.log({
+			actorId: currentUser.id,
+			action: "PLAN_DELETED",
+			targetId: planId,
+			resource: "Plan",
+			metadata: {
+				name: plan.name,
+				type: plan.type,
+				price: plan.price
+			},
+			ip: context.ip,
+			userAgent: context.userAgent
+		});
+
+		return { success: true };
 	}
 }

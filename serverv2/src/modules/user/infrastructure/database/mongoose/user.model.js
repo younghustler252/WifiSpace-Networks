@@ -29,6 +29,22 @@ const userSchema = new mongoose.Schema(
 		required: true
 	},
 
+	avatar: {
+		url: {
+			type: String,
+			default: "https://default-avatar.png"
+		},
+		publicId: {
+			type: String,
+			default: null
+		}
+	},
+
+	isVerified: {
+		type: Boolean,
+		default: false
+	},
+
 	role: {
 		type: String,
 		enum: ["customer", "staff", "superadmin"],
@@ -48,10 +64,6 @@ const userSchema = new mongoose.Schema(
 		index: true
 	},
 
-	isVerified: {
-		type: Boolean,
-		default: false
-	},
 
 	// 🔥 SECURITY TRACKING
 	lastLoginAt: {
@@ -92,9 +104,18 @@ const userSchema = new mongoose.Schema(
 		enum: ["male", "female", "other"]
 	},
 
-	verificationToken: { type: String },
+	verificationOTP: { type: String },
+	otpExpiresAt: { type: Number },
+	
 
-	googleId: { type: String }
+	googleId: { type: String },
+
+	theme: {
+		type: String,
+		enum: ["light", "dark", "system"],
+		default: "system",
+	},
+		
 
 },
 { timestamps: true }
@@ -104,7 +125,7 @@ const userSchema = new mongoose.Schema(
 userSchema.set("toJSON", {
 	transform: (doc, ret) => {
 		delete ret.password;
-		delete ret.verificationToken;
+		delete ret.verificationOTP;
 		delete ret.googleId;
 		delete ret.failedLoginAttempts;
 		delete ret.lockUntil;

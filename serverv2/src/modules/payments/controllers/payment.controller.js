@@ -1,5 +1,5 @@
 // controllers/payment.controller.js
-import { successResponse } from "../../../../shared/utils/response.util.js";
+import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class PaymentController {
 	constructor(usecases) {
@@ -11,17 +11,21 @@ export class PaymentController {
 	// ----------------------------
 	createPayment = async (req, res, next) => {
 		try {
-			const { planId, amount, monthsPaid } = req.body;
-			const userId = req.user.id;
+			const { accountId, planId, cycles } = req.body;
+			const user = req.user;
 
 			const payment = await this.usecases.createPayment.execute({
-				userId,
+				userId: user.id,
+				accountId,
 				planId,
-				amount,
-				monthsPaid
+				cycles,
 			});
 
-			return successResponse({ res, data: payment, message: "Payment created successfully" });
+			return successResponse({
+				res,
+				data: payment,
+				message: "Payment created successfully",
+			});
 		} catch (err) {
 			next(err);
 		}
@@ -31,37 +35,116 @@ export class PaymentController {
 	// User: Confirm Payment (Paystack callback)
 	// ----------------------------
 	confirmPayment = async (req, res, next) => {
-		try {
-			const { reference, status } = req.body;
+	try {
+		const { transactionId } = req.body;
 
-			const updatedPayment = await this.usecases.confirmPayment.execute({
-				transactionId: reference,
-				status
+		const updatedPayment =
+			await this.usecases.confirmPayment.execute({
+				transactionId
 			});
 
-			return successResponse({ res, data: updatedPayment, message: "Payment confirmed successfully" });
-		} catch (err) {
-			next(err);
-		}
-	};
-
+		return successResponse({
+			res,
+			data: updatedPayment,
+			message: "Payment confirmed successfully"
+		});
+	} catch (err) {
+		next(err);
+	}
+};
 	// ----------------------------
 	// User: Get my payments
 	// ----------------------------
-	getMyPayments = async (req, res, next) => {
-		try {
-			const userId = req.user.id;
-			const { limit, skip } = req.query;
+	getPayments = async (req, res, next) => {
+	try {
+		const {
+			planId,
+			status,
+			fromDate,
+			toDate,
+			page,
+			limit,
+			sortField,
+			sortOrder
+		} = req.query;
 
-			const payments = await this.usecases.getMyPayments.execute({
-				userId,
-				limit: parseInt(limit) || 10,
-				skip: parseInt(skip) || 0
+		const payments =
+			await this.usecases.getPayments.execute({
+				userRole: req.user.role,
+
+				authenticatedUserId: req.user.id,
+
+				accountId:
+					req.user.role === "customer"
+						? req.user.accountId
+						: req.query.accountId,
+
+				filters: {
+					planId,
+					status,
+					fromDate,
+					toDate,
+
+					// only allow admin filters safely
+					userId:
+						req.user.role === "admin"
+							? req.query.userId
+							: undefined,
+
+					accountId:
+						req.user.role === "admin"
+							? req.query.accountId
+							: undefined
+				},
+
+				pagination: {
+					page: parseInt(page) || 1,
+					limit: parseInt(limit) || 10
+				},
+
+				sort: {
+					field: sortField,
+					order: sortOrder || "desc"
+				}
 			});
 
-			return successResponse({ res, data: payments, message: "Payments fetched successfully" });
+		return successResponse({
+			res,
+			data: payments,
+			message: "Payments fetched successfully"
+		});
+	} catch (err) {
+		next(err);
+	}
+};
+	getPaymentById = async (req, res, next) => {
+		try {
+			const { id } = req.params;
+
+			const payment = await this.usecases.getPaymentById.execute({ paymentId: id });
+
+			return successResponse({ res, data: payment, message: "Payment fetched successfully" });
 		} catch (err) {
 			next(err);
 		}
 	};
+
+	handleWebhook = async (req, res, next) => {
+		try {
+			const signature = req.headers["x-paystack-signature"];
+			const payload = req.body;
+
+			// verify + extract reference
+			await this.usecases.handleWebhook.execute({
+				payload,
+				signature
+			});
+
+			// respond fast (VERY IMPORTANT)
+			return res.status(200).send("OK");
+		} catch (err) {
+			next(err);
+		}
+	};
+
 }

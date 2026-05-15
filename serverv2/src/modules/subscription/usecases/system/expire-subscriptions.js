@@ -1,37 +1,77 @@
+import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
-export class ExpireSubscriptionsUseCase {
-
+export class ExpireSubscriptionUseCase {
 	constructor({
-		accountSubscriptionRepository
+		subscriptionRepository,
+		analyticsTracker
 	}) {
-		this.accountSubscriptionRepository =
-			accountSubscriptionRepository;
+		this.subscriptionRepository = subscriptionRepository;
+		this.analyticsTracker = analyticsTracker;
 	}
 
-	async execute() {
+	async execute({ subscriptionId }) {
+		if (!subscriptionId)
+			throw new ValidationError("subscriptionId is required");
+
+		const subscription =
+			await this.subscriptionRepository.findById(
+				subscriptionId
+			);
+
+		if (!subscription)
+			throw new NotFoundError("Subscription not found");
+
+		// -----------------------------
+		// ❗ already expired safety check
+		// -----------------------------
+		if (subscription.status === "expired") {
+			return subscription;
+		}
 
 		const now = new Date();
 
-		const expiredSubscriptions =
-			await this.accountSubscriptionRepository
-				.findExpired(now);
+		// -----------------------------
+		// 🔥 expire subscription
+		// -----------------------------
+		subscription.status = "expired";
+		subscription.expiredAt = now;
 
-		const results = [];
+		// -----------------------------
+		// 🔥 audit event
+		// -----------------------------
+		subscription.events.push({
+			type: "expired",
+			date: now,
+			metadata: {
+				endDate: subscription.endDate
+			}
+		});
 
-		for (const subscription of expiredSubscriptions) {
+		// -----------------------------
+		// 🔥 persist
+		// -----------------------------
+		await this.subscriptionRepository.update(
+			subscription.id,
+			subscription
+		);
 
-			const updated =
-				await this.accountSubscriptionRepository
-					.updateStatus(subscription.id, "expired");
-
-			results.push(updated);
+		// -----------------------------
+		// ✅ analytics
+		// -----------------------------
+		try {
+			await this.analyticsTracker.track(
+				ANALYTICS_EVENTS.SUBSCRIPTION_EXPIRED,
+				{
+					accountId: subscription.accountId,
+					subscriptionId: subscription.id
+				}
+			);
+		} catch (err) {
+			console.error("Analytics failed:", err.message);
 		}
 
-		return {
-			expiredCount: results.length,
-			subscriptions: results
-		};
+		return subscription;
 	}
-
 }

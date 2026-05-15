@@ -1,66 +1,61 @@
-import { Payment } from "../../domain/entities/payment.entity.js";
-import { ValidationError } from "../../../../shared/error/validation-error.js";
-import { NotFoundError } from "../../../../shared/error/not-found.js";
+export class AdminCreatePaymentUseCase {
+	constructor({
+		paymentRepository,
+		planRepository
+	}) {
+		this.paymentRepository = paymentRepository;
+		this.planRepository = planRepository;
+	}
 
-export class ConfirmPaymentUseCase {
-    constructor({ paymentRepository, paystackService, createSubscriptionUseCase, mikrotikService }) {
-        this.paymentRepository = paymentRepository;             // PaymentRepositoryMongo
-        this.paystackService = paystackService;                 // PaystackPaymentService
-        this.createSubscriptionUseCase = createSubscriptionUseCase; // CreateSubscriptionUseCase
-        this.mikrotikService = mikrotikService;                 // MikroTikService (PPPoE + Hotspot)
-    }
+	async execute({
+		userId,
+		accountId,
+		planId,
+		amount,
+		cycles = 1,
+		method = "bank_transfer",
+		transactionId = null,
+		notes = null
+	}) {
+		// ================= VALIDATION =================
+		if (!userId) throw new Error("User ID is required");
+		if (!accountId) throw new Error("Account ID is required");
+		if (!planId) throw new Error("Plan ID is required");
 
-    /**
-     * Confirm a user's payment and provision subscription + PPPoE
-     * @param {string} transactionId
-     */
-    async execute({ transactionId }) {
-        if (!transactionId) throw new ValidationError("Transaction ID is required");
+		// ================= GET PLAN =================
+		const plan = await this.planRepository.findById(planId);
 
-        // 1️⃣ Find payment by transaction
-        const payments = await this.paymentRepository.findPayments({ transactionId });
-        const payment = payments[0];
-        if (!payment) throw new NotFoundError("Payment not found");
+		if (!plan) {
+			throw new Error("Plan not found");
+		}
 
-        // 2️⃣ Verify payment with Paystack
-        const paystackResult = await this.paystackService.verifyPayment(transactionId);
+		// ================= AMOUNT VALIDATION =================
+		const expectedAmount = plan.price * cycles;
 
-        // 3️⃣ Update payment status
-        if (paystackResult.status === "successful") {
-            payment.markSuccessful();
-            await this.paymentRepository.updateStatus(payment.id, payment.status);
+		if (amount < expectedAmount) {
+			throw new Error(
+				`Invalid amount. Expected at least ${expectedAmount}`
+			);
+		}
 
-            // 4️⃣ Create subscription
-            const subscription = await this.createSubscriptionUseCase.execute({
-                accountId: payment.accountId,
-                planId: payment.planId
-            });
+		// ================= CREATE PAYMENT =================
+		const payment = await this.paymentRepository.create({
+			userId,
+			accountId,
+			planId,
 
-            // 5️⃣ MikroTik provisioning (PPPoE)
-            const account = payment.accountId; // Assuming payment.accountId points to Account object
-            const wsId = account.wsnId;
-            const password = account.pppoePassword || "defaultPass123"; // fallback password
-            const profile = account.routerProfile || "default";
+			amount,
+			cycles,
 
-            // Check if MikroTik user already exists
-            const existing = await this.mikrotikService.checkUserExists(wsId, account.serviceType);
-            if (!existing) {
-                await this.mikrotikService.createUser({
-                    wsId,
-                    password,
-                    profile,
-                    serviceType: account.serviceType
-                });
-            }
+			method,
 
-        } else if (paystackResult.status === "failed") {
-            payment.markFailed();
-            await this.paymentRepository.updateStatus(payment.id, payment.status);
-        } else {
-            payment.markPending();
-            await this.paymentRepository.updateStatus(payment.id, payment.status);
-        }
+			// offline assumption: admin already verified
+			status: "successful",
 
-        return payment;
-    }
+			transactionId,
+			notes
+		});
+
+		return payment;
+	}
 }

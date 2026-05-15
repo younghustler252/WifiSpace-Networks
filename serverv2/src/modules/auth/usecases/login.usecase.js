@@ -1,4 +1,3 @@
-// src/modules/auth/usecases/login.usecase.js
 import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
 import { ForbiddenError } from "../../../shared/errors/forbidden-error.js";
 
@@ -12,36 +11,30 @@ export class LoginUser {
 
 	async execute({ email, password, ip = null, userAgent = null }) {
 		const user = await this.userRepository.findAuthByEmail(email);
-
+		
 		if (!user) {
-			if (this.auditService) {
-				await this.auditService.log({
-					actorId: null,
-					action: "LOGIN_FAILED",
-					resource: "User",
-					metadata: { email, reason: "USER_NOT_FOUND", ip, userAgent }
-				});
-			}
+			// if (this.auditService) {
+			// 	await this.auditService.log({
+			// 		actorId: null,
+			// 		action: "LOGIN_FAILED",
+			// 		resource: "User",
+			// 		metadata: { email, reason: "USER_NOT_FOUND", ip, userAgent }
+			// 	});
+			// }
 			throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
 		}
+		console.log("user id", user.id)
+		
+		if (!user.isActive()) throw new ForbiddenError("Account is not active", "ACCOUNT_INACTIVE");
+		if (user.isLocked()) throw new ForbiddenError("Account temporarily locked", "ACCOUNT_LOCKED");
 
-		if (!user.isActive()) {
-			throw new ForbiddenError("Account is not active", "ACCOUNT_INACTIVE");
-		}
-
-		if (user.isLocked()) {
-			throw new ForbiddenError("Account temporarily locked", "ACCOUNT_LOCKED");
-		}
-
-		const isValid = await this.passwordService.compare(password, user.password);
-
+		const isValid = await this.passwordService.compare(password, user.hashedPassword);
 		if (!isValid) {
 			user.recordFailedLogin();
 			await this.userRepository.updateSecurityState(user.id, {
 				failedLoginAttempts: user.failedLoginAttempts,
 				lockUntil: user.lockUntil
 			});
-
 			if (this.auditService) {
 				await this.auditService.log({
 					actorId: user.id,
@@ -50,12 +43,23 @@ export class LoginUser {
 					metadata: { reason: "INVALID_PASSWORD", ip, userAgent }
 				});
 			}
-
 			throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
 		}
 
 		if (!user.isVerified) {
-			throw new ForbiddenError("Account not verified", "ACCOUNT_NOT_VERIFIED");
+			return {
+				user: {
+					id: user.id,
+					email: user.email,
+					firstName: user.firstName,
+					lastName: user.lastName,
+					role: user.role,
+					isVerified: false
+				},
+				accessToken: null,
+				refreshToken: null,
+				error: "ACCOUNT_NOT_VERIFIED"
+			};
 		}
 
 		// ✅ Reset failed attempts + last login
@@ -66,12 +70,12 @@ export class LoginUser {
 			lastLoginAt: user.lastLoginAt
 		});
 
-		// 🔑 Generate token
-		const token = this.tokenService.generate({
-			sub: user.id,
-			role: user.role,
-			pwd: user.passwordChangedAt?.getTime() || null
-		});
+		// 🔑 Generate access & refresh tokens
+		let accessToken, refreshToken;
+		if (this.tokenService) {
+			accessToken = this.tokenService.generateAccessToken({ sub: user.id, role: user.role });
+			refreshToken = this.tokenService.generateRefreshToken({ sub: user.id });
+		}
 
 		// 📝 Audit successful login
 		if (this.auditService) {
@@ -84,12 +88,9 @@ export class LoginUser {
 		}
 
 		return {
-			token,
-			user: {
-				id: user.id,
-				email: user.email,
-				role: user.role
-			}
+			accessToken,
+			refreshToken,
+			user
 		};
 	}
 }

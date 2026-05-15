@@ -1,43 +1,65 @@
-import { Payment } from "../../domain/entities/payment.entity.js";
-import { ValidationError } from "../../../../shared/error/validation-error.js";
-import { NotFoundError } from "../../../../shared/error/not-found.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
 export class ConfirmPaymentUseCase {
-    constructor({ paymentRepository, paystackService, createSubscriptionUseCase }) {
-        this.paymentRepository = paymentRepository;
-        this.paystackService = paystackService; // PaystackPaymentService
-        this.createSubscriptionUseCase = createSubscriptionUseCase; // Injected CreateSubscriptionUseCase
-    }
+	constructor({
+		paymentRepository,
+		paystackPaymentService,
+		createSubscriptionUseCase,
+		accountRepository
+	}) {
+		this.paymentRepository = paymentRepository;
+		this.paystackPaymentService = paystackPaymentService;
+		this.createSubscriptionUseCase = createSubscriptionUseCase;
+		this.accountRepository = accountRepository;
+	}
 
-    async execute({ transactionId }) {
-        if (!transactionId) throw new ValidationError("Transaction ID is required");
+	async execute({ transactionId }) {
+		if (!transactionId) {
+			throw new ValidationError("Transaction ID is required");
+		}
 
-        // Find payment by transaction/reference
-        const payments = await this.paymentRepository.findPayments({ transactionId });
-        const payment = payments[0];
-        if (!payment) throw new NotFoundError("Payment not found");
+		// ----------------------------
+		// FIND PAYMENT
+		// ----------------------------
+		const existingPayment =
+			await this.paymentRepository.findByTransactionId(
+				transactionId
+			);
 
-        // Verify with Paystack
-        const paystackResult = await this.paystackService.verifyPayment(transactionId);
+		if (!existingPayment) {
+			throw new NotFoundError("Payment not found");
+		}
 
-        // Update payment status in local DB
-        if (paystackResult.status === "successful") {
-            payment.markSuccessful();
+		// ----------------------------
+		// VERIFY WITH PAYSTACK
+		// ----------------------------
+		const {
+			payment,
+			alreadyProcessed
+		} = await this.paystackPaymentService.verifyPayment(
+			transactionId
+		);
 
-            // ----------------------------
-            // Create subscription if payment succeeded
-            // ----------------------------
-            await this.createSubscriptionUseCase.execute({
-                accountId: payment.accountId,
-                planId: payment.planId
-            });
+		// ----------------------------
+		// SUCCESS FLOW (IDEMPOTENT)
+		// ----------------------------
+		if (payment.status === "successful" && !alreadyProcessed) {
+			await this.createSubscriptionUseCase.execute({
+				accountId: payment.accountId,
+				planId: payment.planId,
+				cycles: payment.cycles,
+				bonusDays: payment.bonusDays
+			});
+			// OPTIONAL (keep light or async later)
+			const account =
+				await this.accountRepository.findById(
+					payment.accountId
+				);
 
-        } else if (paystackResult.status === "failed") {
-            payment.markFailed();
-        } else {
-            payment.markPending();
-        }
+			// 👉 future: trigger provisioning event instead
+		}
 
-        return this.paymentRepository.updateStatus(payment.id, payment.status);
-    }
+		return payment;
+	}
 }

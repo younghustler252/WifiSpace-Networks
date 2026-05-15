@@ -1,105 +1,290 @@
 // subscription/presentation/routes/subscription.routes.js
+
 import { Router } from "express";
 import asyncHandler from "express-async-handler";
 
-import PERMISSION from "../../../../shared/constants/permissions.js";
-import { authMiddleware } from "../../auth/presentation/middleware/auth.middleware.js";
+import { PERMISSION } from "../../../../shared/constants/permissions.js";
+
+import { authMiddleware } from "../../../../shared/middleware/auth.middleware.js";
+
 import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
 
 export default function subscriptionRoutes({
 	subscriptionController,
 	subscriptionAdminController,
-	permissionService
+	permissionService,
+	userRepository
 }) {
+
 	const router = Router();
 
-	// -----------------------------
-	// ACCOUNT / USER ROUTES
-	// -----------------------------
+	// ------------------------------------------------
+	// AUTH HELPER
+	// ------------------------------------------------
+	const auth = (roles = []) =>
+		authMiddleware(
+			{ userRepository },
+			roles
+		);
 
-	// Create subscription
+	// =================================================
+	// ACCOUNT / USER ROUTES
+	// =================================================
+
+	// ------------------------------------------------
+	// CREATE SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/",
-		authMiddleware(),
-		asyncHandler(subscriptionController.createSubscription)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.createSubscription
+		)
 	);
 
-	// Renew subscription
+	// ------------------------------------------------
+	// RENEW SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/:subscriptionId/renew",
-		authMiddleware(),
-		asyncHandler(subscriptionController.renewSubscription)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.renewSubscription
+		)
 	);
 
-	// Upgrade subscription
+	// ------------------------------------------------
+	// UPGRADE SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/:subscriptionId/upgrade",
-		authMiddleware(),
-		asyncHandler(subscriptionController.upgradeSubscription)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.upgradeSubscription
+		)
 	);
 
-	// Get subscription by ID
+	// ------------------------------------------------
+	// GET SINGLE SUBSCRIPTION
+	// ------------------------------------------------
 	router.get(
 		"/:subscriptionId",
-		authMiddleware(),
-		asyncHandler(subscriptionController.getSubscription)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.getSubscription
+		)
 	);
 
-	// Get all subscriptions for an account
+	// ------------------------------------------------
+	// GET ACCOUNT SUBSCRIPTIONS
+	// ------------------------------------------------
 	router.get(
 		"/account/:accountId",
-		authMiddleware(),
-		asyncHandler(subscriptionController.getAccountSubscriptions)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.getAccountSubscriptions
+		)
 	);
 
-	// Get active subscription for an account
+	// ------------------------------------------------
+	// GET CURRENT SUBSCRIPTION
+	// ------------------------------------------------
 	router.get(
-		"/account/:accountId/active",
-		authMiddleware(),
-		asyncHandler(subscriptionController.getActiveSubscription)
+		"/account/:accountId/current",
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.getCurrentSubscription
+		)
 	);
 
-	// Get subscriptions for a user
+	// ------------------------------------------------
+	// GET USER SUBSCRIPTIONS
+	// ------------------------------------------------
 	router.get(
 		"/user/:userId",
-		authMiddleware(),
-		asyncHandler(subscriptionController.getUserSubscriptions)
+
+		auth(),
+
+		asyncHandler(
+			subscriptionController
+				.getUserSubscriptions
+		)
 	);
 
-	// -----------------------------
+	// =================================================
 	// ADMIN ROUTES
-	// -----------------------------
+	// =================================================
 
-	// Get all subscriptions (with pagination + filters)
+	// ------------------------------------------------
+	// GET ALL SUBSCRIPTIONS
+	// ------------------------------------------------
 	router.get(
 		"/admin/all",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.VIEW, permissionService),
-		asyncHandler(subscriptionAdminController.getAllSubscriptions)
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.VIEW,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.getAllSubscriptions
+		)
 	);
 
-	// Suspend a subscription
+	// ------------------------------------------------
+	// ADMIN CREATE SUBSCRIPTION
+	// ------------------------------------------------
+	router.post(
+		"/admin/create",
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.CREATE,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.createSubscription
+		)
+	);
+
+	// ------------------------------------------------
+	// SUSPEND SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/admin/:subscriptionId/suspend",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.SUSPEND, permissionService),
-		asyncHandler(subscriptionAdminController.suspendSubscription)
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.SUSPEND,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.suspendSubscription
+		)
 	);
 
-	// Resume a subscription
+	// ------------------------------------------------
+	// RESUME SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/admin/:subscriptionId/resume",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.RESUME, permissionService),
-		asyncHandler(subscriptionAdminController.resumeSubscription)
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.RESUME,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.resumeSubscription
+		)
 	);
 
-	// Cancel a subscription
+	// ------------------------------------------------
+	// CANCEL SUBSCRIPTION
+	// ------------------------------------------------
 	router.post(
 		"/admin/:subscriptionId/cancel",
-		authMiddleware(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.CANCEL, permissionService),
-		asyncHandler(subscriptionAdminController.cancelSubscription)
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.CANCEL,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.cancelSubscription
+		)
+	);
+
+	// ------------------------------------------------
+	// EXTEND SUBSCRIPTION
+	// ------------------------------------------------
+	router.post(
+		"/admin/:subscriptionId/extend",
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.UPDATE,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.extendSubscription
+		)
+	);
+
+	// ------------------------------------------------
+	// FORCE EXPIRE SUBSCRIPTION
+	// ------------------------------------------------
+	router.post(
+		"/admin/:subscriptionId/force-expire",
+
+		auth([
+			"staff",
+			"superadmin"
+		]),
+
+		requirePermission(
+			PERMISSION.SUBSCRIPTION.EXPIRE,
+			permissionService
+		),
+
+		asyncHandler(
+			subscriptionAdminController
+				.forceExpireSubscription
+		)
 	);
 
 	return router;

@@ -1,5 +1,4 @@
-// modules/user/domain/user.entity.js
-
+import { ROLE_PERMISSIONS } from "../../../shared/constants/roles.js";
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 
 export class User {
@@ -8,6 +7,7 @@ export class User {
 		firstName,
 		lastName,
 		email,
+		avatar,
 		hashedPassword,
 		role = "customer",
 		status = "active",
@@ -21,7 +21,12 @@ export class User {
 		failedLoginAttempts = 0,
 		lockUntil = null,
 		passwordChangedAt = null,
-		lastLoginAt = null
+		lastLoginAt = null,
+		verificationOTP = null,
+		otpExpiresAt = null,
+		createdAt = null,
+		updatedAt = null,
+		theme = "system" // 🔥 New theme field
 	}) {
 		if (!email) throw new ValidationError("Email is required");
 		if (!firstName) throw new ValidationError("First name is required");
@@ -31,13 +36,14 @@ export class User {
 		this.firstName = firstName;
 		this.lastName = lastName;
 		this.email = email;
-		this.password = hashedPassword;
+
+		this.avatar = avatar ?? { url: "https://default-avatar.png", publicId: null };
+		this.hashedPassword = hashedPassword;
 		this.role = role;
 		this.status = status;
 		this.isVerified = isVerified;
 
-		this.permissions =
-			permissions.length ? permissions : ROLES[role] || [];
+		this.permissions = permissions && permissions.length ? permissions : ROLE_PERMISSIONS[role] || [];
 
 		this.phone = phone;
 		this.nin = nin;
@@ -49,47 +55,63 @@ export class User {
 		this.lockUntil = lockUntil;
 		this.passwordChangedAt = passwordChangedAt;
 		this.lastLoginAt = lastLoginAt;
+		this.verificationOTP = verificationOTP;
+		this.otpExpiresAt = otpExpiresAt;
+
+		this.createdAt = createdAt;
+		this.updatedAt = updatedAt;
+
+		this.theme = theme; // save user preference
+	}
+
+	// ----------------------------
+	// Safe Output (DTO)
+	// Include all safe fields like nin, theme, etc.
+	// Exclude sensitive fields like hashedPassword, OTPs
+	// ----------------------------
+	toJSON() {
+		return {
+			id: this.id,
+			firstName: this.firstName,
+			lastName: this.lastName,
+			email: this.email,
+			avatar: this.avatar,
+			role: this.role,
+			status: this.status,
+			isVerified: this.isVerified,
+			permissions: this.permissions,
+			phone: this.phone,
+			nin: this.nin, // include NIN
+			address: this.address,
+			dateOfBirth: this.dateOfBirth,
+			gender: this.gender,
+			lastLoginAt: this.lastLoginAt,
+			createdAt: this.createdAt,
+			updatedAt: this.updatedAt,
+			theme: this.theme // include theme
+		};
 	}
 
 	// ----------------------------
 	// Status Management
 	// ----------------------------
-
-	isActive() {
-		return this.status === "active";
-	}
-
-	suspend() {
-		this.status = "suspended";
-	}
-
-	ban() {
-		this.status = "banned";
-	}
-
-	activate() {
-		this.status = "active";
-	}
+	isActive() { return this.status === "active"; }
+	suspend() { this.status = "suspended"; }
+	ban() { this.status = "banned"; }
+	activate() { this.status = "active"; }
 
 	// ----------------------------
 	// Verification
 	// ----------------------------
-
-	verify() {
-		this.isVerified = true;
-	}
+	verify() { this.isVerified = true; }
 
 	// ----------------------------
 	// Login Security
 	// ----------------------------
-
-	isLocked() {
-		return this.lockUntil && this.lockUntil > new Date();
-	}
+	isLocked() { return this.lockUntil && this.lockUntil > new Date(); }
 
 	recordFailedLogin(maxAttempts = 5, lockMinutes = 15) {
 		this.failedLoginAttempts += 1;
-
 		if (this.failedLoginAttempts >= maxAttempts) {
 			const lockTime = new Date();
 			lockTime.setMinutes(lockTime.getMinutes() + lockMinutes);
@@ -103,28 +125,33 @@ export class User {
 		this.lastLoginAt = new Date();
 	}
 
-	markPasswordChanged() {
-		this.passwordChangedAt = new Date();
-	}
+	markPasswordChanged() { this.passwordChangedAt = new Date(); }
 
 	// ----------------------------
 	// Profile Updates
 	// ----------------------------
+	updatePermissions(newPermissions = []) { this.permissions = newPermissions; }
 
-	updatePermissions(newPermissions = []) {
-		this.permissions = newPermissions;
-	}
-
-	updateProfile({ firstName, lastName, phone, address, gender, dateOfBirth }) {
+	updateProfile({ firstName, lastName, phone, address, gender, dateOfBirth,nin } = {}) {
 		if (firstName) this.firstName = firstName;
 		if (lastName) this.lastName = lastName;
 		if (phone) this.phone = phone;
+		if (nin) this.nin = nin;
 		if (address) this.address = address;
 		if (gender) this.gender = gender;
 		if (dateOfBirth) this.dateOfBirth = dateOfBirth;
+
 	}
 
-	getFullName() {
-		return `${this.firstName} ${this.lastName}`;
+	updateAvatar({ url, publicId }) {
+		if (!url) throw new ValidationError("Avatar URL is required");
+		this.avatar = { url, publicId: publicId || null };
 	}
+
+	removeAvatar() { this.avatar = { url: null, publicId: null }; }
+
+	// ----------------------------
+	// Helpers
+	// ----------------------------
+	getFullName() { return `${this.firstName} ${this.lastName}`; }
 }

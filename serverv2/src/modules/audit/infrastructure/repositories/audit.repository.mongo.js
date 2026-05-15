@@ -1,5 +1,5 @@
 // src/infrastructure/database/mongoose/repositories/audit.repository.mongo.js
-import AuditModel from "../models/audit.model.js";
+import AuditModel from "../database/moongoose/audit.model.js";
 import { AuditRepository } from "../../domain/audit.repository.js";
 
 export class AuditRepositoryMongo extends AuditRepository {

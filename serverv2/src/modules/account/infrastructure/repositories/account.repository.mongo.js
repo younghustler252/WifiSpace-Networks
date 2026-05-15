@@ -2,7 +2,7 @@ import accountModel from "../database/moongoose/account.model.js";
 import CounterModel from "../database/moongoose/counter.model.js";
 
 import { AccountRepository } from "../../domain/account.repository.js";
-import AccountMapper from "../mappers/account.mapper.js";
+import { AccountMapper } from "../mappers/account.mapper.js";
 
 export class AccountRepositoryMongo extends AccountRepository {
 
@@ -10,20 +10,18 @@ export class AccountRepositoryMongo extends AccountRepository {
 	// Create a new account
 	// ----------------------------
 	async create(accountEntity) {
-		// Ensure WSN ID
-		if (!accountEntity.wsnId) {
-			accountEntity.wsnId = await this.generateWsnId();
-		}
+        // Only auto-generate if wsnId wasn't already provided by the Use Case
+        if (!accountEntity.wsnId) {
+            // Check the service type to decide prefix
+            const prefix = accountEntity.serviceType === 'hotspot' ? 'HS' : 'WSN';
+            accountEntity.wsnId = await this.generateWsnId(prefix);
+        }
 
-		// Map domain → persistence
-		const persistenceData = AccountMapper.toPersistence(accountEntity);
+        const persistenceData = AccountMapper.toPersistence(accountEntity);
+        const createdModel = await accountModel.create(persistenceData);
 
-		const createdModel = await accountModel.create(persistenceData);
-
-		// Return domain entity
-		return AccountMapper.toDomain(createdModel);
-	}
-
+        return AccountMapper.toDomain(createdModel);
+    }
 	// ----------------------------
 	// Find by ID
 	// ----------------------------
@@ -32,6 +30,26 @@ export class AccountRepositoryMongo extends AccountRepository {
 		return AccountMapper.toDomain(model);
 	}
 
+	async findAll(query = {}, sort = {}, skip = 0, limit = 50) {
+
+		const [models, total] = await Promise.all([
+			accountModel
+			.find(query)
+			.populate("userId", "firstName lastName email avatar")
+			.sort(sort)
+			.skip(skip)
+			.limit(limit),
+
+			accountModel.countDocuments(query),
+		]);
+		// console.log("RAW FROM DB:", models[0]?.userId);
+		return {
+			data: models.map(AccountMapper.toDomain),
+			total,
+			skip,
+			limit,
+		};
+	}
 	// ----------------------------
 	// Find by WSN ID
 	// ----------------------------
@@ -74,17 +92,26 @@ export class AccountRepositoryMongo extends AccountRepository {
 	// ----------------------------
 	// Generate unique WSN ID
 	// ----------------------------
-	async generateWsnId() {
-		// Atomic counter in Mongo
-		const counter = await CounterModel.findOneAndUpdate(
-			{ _id: "wsnId" },
-			{ $inc: { sequence_value: 1 } },
-			{ new: true, upsert: true }
-		);
+	async generateWsnId(prefix = "WSN") {
+        const counter = await CounterModel.findOneAndUpdate(
+            { _id: `wsnId_${prefix}` }, 
+            { $inc: { sequence_value: 1 } },
+            { new: true, upsert: true }
+        );
 
-		const nextNumber = counter.sequence_value;
+        const nextNumber = counter.sequence_value;
 
-		// Format: WSN000001
-		return `WSN${String(nextNumber).padStart(6, "0")}`;
+        return `${prefix}${String(nextNumber).padStart(4, "0")}`;
+    }
+	async countAllAccounts() {
+		return accountModel.countDocuments();
+	}
+
+	async countActiveAccounts() {
+		return accountModel.countDocuments({ profileStatus: "active" });
+	}
+
+	async countSuspendedAccounts() {
+		return accountModel.countDocuments({ profileStatus: "suspended" });
 	}
 }

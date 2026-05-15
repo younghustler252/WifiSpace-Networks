@@ -1,22 +1,21 @@
-// get-payment.js
-import { NotFoundError } from "../../../../shared/error/not-found.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
-export class GetPaymentUseCase {
+export class GetPaymentByIdUseCase {
 	constructor({ paymentRepository }) {
 		this.paymentRepository = paymentRepository;
 	}
 
-	/**
-	 * Fetch a single payment by ID
-	 * @param {string} paymentId
-	 * @returns {Promise<Payment>}
-	 */
-	async execute({ paymentId }) {
-		if (!paymentId) throw new Error("Payment ID is required");
+	async execute({ id }) {
+		if (!id) {
+			throw new ValidationError("Payment ID is required");
+		}
 
-		const payment = await this.paymentRepository.findById(paymentId);
+		const payment = await this.paymentRepository.findById(id);
 
-		if (!payment) throw new NotFoundError("Payment not found");
+		if (!payment) {
+			throw new NotFoundError("Payment not found");
+		}
 
 		return payment;
 	}

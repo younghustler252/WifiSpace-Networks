@@ -27,7 +27,6 @@ const accountSchema = new mongoose.Schema(
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
 			required: true,
-			index: true
 		},
 
 		// ----------------------------
@@ -67,9 +66,10 @@ const accountSchema = new mongoose.Schema(
 			type: String,
 			required: true,
 			unique: true,
-			index: true,
 			trim: true
 		},
+
+		
 
 		pppoePassword: {
 			type: String
@@ -80,17 +80,19 @@ const accountSchema = new mongoose.Schema(
 		// ----------------------------
 
 		routerId: {
-			type: String,
-			required: true,
-			index: true
-		},
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Router",
+            required: true, // Make this required!
+        },
 
 		routerProfile: {
 			type: String,
 			default: "default",
-			index: true
 		},
-
+		macAddress: {
+			type: String,
+			trim: true,
+		},
 		// ----------------------------
 		// Service
 		// ----------------------------
@@ -105,16 +107,23 @@ const accountSchema = new mongoose.Schema(
 			type: String,
 			enum: PROFILE_STATUSES,
 			default: "pending",
-			index: true
 		},
 
 		// ----------------------------
 		// Monitoring
 		// ----------------------------
+		limitUptime: {
+            type: String, // format "2h", "30m", or seconds
+            default: "0"
+        },
+
+        limitBytes: {
+            type: Number, // In bytes (e.g., 1073741824 for 1GB)
+            default: 0
+        },
 
 		lastSeenAt: {
 			type: Date,
-			index: true
 		},
 
 		mikrotikUserCreated: {

@@ -1,13 +1,14 @@
 import { Router } from "express";
 
-import PERMISSION from "../../../../shared/constants/permissions.js";
+import {PERMISSION} from "../../../../shared/constants/permissions.js";
 
 import { authMiddleware } from "../../../../shared/middleware/auth.middleware.js";
 import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
 
 export default function planRoutes({
 	planController,
-	permissionService
+	permissionService,
+	userRepository
 }) {
 
 	const router = Router();
@@ -18,13 +19,13 @@ export default function planRoutes({
 
 	router.get(
 		"/",
-		authMiddleware(),
+		authMiddleware({ userRepository }),
 		planController.getAll
 	);
 
 	router.get(
 		"/:id",
-		authMiddleware(),
+		authMiddleware({ userRepository }),
 		planController.getById
 	);
 
@@ -33,8 +34,11 @@ export default function planRoutes({
 	// -----------------------------
 
 	router.post(
-		"/",
-		authMiddleware(["staff", "superadmin"]),
+		"/create",
+		authMiddleware(
+			{ userRepository },
+			["staff", "superadmin"]
+		),
 		requirePermission(
 			PERMISSION.PLAN.CREATE,
 			permissionService
@@ -44,7 +48,10 @@ export default function planRoutes({
 
 	router.patch(
 		"/:id",
-		authMiddleware(["staff", "superadmin"]),
+		authMiddleware(
+			{ userRepository },
+			["staff", "superadmin"]
+		),
 		requirePermission(
 			PERMISSION.PLAN.UPDATE,
 			permissionService
@@ -54,7 +61,10 @@ export default function planRoutes({
 
 	router.delete(
 		"/:id",
-		authMiddleware(["staff", "superadmin"]),
+		authMiddleware(
+			{ userRepository },
+			["staff", "superadmin"]
+		),
 		requirePermission(
 			PERMISSION.PLAN.DELETE,
 			permissionService

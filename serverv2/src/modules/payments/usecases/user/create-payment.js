@@ -1,44 +1,60 @@
-import { Payment } from "../../domain/entities/payment.entity.js";
-import { ValidationError } from "../../../../shared/error/validation-error.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class CreatePaymentUseCase {
-	constructor({ paymentRepository, planRepository, paystackService }) {
-		this.paymentRepository = paymentRepository;
+	constructor({
+		paystackPaymentService,
+		planRepository,
+		userRepository,
+	}) {
+		this.paystackPaymentService = paystackPaymentService;
 		this.planRepository = planRepository;
-		this.paystackService = paystackService;
+		this.userRepository = userRepository;
 	}
 
-	async execute({ userId, planId, amount, monthsPaid, bonusDays = 0, email }) {
+	async execute({
+		userId,
+		accountId,
+		planId,
+		cycles,
+	}) {
 		// ----------------------------
-		// Validate input
+		// VALIDATION
 		// ----------------------------
 		if (!userId) throw new ValidationError("User ID is required");
+		if (!accountId) throw new ValidationError("Account ID is required");
 		if (!planId) throw new ValidationError("Plan ID is required");
-		if (!amount || amount <= 0) throw new ValidationError("Amount must be positive");
-		if (!monthsPaid || monthsPaid < 1) throw new ValidationError("Months paid must be at least 1");
-		if (!email) throw new ValidationError("User email is required for Paystack");
+		if (!cycles || cycles < 1)
+			throw new ValidationError("Cycles must be at least 1");
 
 		// ----------------------------
-		// Verify plan exists
+		// FETCH USER (email comes from DB)
+		// ----------------------------
+		const user = await this.userRepository.findById(userId);
+		if (!user) throw new ValidationError("User not found");
+		if (!user.email) throw new ValidationError("User email is missing");
+
+		// ----------------------------
+		// VERIFY PLAN
 		// ----------------------------
 		const plan = await this.planRepository.findById(planId);
 		if (!plan) throw new ValidationError("Plan not found");
 
 		// ----------------------------
-		// Create payment through Paystack service
+		// CALCULATE AMOUNT (SERVER TRUTH)
 		// ----------------------------
-		const { payment, paystack } = await this.paystackService.initiatePayment({
-			userId,
-			planId,
-			amount,
-			monthsPaid,
-			bonusDays,
-			email
-		});
+		const amount = plan.price * cycles;
 
 		// ----------------------------
-		// Return payment + Paystack init details
+		// CALL PAYMENT SERVICE
 		// ----------------------------
-		return { payment, paystack };
+		return this.paystackPaymentService.initiatePayment({
+			userId,
+			accountId,
+			planId,
+			amount,
+			cycles,
+			bonusDays: 0,
+			email: user.email,
+		});
 	}
 }

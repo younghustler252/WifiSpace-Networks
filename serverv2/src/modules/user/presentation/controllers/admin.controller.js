@@ -1,54 +1,112 @@
-// modules/user/controllers/admin.controller.js
-
-import asyncHandler from "express-async-handler";
-import { CreateUser } from "../usecases/admin/create-user.usecase.js";
-import { UpdateRole } from "../usecases/admin/update-role.usecase.js";
-import { DeleteUser } from "../usecases/admin/delete-user.usecase.js";
-import { BanUser } from "../usecases/admin/ban-user.usecase.js";
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { successResponse } from "../../../shared/utils/response.util.js"; // <--- consistency
+import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class AdminController {
-	constructor(userRepository, passwordService, auditService, permissionService) {
-		this.createUserUseCase = new CreateUser(userRepository, passwordService, auditService, permissionService);
-		this.updateRoleUseCase = new UpdateRole(userRepository, permissionService);
-		this.deleteUserUseCase = new DeleteUser(userRepository);
-		this.banUserUseCase = new BanUser(userRepository);
+	constructor(usecases) {
+		this.usecases = usecases;
 	}
 
 	// Create User
-	createUser = asyncHandler(async (req, res) => {
+	createUser = async (req, res) => {
 		const actor = req.user;
 		const userData = req.body;
 
-		const newUser = await this.createUserUseCase.execute(actor, userData);
-		return successResponse({ res, data: newUser, message: "User created successfully" });
-	});
+		const user = await this.usecases.createUser.execute(actor, userData);
+
+		return successResponse({
+			res,
+			data: user,
+			message: "User created successfully"
+		});
+	};
+
+	getAllUsers = async (req, res) => {
+		const actor = req.user;
+
+		const users = await this.usecases.getAllUsers.execute({
+			...req.query,
+			currentUser: actor
+		});
+
+		return successResponse({
+			res,
+			data: users,
+			message: "Users fetched successfully"
+		});
+	};
+
+	// ----------------------------
+	// Get User By ID
+	// ----------------------------
+	getUserById = async (req, res) => {
+		const actor = req.user;
+		const { id } = req.params;
+
+		const user = await this.usecases.getUserById.execute(actor, id);
+
+		return successResponse({
+			res,
+			data: user,
+			message: "User fetched successfully"
+		});
+	};
+
 
 	// Update Role
-	updateRole = asyncHandler(async (req, res) => {
+	updateRole = async (req, res) => {
 		const actor = req.user;
 		const { userId, role } = req.body;
 
-		const updatedUser = await this.updateRoleUseCase.execute(actor, userId, role);
-		return successResponse({ res, data: updatedUser, message: "Role updated successfully" });
-	});
+		const user = await this.usecases.updateRole.execute(actor, userId, role);
+
+		return successResponse({
+			res,
+			data: user,
+			message: "Role updated successfully"
+		});
+	};
+
+	updateUserProfile = async (req, res) => {
+		const actor = req.user;
+		const { userId } = req.params;
+		const profileData = req.body;
+
+		const user = await this.usecases.updateUserProfile.execute({
+			userId,
+			profileData,
+			actorId: actor.id,
+			ip: req.ip
+		});
+
+		return successResponse({
+			res,
+			data: user,
+			message: "User profile updated successfully"
+		});
+	};
 
 	// Delete User
-	deleteUser = asyncHandler(async (req, res) => {
+	deleteUser = async (req, res) => {
 		const actor = req.user;
 		const { userId } = req.params;
 
-		const message = await this.deleteUserUseCase.execute(actor, userId);
-		return successResponse({ res, message });
-	});
+		const message = await this.usecases.deleteUser.execute(actor, userId);
+
+		return successResponse({
+			res,
+			message
+		});
+	};
 
 	// Ban User
-	banUser = asyncHandler(async (req, res) => {
+	banUser = async (req, res) => {
 		const actor = req.user;
 		const { userId } = req.params;
 
-		const message = await this.banUserUseCase.execute(actor, userId);
-		return successResponse({ res, message });
-	});
+		const message = await this.usecases.banUser.execute(actor, userId);
+
+		return successResponse({
+			res,
+			message
+		});
+	};
 }

@@ -1,49 +1,34 @@
-// modules/user/usecases/admin/create-user.usecase.js
-
+import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { User } from "../../domain/user.entity.js";
-import { ValidationError } from "../../../shared/errors/validation-error.js";
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { mapUserToDTO } from "../../domain/user-mapper.js";
-import { PERMISSION } from "../../domain/permissions.js";
 
 export class CreateUser {
-	constructor(userRepository, passwordService, auditService, permissionService) {
+	constructor(
+		userRepository,
+		passwordService,
+		auditService,
+		analyticsTracker // ✅ ADD THIS
+	) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;
-		this.permissionService = permissionService;
+		this.analyticsTracker = analyticsTracker; // ✅
 	}
 
-	/**
-	 * Execute create user
-	 * @param {object} actor - The admin performing the action
-	 * @param {object} userData - Data for the new user
-	 * @returns {object} - Created user mapped
-	 */
 	async execute(actor, userData) {
-		// ----------------------------
-		// 1️⃣ Check actor permission
-		// ----------------------------
-		const canCreate = await this.permissionService.hasPermission(
-			actor.id,
-			PERMISSION.USER.FULL_ACCESS
-		);
-
-		if (!canCreate) {
-			throw new UnauthorizedError("You do not have permission to create a user", "FORBIDDEN");
-		}
 
 		// ----------------------------
-		// 2️⃣ Validate required fields
+		// 2️⃣ Validation
 		// ----------------------------
 		const { firstName, lastName, email, password, role = "customer" } = userData;
+
 		if (!firstName) throw new ValidationError("First name is required");
 		if (!lastName) throw new ValidationError("Last name is required");
 		if (!email) throw new ValidationError("Email is required");
 		if (!password) throw new ValidationError("Password is required");
 
 		// ----------------------------
-		// 3️⃣ Check if email already exists
+		// 3️⃣ Duplicate check
 		// ----------------------------
 		const existing = await this.userRepository.findByEmail(email);
 		if (existing) throw new ValidationError("Email already in use");
@@ -54,7 +39,7 @@ export class CreateUser {
 		const hashedPassword = await this.passwordService.hash(password);
 
 		// ----------------------------
-		// 5️⃣ Create User entity
+		// 5️⃣ Create entity
 		// ----------------------------
 		const userEntity = new User({
 			firstName,
@@ -67,25 +52,44 @@ export class CreateUser {
 		});
 
 		// ----------------------------
-		// 6️⃣ Persist in repository
+		// 6️⃣ Save user
 		// ----------------------------
 		const createdUser = await this.userRepository.create(userEntity);
 
 		// ----------------------------
-		// 7️⃣ Audit logging
+		// 7️⃣ Audit log
 		// ----------------------------
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId: actor.id,
 				action: "CREATE_USER",
 				targetId: createdUser.id,
-				meta: { role: createdUser.role, email: createdUser.email }
+				meta: {
+					role: createdUser.role,
+					email: createdUser.email
+				}
 			});
 		}
 
 		// ----------------------------
-		// 8️⃣ Return mapped user
+		// 8️⃣ ANALYTICS TRACKING (IMPORTANT)
 		// ----------------------------
-		return mapUserToDTO(createdUser);
+		try {
+			await this.analyticsTracker.track(
+				ANALYTICS_EVENTS.USER_CREATED,
+				{
+					role: createdUser.role
+				}
+			);
+		} catch (err) {
+			console.error("Analytics tracking failed", {
+				event: ANALYTICS_EVENTS.USER_CREATED,
+				error: err.message
+			});
+		}
+		// ----------------------------
+		// 9️⃣ Return result
+		// ----------------------------
+		return createdUser;
 	}
 }

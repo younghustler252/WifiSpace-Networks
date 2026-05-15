@@ -1,9 +1,12 @@
 import { AppError } from "../errors/app-error.js";
 
 export const errorMiddleware = (err, req, res, next) => {
+	// Log the error in every environment
+	console.error(err);
+
 	let error = err;
 
-	// If error is not operational, convert it
+	// If error is not an AppError, wrap it
 	if (!(error instanceof AppError)) {
 		error = new AppError(
 			error.message || "Internal Server Error",

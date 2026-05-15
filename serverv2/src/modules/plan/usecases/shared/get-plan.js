@@ -1,6 +1,6 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
-export class GetPlanById {
+export class GetPlan {
 
 	constructor(planRepository) {
 		this.planRepository = planRepository;

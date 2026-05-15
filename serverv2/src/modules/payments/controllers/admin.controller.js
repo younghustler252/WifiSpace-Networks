@@ -1,5 +1,5 @@
 // controllers/admin.controller.js
-import { successResponse } from "../../../../shared/utils/response.util.js";
+import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class PaymentAdminController {
 	constructor(usecases) {
@@ -45,42 +45,9 @@ export class PaymentAdminController {
 		}
 	};
 
-	// ----------------------------
-	// Admin: Get Payments (all / filtered)
-	// ----------------------------
-	getPayments = async (req, res, next) => {
-		try {
-			const { userId, accountId, planId, status, startDate, endDate, limit, skip } = req.query;
-
-			const payments = await this.usecases.getPayments.execute({
-				userId,
-				accountId,
-				planId,
-				status,
-				startDate: startDate ? new Date(startDate) : undefined,
-				endDate: endDate ? new Date(endDate) : undefined,
-				limit: parseInt(limit) || 10,
-				skip: parseInt(skip) || 0
-			});
-
-			return successResponse({ res, data: payments, message: "Payments fetched successfully" });
-		} catch (err) {
-			next(err);
-		}
-	};
-
+	
 	// ----------------------------
 	// Shared: Get Payment by ID
 	// ----------------------------
-	getPaymentById = async (req, res, next) => {
-		try {
-			const { id } = req.params;
-
-			const payment = await this.usecases.getPaymentById.execute({ paymentId: id });
-
-			return successResponse({ res, data: payment, message: "Payment fetched successfully" });
-		} catch (err) {
-			next(err);
-		}
-	};
+	
 }

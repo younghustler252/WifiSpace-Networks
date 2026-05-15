@@ -8,6 +8,7 @@ export const PERMISSION = {
 		UPDATE_ROLE: "user:update_user_role",
 		DELETE: "user:delete_user",
 		MANAGE_STAFF: "user:manage_staff",
+		READ: "user:read_user",
 		FULL_ACCESS: "*"
 	},
 
@@ -29,5 +30,31 @@ export const PERMISSION = {
 		UPDATE: "plan:update",
 		DELETE: "plan:delete",
 		VIEW: "plan:view"
+	},
+
+	// -----------------------------
+	// NEW: SUBSCRIPTION
+	// -----------------------------
+	SUBSCRIPTION: {
+		VIEW: "subscription:view",
+		CREATE: "subscription:create",
+		RENEW: "subscription:renew",
+		UPGRADE: "subscription:upgrade",
+
+		SUSPEND: "subscription:suspend",
+		RESUME: "subscription:resume",
+		CANCEL: "subscription:cancel"
+	},
+
+	// -----------------------------
+	// NEW: PAYMENT
+	// -----------------------------
+	PAYMENT: {
+		VIEW: "payment:view",
+		INITIATE: "payment:initiate",
+		VERIFY: "payment:verify",
+
+		REFUND: "payment:refund",
+		CANCEL: "payment:cancel"
 	}
 };

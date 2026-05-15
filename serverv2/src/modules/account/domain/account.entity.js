@@ -12,6 +12,7 @@ export class Account {
 	constructor({
 		id,
 		userId,
+		user = null,
 
 		accountType = ACCOUNT_TYPES.PERSONAL,
 
@@ -40,13 +41,13 @@ export class Account {
 			throw new Error("User ID is required");
 		}
 
-		if (!wsnId) {
-			throw new Error("WSN ID is required");
-		}
+		// if (!wsnId) {
+		// 	throw new Error("WSN ID is required");
+		// }
 
-		if (!routerId) {
-			throw new Error("Router ID is required");
-		}
+		// if (!routerId) {
+		// 	throw new Error("Router ID is required");
+		// }
 
 		// ----------------------------
 		// Enum Validation
@@ -70,6 +71,7 @@ export class Account {
 
 		this.id = id;
 		this.userId = userId;
+  		this.user = user;
 
 		// ----------------------------
 		// Account Type

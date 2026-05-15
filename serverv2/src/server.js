@@ -1,14 +1,11 @@
-import dotenv from "dotenv";
+import "./config/env.js"; 
+
 import app from "./app.js";
+// impoort redis
 import { connectDatabase } from "./shared/infrastructure/database/mongo.connecton.js";
 import { mikrotikClient } from "./modules/mikrotik/infrastructure/client/mikrotik.client.js";
 
-// Load correct .env file
-const envFile = process.env.NODE_ENV === "production"
-	? ".env.production"
-	: ".env.development";
 
-dotenv.config({ path: envFile });
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,8 +13,8 @@ const startServer = async () => {
 	try {
 		// Initialize connections
 		await connectDatabase();
-		await redisClient.set("test", "ok");
-		await mikrotikClient.connect();
+		// await redisClient.set("test", "ok");
+		// await mikrotikClient.connect();
 
 		console.log("✅ All connections initialized");
 

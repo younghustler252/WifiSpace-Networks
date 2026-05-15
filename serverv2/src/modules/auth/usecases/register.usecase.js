@@ -1,36 +1,34 @@
-// modules/auth/usecases/register.usecase.js
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 import { User } from "../../user/domain/user.entity.js";
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
 
 export class RegisterUser {
-	constructor(userRepository, passwordService, auditService, mailService) {
+	constructor(userRepository, passwordService, auditService, mailService , tokenService) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
-		this.auditService = auditService; // optional for logging
-		this.mailService = mailService;   // optional for verification email
+		this.auditService = auditService;
+		this.mailService = mailService;
+		this.tokenService = tokenService; 
 	}
 
-	async execute({ firstName, lastName, email, password, role = "customer", phone = null }) {
-		// 1️⃣ Basic validation
+	async execute({ firstName, lastName, email, password, role = "customer", phone = null, ip = null, userAgent = null }) {
+		
 		if (!email || !password || !firstName || !lastName) {
 			throw new ValidationError("All required fields must be provided");
 		}
 
-		// 2️⃣ Check if user exists
+
 		const existingUser = await this.userRepository.findByEmail(email);
 		if (existingUser) {
 			throw new ValidationError("Email already registered");
 		}
 
-		// 3️⃣ Hash password
 		const hashedPassword = await this.passwordService.hash(password);
 
-		// 4️⃣ Generate verification token (for email verification)
-		const verificationToken = Math.random().toString(36).substring(2, 12); // simple token for now
+		const otp = Math.floor(100000 + Math.random() * 900000);
+		const hashedOtp = await this.passwordService.hash(otp.toString());
 
 		// 5️⃣ Create user entity
-		const user = new User({
+		const userEntity = new User({
 			firstName,
 			lastName,
 			email,
@@ -39,40 +37,56 @@ export class RegisterUser {
 			status: "active",
 			isVerified: false,
 			phone,
-			permissions: []
+			permissions: [],
+			verificationOTP: otp,
+			otpExpiresAt
 		});
 
-		user.verificationToken = verificationToken;
-
 		// 6️⃣ Persist user
-		const createdUser = await this.userRepository.create(user);
+		const createdUser = await this.userRepository.create(userEntity);
 
-		// 7️⃣ Audit log
+		// 7️⃣ Audit log (safe)
 		if (this.auditService) {
-			await this.auditService.log({
-				actorId: createdUser.id,
-				action: "USER_REGISTER",
-				meta: { email }
-			});
+			try {
+				await this.auditService.log({
+					actorId: createdUser.id,
+					action: "USER_REGISTER",
+					resource: "User",
+					metadata: { email, ip, userAgent }
+				});
+			} catch (err) {
+				console.error("AuditService failed:", err);
+			}
 		}
 
-		// 8️⃣ Send verification email (stub for now)
+		// 8️⃣ Send OTP email (safe)
+		let verificationSent = false;
+		let mailError = null;
+
 		if (this.mailService) {
-			await this.mailService.sendVerificationEmail({
-				to: createdUser.email,
-				token: verificationToken,
-				name: createdUser.getFullName()
-			});
+			try {
+				await this.mailService.sendOTP({
+					to: createdUser.email,
+					name: createdUser.getFullName(),
+					otp,
+					expiresIn: 10
+				});
+				verificationSent = true;
+			} catch (err) {
+				mailError = err.message || "Failed to send verification email";
+				console.error("MailService failed:", err);
+			}
 		}
 
-		// 9️⃣ Return safe user info
 		return {
 			id: createdUser.id,
 			email: createdUser.email,
 			firstName: createdUser.firstName,
 			lastName: createdUser.lastName,
 			role: createdUser.role,
-			isVerified: createdUser.isVerified
+			isVerified: createdUser.isVerified,
+			verificationSent,
+			mailError // null if sent successfully
 		};
 	}
 }

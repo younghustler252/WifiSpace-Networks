@@ -2,21 +2,32 @@ import { Account } from "../../domain/account.entity.js";
 
 export class AccountMapper {
 
-	// ----------------------------
-	// Mongo → Domain Entity
-	// ----------------------------
-
 	static toDomain(raw) {
-
 		if (!raw) return null;
 
-		return new Account({
-			id: raw._id?.toString() || raw.id,
+		const user = raw.userId; 
+		const isPopulated = user && typeof user === "object" && user._id;
 
-			userId: raw.userId,
+		return new Account({
+			id: raw._id?.toString(),
+
+			// raw reference ONLY (never mutate)
+			userId: isPopulated
+				? user._id.toString()
+				: user?.toString(),
+
+			// UI object (new addition — Option B)
+			user: isPopulated
+				? {
+						id: user._id.toString(),
+						firstName: user.firstName,
+						lastName: user.lastName,
+						email: user.email,
+						avatar: user.avatar,
+				  }
+				: null,
 
 			accountType: raw.accountType,
-
 			businessName: raw.businessName,
 			companyRegistrationNumber: raw.companyRegistrationNumber,
 			taxId: raw.taxId,
@@ -28,19 +39,13 @@ export class AccountMapper {
 			routerProfile: raw.routerProfile,
 
 			profileStatus: raw.profileStatus,
-
 			serviceType: raw.serviceType,
 
-			lastSeenAt: raw.lastSeenAt
+			lastSeenAt: raw.lastSeenAt,
 		});
 	}
 
-	// ----------------------------
-	// Domain → Persistence
-	// ----------------------------
-
 	static toPersistence(account) {
-
 		return {
 			userId: account.userId,
 
@@ -57,11 +62,9 @@ export class AccountMapper {
 			routerProfile: account.routerProfile,
 
 			profileStatus: account.profileStatus,
-
 			serviceType: account.serviceType,
 
-			lastSeenAt: account.lastSeenAt
+			lastSeenAt: account.lastSeenAt,
 		};
 	}
-
 }

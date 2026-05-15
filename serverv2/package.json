@@ -6,7 +6,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
-    "dev": "nodemon"
+    "dev": "nodemon",
+    "migrate": "node src/migrations/runner.js"
   },
   "imports": {
     "#/*": "./src/*"
@@ -16,21 +17,28 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@getbrevo/brevo": "^5.0.3",
+    "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
     "bull": "^4.16.5",
+    "bullmq": "^5.76.4",
+    "cloudinary": "^2.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "express-async-handler": "^1.2.0",
+    "iconv-lite": "^0.7.2",
     "ioredis": "^5.10.0",
     "jsonwebtoken": "^9.0.3",
     "module-alias": "^2.3.4",
     "mongoose": "^9.2.3",
     "morgan": "^1.10.1",
+    "multer": "^2.1.1",
+    "node-cron": "^4.2.1",
     "node-routeros": "^1.6.8",
-    "nodemailer": "^8.0.1",
+    "nodemailer": "^8.0.4",
     "p-queue": "^9.1.0",
-    "uuid": "^13.0.0"
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

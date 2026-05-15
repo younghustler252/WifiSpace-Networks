@@ -1,21 +1,89 @@
-// modules/user/usecases/shared/get-all-users.usecase.js
-import { UserRepository } from "../../domain/user.repository.js";
-
 export class GetAllUsers {
 	constructor(userRepository) {
 		this.userRepository = userRepository;
 	}
 
-	/**
-	 * Fetch all users, supporting filters (e.g., status, role)
-	 * @param {Object} filter - The filter to apply (e.g., { status: "active" })
-	 * @param {number} skip - The number of records to skip (pagination)
-	 * @param {number} limit - The number of records to return
-	 * @returns {Promise<Array<User>>}
-	 */
-	async execute(filter = {}, skip = 0, limit = 50) {
-		// Filter users by status, role, etc.
-		const users = await this.userRepository.findAll(filter, skip, limit);
-		return users;
+	async execute(params = {}) {
+		const {
+			status,
+			role,
+			search,
+			sort = "az", // az | za | newest | oldest
+			skip = 0,
+			limit = 50,
+			currentUser
+		} = params;
+
+		if (!currentUser) {
+			throw new Error("Unauthorized");
+		}
+
+		// ----------------------------
+		// FILTER
+		// ----------------------------
+		const filter = {};
+
+		if (status) {
+			filter.status = status;
+		}
+
+		if (role) {
+			filter.role = role;
+		}
+
+		// ----------------------------
+		// ROLE-BASED ACCESS
+		// ----------------------------
+		if (currentUser.role === "staff") {
+			if (filter.role) {
+				filter.role = { $eq: filter.role, $ne: "superadmin" };
+			} else {
+				filter.role = { $ne: "superadmin" };
+			}
+		}
+
+		// ----------------------------
+		// SEARCH (SAFE REGEX)
+		// ----------------------------
+		if (search) {
+			const escapeRegex = (text) =>
+				text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+			const safeSearch = escapeRegex(search);
+
+			filter.$or = [
+				{ firstName: { $regex: safeSearch, $options: "i" } },
+				{ lastName: { $regex: safeSearch, $options: "i" } },
+				{ email: { $regex: safeSearch, $options: "i" } }
+			];
+		}
+
+		// ----------------------------
+		// PAGINATION SAFETY
+		// ----------------------------
+		const safeLimit = Math.min(Number(limit) || 50, 100);
+		const safeSkip = Math.max(Number(skip) || 0, 0);
+
+		// ----------------------------
+		// SORTING (SIMPLE + SAFE)
+		// ----------------------------
+		const sortOptions = {
+			az: { firstName: 1, lastName: 1 },
+			za: { firstName: -1, lastName: -1 },
+			newest: { createdAt: -1 },
+			oldest: { createdAt: 1 }
+		};
+
+		const safeSort = sortOptions[sort] || sortOptions.az;
+
+		// ----------------------------
+		// QUERY
+		// ----------------------------
+		return this.userRepository.findAll(
+			filter,
+			safeSort,
+			safeSkip,
+			safeLimit
+		);
 	}
 }

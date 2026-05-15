@@ -1,7 +1,6 @@
 // modules/user/usecases/staff/impersonate-user.usecase.js
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { UserRepository } from "../../domain/user.repository.js";
-import { ValidationError } from "../../../shared/errors/validation-error.js";
+import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class ImpersonateUser {
 	constructor(userRepository) {

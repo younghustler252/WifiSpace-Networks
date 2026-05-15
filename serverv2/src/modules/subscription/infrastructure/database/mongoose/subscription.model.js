@@ -1,63 +1,159 @@
 import mongoose from "mongoose";
 
 const SubscriptionSchema = new mongoose.Schema(
-	{
-		accountId: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "Account",
-			required: true,
-			index: true
+    {
+        accountId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Account",
+            required: true,
+            index: true
+        },
+
+        planId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Plan",
+            required: true
+        },
+
+        // 🔥 UPDATED PLAN SNAPSHOT
+        planSnapshot: {
+            name: { type: String, required: true },
+            price: { type: Number, required: true },
+            // Match the new Plan structure
+            durationValue: { type: Number, required: true },
+            durationUnit: { type: String, required: true },
+            speedRate: String,
+            dataLimitBytes: { type: Number, default: 0 }, // Added for Hotspot
+            mikrotikProfile: String, // Added to keep record of which profile was used
+            devicesAllowed: Number
+        },
+
+        // -----------------------------
+        // Billing & Cycles
+        // -----------------------------
+        billingCycle: {
+            type: String,
+            enum: ["hourly", "daily", "weekly", "monthly", "yearly"], // Added 'hourly'
+            default: "monthly"
+        },
+
+		cycles: {
+			type: Number,
+			default: 1,
+			min: 1
 		},
 
-		planId: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "Plan",
+		totalAmount: {
+			type: Number,
 			required: true
 		},
 
-		startDate: {
-			type: Date,
-			required: true
+		// -----------------------------
+		// Adjustments
+		// -----------------------------
+		bonusDays: {
+			type: Number,
+			default: 0
 		},
 
-		endDate: {
-			type: Date,
-			required: true
+		manualAdjustmentDays: {
+			type: Number,
+			default: 0
 		},
 
-		status: {
-			type: String,
-			enum: ["active", "expired", "suspended", "canceled"],
-			default: "active"
+		// -----------------------------
+		// Suspension
+		// -----------------------------
+		suspendedAt: Date,
+
+		totalSuspendedDuration: {
+			type: Number, // milliseconds
+			default: 0
 		},
 
+		suspensionReason: String,
+
+		// -----------------------------
+		// Renewal
+		// -----------------------------
 		autoRenew: {
 			type: Boolean,
 			default: false
 		},
 
-		// Optional override if subscription uses a different router profile than account
-		routerProfile: {
-			type: String
+		lastRenewedAt: Date,
+
+		nextRenewalDate: Date,
+
+		// -----------------------------
+		// Cancellation
+		// -----------------------------
+		canceledAt: Date,
+
+		cancellationReason: String,
+
+		// -----------------------------
+		// Grace period
+		// -----------------------------
+		gracePeriodDays: {
+			type: Number,
+			default: 0
 		},
 
-		// Payment reference
-		paymentId: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "Payment"
-		},
+		// -----------------------------
+		// Payments (history)
+		// -----------------------------
+		payments: [
+			{
+				paymentId: {
+					type: mongoose.Schema.Types.ObjectId,
+					ref: "Payment"
+				},
+				amount: Number,
+				date: Date
+			}
+		],
 
-		suspensionReason: {
-			type: String
-		}
+		// -----------------------------
+		// Audit trail (VERY IMPORTANT)
+		// -----------------------------
+		events: [
+			{
+				type: {
+					type: String,
+					enum: [
+						"created",
+						"renewed",
+						"suspended",
+						"resumed",
+						"canceled",
+						"expired",
+						"manual_adjustment"
+					]
+				},
+				date: {
+					type: Date,
+					default: Date.now
+				},
+				metadata: mongoose.Schema.Types.Mixed
+			}
+		],
+
+		// -----------------------------
+		// Network integration
+		// -----------------------------
+		routerProfile: String
 	},
 	{ timestamps: true }
 );
 
-// Index for quick queries on active subscriptions
+// 🔥 Enforce ONE active subscription per account (CRITICAL)
 SubscriptionSchema.index(
-	{ accountId: 1, status: 1 },
-	{ partialFilterExpression: { status: "active" } }
+	{ accountId: 1 },
+	{
+		unique: true,
+		partialFilterExpression: { status: "active" }
+	}
 );
 
 export default mongoose.model("Subscription", SubscriptionSchema);

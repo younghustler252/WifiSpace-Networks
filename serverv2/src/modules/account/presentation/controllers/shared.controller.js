@@ -1,3 +1,5 @@
+import { successResponse } from "../../../../shared/utils/api-response.js";
+
 export class SharedAccountController {
 	constructor({
 		getAccountById,
@@ -5,42 +7,61 @@ export class SharedAccountController {
 	}) {
 		this.getAccountByIdUseCase = getAccountById;
 		this.getAccountByWSNUseCase = getAccountByWSN;
-
-		this.getAccountById = this.getAccountById.bind(this);
-		this.getAccountByWSN = this.getAccountByWSN.bind(this);
 	}
 
-	async getAccountById(req, res, next) {
+	// ----------------------------------
+	// Get Account by ID
+	// ----------------------------------
+	getAccountById = async (req, res) => {
 		try {
-			const { id } = req.params;
+			const { accountId  } = req.params;
 
-			const account = await this.getAccountByIdUseCase.execute({
-				accountId: id
-			});
+			// Execute use case to get account by ID
+			const account = await this.getAccountByIdUseCase.execute(accountId);
 
-			res.status(200).json({
-				success: true,
-				data: account
+			// Return success response
+			return successResponse({
+				res,
+				data: account,
+				message: "Account fetched successfully",
+				code: "ACCOUNT_FETCHED"
 			});
 		} catch (error) {
-			next(error);
+			// Log and return the error
+			console.error("Error fetching account by ID:", error);
+			return res.status(500).json({
+				message: "An error occurred while fetching the account",
+				error: error.message
+			});
 		}
-	}
+	};
 
-	async getAccountByWSN(req, res, next) {
+	// ----------------------------------
+	// Get Account by WSN (Wireless Serial Number)
+	// ----------------------------------
+	getAccountByWSN = async (req, res) => {
 		try {
 			const { wsn } = req.params;
 
+			// Execute use case to get account by WSN
 			const account = await this.getAccountByWSNUseCase.execute({
 				wsn
 			});
 
-			res.status(200).json({
-				success: true,
-				data: account
+			// Return success response
+			return successResponse({
+				res,
+				data: account,
+				message: "Account fetched successfully by WSN",
+				code: "ACCOUNT_FETCHED_BY_WSN"
 			});
 		} catch (error) {
-			next(error);
+			// Log and return the error
+			console.error("Error fetching account by WSN:", error);
+			return res.status(500).json({
+				message: "An error occurred while fetching the account by WSN",
+				error: error.message
+			});
 		}
-	}
+	};
 }

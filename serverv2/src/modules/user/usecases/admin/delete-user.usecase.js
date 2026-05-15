@@ -1,7 +1,7 @@
 // modules/user/usecases/admin/delete-user.usecase.js
 
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { ValidationError } from "../../../shared/errors/validation-error.js";
+import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class DeleteUser {
 	constructor(userRepository, permissionService, auditService) {

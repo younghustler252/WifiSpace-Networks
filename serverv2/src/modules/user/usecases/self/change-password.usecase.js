@@ -1,7 +1,6 @@
-// modules/user/usecases/self/change-password.usecase.js
 
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { ValidationError } from "../../../shared/errors/validation-error.js";
+import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 
 export class ChangePassword {
 	constructor(userRepository, passwordService, auditService) {
@@ -11,26 +10,39 @@ export class ChangePassword {
 	}
 
 	async execute({ userId, oldPassword, newPassword, ip = null }) {
-		const user = await this.userRepository.findAuthByEmail(userId);
+		const user = await this.userRepository.findAuthById(userId);
 
-		if (!user) throw new UnauthorizedError("User not found", "USER_NOT_FOUND");
+		if (!user) {
+			throw new UnauthorizedError("User not found", "USER_NOT_FOUND");
 
-		// Check old password
-		const isValid = await this.passwordService.compare(oldPassword, user.password);
-		if (!isValid) throw new ValidationError("Old password is incorrect", "INVALID_OLD_PASSWORD");
+		}
+		// console.log("hashed password", user.hashedPassword);
+		
 
-		// Hash new password
+		const isValid = await this.passwordService.compare(oldPassword, user.hashedPassword);
+		if (!isValid) {
+			throw new ValidationError("Old password is incorrect", "INVALID_OLD_PASSWORD");
+		}
+
+		if (!newPassword || newPassword.length < 6) {
+			throw new ValidationError("Password must be at least 6 characters", "WEAK_PASSWORD");
+		}
+
+		if (oldPassword === newPassword) {
+			throw new ValidationError("New password must be different", "PASSWORD_SAME");
+		}
+
 		const hashed = await this.passwordService.hash(newPassword);
-		user.password = hashed;
-		user.markPasswordChanged();
 
-		// Persist
+		const passwordChangedAt = new Date();
+
 		await this.userRepository.update(user.id, {
-			password: hashed,
-			passwordChangedAt: user.passwordChangedAt
+			hashedPassword: hashed,
+			passwordChangedAt
 		});
+		// console.log("updated password", hashedPassword);
+		
 
-		// Audit
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId: user.id,

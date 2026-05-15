@@ -1,5 +1,7 @@
-export class PlanController {
+import expressAsyncHandler from "express-async-handler";
+import { successResponse } from "../../../../shared/utils/api-response.js";
 
+export class PlanController {
 	constructor({
 		createPlan,
 		updatePlan,
@@ -14,69 +16,67 @@ export class PlanController {
 		this.getPlanById = getPlanById;
 	}
 
-	create = async (req, res, next) => {
-		try {
+	create = expressAsyncHandler(async (req, res) => {
+		const plan = await this.createPlan.execute(req.body);
 
-			const plan = await this.createPlan.execute(req.body);
+		return successResponse({
+			res,
+			data: plan,
+			message: "Plan created",
+			code: "PLAN_CREATED",
+			statusCode: 201
+		});
+	});
 
-			res.status(201).json(plan);
+	update = expressAsyncHandler(async (req, res) => {
+		const plan = await this.updatePlan.execute(
+			req.params.id,
+			req.body
+		);
 
-		} catch (err) {
-			next(err);
-		}
-	};
+		return successResponse({
+			res,
+			data: plan,
+			message: "Plan updated",
+			code: "PLAN_UPDATED"
+		});
+	});
 
-	update = async (req, res, next) => {
-		try {
+	remove = expressAsyncHandler(async (req, res) => {
+		await this.deletePlan.execute(req.params.id);
 
-			const plan = await this.updatePlan.execute(
-				req.params.id,
-				req.body
-			);
+		return successResponse({
+			res,
+			message: "Plan deleted",
+			code: "PLAN_DELETED"
+		});
+	});
 
-			res.json(plan);
+	getAll = expressAsyncHandler(async (req, res) => {
+		const result = await this.getAllPlans.execute({
+			serviceType: req.query.serviceType,
+			accountType: req.query.accountType,
+			sort: req.query.sort,
+			page: req.query.page,
+			limit: req.query.limit
+		});
 
-		} catch (err) {
-			next(err);
-		}
-	};
+		return successResponse({
+			res,
+			data: result,
+			message: "Plans fetched",
+			code: "PLANS_FETCHED"
+		});
+	});
 
-	remove = async (req, res, next) => {
-		try {
+	getById = expressAsyncHandler(async (req, res) => {
+		const plan = await this.getPlanById.execute(req.params.id);
 
-			const result = await this.deletePlan.execute(req.params.id);
-
-			res.json(result);
-
-		} catch (err) {
-			next(err);
-		}
-	};
-
-	getAll = async (req, res, next) => {
-		try {
-
-			const plans = await this.getAllPlans.execute({
-				type: req.query.type,
-				sort: req.query.sort
-			});
-
-			res.json(plans);
-
-		} catch (err) {
-			next(err);
-		}
-	};
-
-	getById = async (req, res, next) => {
-		try {
-
-			const plan = await this.getPlanById.execute(req.params.id);
-
-			res.json(plan);
-
-		} catch (err) {
-			next(err);
-		}
-	};
+		return successResponse({
+			res,
+			data: plan,
+			message: "Plan fetched",
+			code: "PLAN_FETCHED"
+		});
+	});
 }

@@ -1,4 +1,5 @@
 // src/shared/services/audit.service.js
+
 export class AuditService {
 	/**
 	 * @param {AuditRepository} auditRepository

@@ -1,51 +1,88 @@
-// modules/user/controller/self.controller.js
-import asyncHandler from "express-async-handler";
-import { GetMyProfileUseCase } from "../usecases/self/get-my-profile.usecase.js";
-import { UpdateMyProfileUseCase } from "../usecases/self/update-my-profile.usecase.js";
-import { ChangePasswordUseCase } from "../usecases/self/change-password.usecase.js";
-import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js";
-import { successResponse } from "../../../shared/utils/response.util.js"; // <--- here
+// src/modules/user/presentation/controllers/self.controller.js
+
+import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
+import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class SelfController {
-	constructor(userRepository, passwordService) {
-		this.getMyProfileUseCase = new GetMyProfileUseCase(userRepository);
-		this.updateMyProfileUseCase = new UpdateMyProfileUseCase(userRepository);
-		this.changePasswordUseCase = new ChangePasswordUseCase(userRepository, passwordService);
+	constructor(usecases) {
+		this.usecases = usecases;
 	}
 
-	getProfile = asyncHandler(async (req, res) => {
+	// -----------------------------
+	// GET /users/me
+	// -----------------------------
+	getProfile = async (req, res) => {
 		const userId = req.user?.id;
-		if (!userId) throw new UnauthorizedError("User not authenticated");
 
-		const user = await this.getMyProfileUseCase.execute({ userId });
+		if (!userId) {
+			throw new UnauthorizedError("User not authenticated");
+		}
 
-		return successResponse({ res, data: user });
-	});
+		const user = await this.usecases.getMyProfile.execute({ userId });
 
-	updateProfile = asyncHandler(async (req, res) => {
+		return successResponse({
+			res,
+			data: user
+		});
+	};
+
+	// -----------------------------
+	// PUT /users/me
+	// -----------------------------
+	updateProfile = async (req, res) => {
 		const userId = req.user?.id;
-		if (!userId) throw new UnauthorizedError("User not authenticated");
 
-		const updateData = req.body;
-		const updatedUser = await this.updateMyProfileUseCase.execute({
+		if (!userId) {
+			throw new UnauthorizedError("User not authenticated");
+		}
+
+		const updatedUser = await this.usecases.updateMyProfile.execute({
 			userId,
-			updateData
+			profileData: req.body, // ✅ FIXED
+			ip: req.ip             // ✅ optional but good
 		});
 
-		return successResponse({ res, data: updatedUser, message: "Profile updated successfully" });
-	});
+		return successResponse({
+			res,
+			data: updatedUser,
+			message: "Profile updated successfully"
+		});
+	};
 
-	changePassword = asyncHandler(async (req, res) => {
+	// -----------------------------
+	// POST /users/me/change-password
+	// -----------------------------
+	changePassword = async (req, res) => {
 		const userId = req.user?.id;
-		if (!userId) throw new UnauthorizedError("User not authenticated");
 
-		const { currentPassword, newPassword } = req.body;
-		await this.changePasswordUseCase.execute({
+		if (!userId) {
+			throw new UnauthorizedError("User not authenticated");
+		}
+
+		const { currentPassword: oldPassword, newPassword } = req.body;
+
+		await this.usecases.changePassword.execute({
 			userId,
-			currentPassword,
-			newPassword
+			oldPassword,
+			newPassword,
+			ip: req.ip
 		});
 
-		return successResponse({ res, message: "Password changed successfully" });
-	});
+		return successResponse({
+			res,
+			message: "Password changed successfully"
+		});
+	};
+	async uploadAvatar(req, res) {
+		try {
+			const user = await this.usecases.uploadAvatar.execute({
+				userId: req.user.id,
+				file: req.file,
+				ip: req.ip
+			});
+			res.json(user); // entity -> toJSON
+		} catch (err) {
+			res.status(err.statusCode || 500).json({ message: err.message });
+		}
+	}
 }

@@ -1,4 +1,5 @@
 import { PlanRepositoryMongo } from "./infrastructure/repositories/plan.repository.mongo.js";
+import { UserRepositoryMongo } from "../user/infrastructure/repositories/user.repository.mongo.js";
 
 import { CreatePlan } from "./usecases/admin/create-plan.js";
 import { UpdatePlan } from "./usecases/admin/update-plan.js";
@@ -14,6 +15,7 @@ import planRoutes from "./presentation/routes/plan.routes.js";
 export function planModule({ permissionService }) {
 
 	const repository = new PlanRepositoryMongo();
+	const userRepository = new UserRepositoryMongo();
 
 	const usecases = {
 		createPlan: new CreatePlan(repository),
@@ -27,7 +29,8 @@ export function planModule({ permissionService }) {
 
 	const routes = planRoutes({
 		planController: controller,
-		permissionService
+		permissionService,
+		userRepository
 	});
 
 	return {
