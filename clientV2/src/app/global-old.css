@@ -1,0 +1,195 @@
+@import "tailwindcss";
+
+/* ================================
+   ROOT DESIGN TOKENS
+================================ */
+
+:root {
+  /* Core */
+  --background: #f3f3f3;
+  --foreground: #0a0a0a;
+
+  --card: #ffffff;
+  --card-foreground: #0a0a0a;
+
+  --border: #e4e4e7;
+  --muted: #f8f8f8;
+  --muted-foreground: #6b7280;
+
+  /* Brand */
+  --primary: #0a0a0a;
+  --primary-foreground: #ffffff;
+
+  /* Accent */
+  --accent: #6366f1;
+  --accent-foreground: #ffffff;
+
+  /* Semantic */
+  --success: #16a34a;
+  --warning: #f59e0b;
+  --danger: #dc2626;
+
+  /* Radius */
+  --radius: 1.25rem;
+}
+
+/* ================================
+   DARK MODE
+================================ */
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #f9fafb;
+
+  --card: #1a1a1a;
+  --card-foreground: #ffffff;
+
+  --border: #2a2a2a;
+  --muted: #262626;
+  --muted-foreground: #9ca3af;
+
+  --primary: #ffffff;
+  --primary-foreground: #0a0a0a;
+
+  --accent: #818cf8;
+  --accent-foreground: #0a0a0a;
+
+  --success: #22c55e;
+  --warning: #fbbf24;
+  --danger: #ef4444;
+}
+
+/* ================================
+   TAILWIND THEME MAPPING
+================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-border: var(--border);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-xl: var(--radius);
+}
+
+/* ================================
+   GLOBAL BASE
+================================ */
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* ================================
+   COMPONENT SYSTEM
+================================ */
+
+@layer components {
+  /* ================================
+     CARD COMPONENTS
+  ================================= */
+  .ui-card {
+    @apply bg-card text-card-foreground border border-border rounded-2xl p-8 shadow-md
+           transition-transform hover:scale-[1.02] hover:shadow-lg;
+  }
+
+  .ui-card-header {
+    @apply text-lg font-bold mb-4;
+  }
+
+  .ui-card-body {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .ui-card-footer {
+    @apply mt-6 flex justify-end gap-2;
+  }
+
+  /* ================================
+     BUTTON COMPONENTS
+  ================================= */
+  .ui-button {
+    @apply inline-flex items-center justify-center gap-2 
+           bg-primary text-primary-foreground
+           h-12 px-6 rounded-xl font-semibold
+           transition-all hover:bg-primary/90 active:scale-95;
+  }
+
+  .ui-button-accent {
+    @apply bg-accent text-accent-foreground hover:bg-accent/90;
+  }
+
+  .ui-button-outline {
+    @apply border border-border bg-transparent
+           hover:bg-muted h-12 px-6 rounded-xl font-semibold transition-all;
+  }
+
+  .ui-button-small {
+    @apply h-9 px-4 text-sm;
+  }
+ 
+  .ui-button-large {
+    @apply h-14 px-8 text-lg;
+  }
+
+  /* ================================
+     INPUT COMPONENTS
+  ================================= */
+  .ui-input {
+    @apply w-full h-11 px-4 rounded-lg
+           bg-muted border border-border
+           text-sm placeholder:text-muted-foreground
+           focus:outline-none focus:ring-2 focus:ring-primary/20
+           transition-all;
+  }
+
+  .ui-input-error {
+    @apply border-danger focus:ring-danger/30;
+  }
+
+  .ui-textarea {
+    @apply w-full min-h-[120px] px-4 py-3 rounded-lg
+           bg-muted border border-border
+           text-sm placeholder:text-muted-foreground
+           focus:outline-none focus:ring-primary/20
+           transition-all resize-none;
+  }
+
+  /* ================================
+     RESPONSIVE UTILITIES
+  ================================= */
+  .ui-responsive-grid {
+    @apply grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .ui-flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .ui-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .ui-stack-lg {
+    @apply flex flex-col gap-6;
+  }
+}
+ 

@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+/* ================================
+DESIGN TOKENS — SAAS LEVEL
+================================ */
+
+/* -------- LIGHT THEME -------- */
+:root {
+  /* Base surfaces */
+  --background: 255 255 255;
+  --foreground: 17 24 39;
+
+  --card: 250 250 252;
+  --card-foreground: 17 24 39;
+
+  --muted: 243 244 246;
+  --muted-foreground: 107 114 128;
+
+  --border: 209 213 219;
+
+  /* Brand (neutral primary) */
+  --primary: 17 24 39;
+  --primary-foreground: 255 255 255;
+
+  /* Accent (clean SaaS blue) */
+  --accent: 59 130 246;
+  --accent-hover: 37 99 235;
+  --accent-soft: 219 234 254;
+  --accent-foreground: 255 255 255;
+
+  /* Semantic */
+  --success: 22 163 74;
+  --warning: 245 158 11;
+  --danger: 220 38 38;
+
+  /* Effects */
+  --radius: 0.9rem;
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.08);
+  --shadow-card-hover: 0 10px 25px rgba(0,0,0,0.08);
+  --font-inter: 'Inter', sans-serif;
+  --font-fira-mono: 'Fira Mono', monospace;
+}
+
+/* -------- DARK THEME -------- */
+.dark {
+  /* Base surfaces */
+  --background: 17 24 39;
+  --foreground: 255 255 255;
+
+  --card: 24 28 37;
+  --card-foreground: 255 255 255;
+
+  --muted: 31 41 55;
+  --muted-foreground: 156 163 175;
+
+  --border: 55 65 81;
+
+  /* Brand */
+  --primary: 255 255 255;
+  --primary-foreground: 17 24 39;
+
+  /* Accent */
+  --accent: 59 130 246;
+  --accent-hover: 96 165 250;
+  --accent-soft: 30 58 138;
+  --accent-foreground: 255 255 255;
+
+  /* Semantic */
+  --success: 34 197 94;
+  --warning: 251 191 36;
+  --danger: 248 113 113;
+
+  /* Effects */
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.25);
+  --shadow-card-hover: 0 12px 30px rgba(0,0,0,0.4);
+}
+
+/* ================================
+TAILWIND THEME MAPPING
+================================ */
+
+@theme inline {
+  --color-background: rgb(var(--background));
+  --color-foreground: rgb(var(--foreground));
+
+  --color-card: rgb(var(--card));
+  --color-card-foreground: rgb(var(--card-foreground));
+
+  --color-border: rgb(var(--border));
+
+  --color-muted: rgb(var(--muted));
+  --color-muted-foreground: rgb(var(--muted-foreground));
+
+  --color-primary: rgb(var(--primary));
+  --color-primary-foreground: rgb(var(--primary-foreground));
+
+  --color-accent: rgb(var(--accent));
+  --color-accent-foreground: rgb(var(--accent-foreground));
+
+  --color-success: rgb(var(--success));
+  --color-warning: rgb(var(--warning));
+  --color-danger: rgb(var(--danger));
+
+  --radius-xl: var(--radius);
+}
+
+/* ================================
+GLOBAL BASE
+================================ */
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* ================================
+COMPONENT SYSTEM
+================================ */
+
+@layer components {
+
+  /* -------- CARD -------- */
+  .ui-card {
+    @apply bg-card text-card-foreground border border-border rounded-2xl p-6;
+    box-shadow: var(--shadow-card);
+    transition: all 0.2s ease;
+  }
+
+  .ui-card:hover {
+    box-shadow: var(--shadow-card-hover);
+    transform: translateY(-2px);
+  }
+
+  .ui-card-header {
+    @apply text-base font-semibold mb-2;
+  }
+
+  .ui-card-body {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .ui-card-footer {
+    @apply mt-4 flex justify-end gap-2;
+  }
+
+  /* -------- BUTTONS -------- */
+  .ui-button {
+    @apply inline-flex items-center justify-center gap-2
+           h-11 px-5 rounded-lg font-medium
+           transition-all active:scale-95;
+    background-color: rgb(var(--primary));
+    color: rgb(var(--primary-foreground));
+  }
+
+  .ui-button:hover {
+    background-color: rgb(var(--primary) / 0.9);
+  }
+
+  .ui-button-accent {
+    background-color: rgb(var(--accent));
+    color: rgb(var(--accent-foreground));
+  }
+
+  .ui-button-accent:hover {
+    background-color: rgb(var(--accent-hover));
+  }
+
+  .ui-button-soft {
+    background-color: rgb(var(--accent-soft));
+    color: rgb(var(--accent));
+  }
+
+  .ui-button-outline {
+    @apply border rounded-lg h-11 px-5 font-medium;
+    border-color: rgb(var(--border));
+  }
+
+  .ui-button-outline:hover {
+    background-color: rgb(var(--muted));
+  }
+
+  .ui-button-small {
+    @apply h-9 px-3 text-sm;
+  }
+
+  .ui-button-large {
+    @apply h-12 px-6 text-base;
+  }
+
+  /* -------- INPUTS -------- */
+  .ui-input {
+    @apply w-full h-11 px-4 rounded-lg text-sm transition-all;
+    background-color: rgb(var(--muted));
+    border: 1px solid rgb(var(--border));
+  }
+
+  .ui-input:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgb(var(--accent) / 0.2);
+    border-color: rgb(var(--accent));
+  }
+
+  .ui-input-error {
+    border-color: rgb(var(--danger));
+  }
+
+  .ui-textarea {
+    @apply w-full min-h-[120px] px-4 py-3 rounded-lg text-sm resize-none;
+    background-color: rgb(var(--muted));
+    border: 1px solid rgb(var(--border));
+  }
+
+  /* -------- BADGES -------- */
+  .ui-badge {
+    @apply text-xs font-semibold px-2 py-1 rounded-md;
+  }
+
+  .ui-badge-success {
+    background-color: rgb(var(--success) / 0.15);
+    color: rgb(var(--success));
+  }
+
+  .ui-badge-danger {
+    background-color: rgb(var(--danger) / 0.15);
+    color: rgb(var(--danger));
+  }
+
+  /* -------- LAYOUT -------- */
+  .ui-responsive-grid {
+    @apply grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  .ui-flex-center {
+    @apply flex items-center justify-center;
+  }
+
+  .ui-stack {
+    @apply flex flex-col gap-4;
+  }
+
+  .ui-stack-lg {
+    @apply flex flex-col gap-6;
+  }
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  25% { transform: scale(1.1); }
+  50% { transform: scale(1); }
+  75% { transform: scale(1.1); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1s ease-in-out infinite;
+}
+
+/* ================================
+SCROLLBAR — SAAS POLISHED
+================================ */
+.ui-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--accent)) transparent;
+}
+
+.ui-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ui-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ui-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--accent));
+  border-radius: 999px;
+}
