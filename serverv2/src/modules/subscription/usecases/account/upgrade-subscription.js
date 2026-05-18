@@ -1,6 +1,7 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
+import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
 
 export class UpgradeSubscriptionUseCase {
 	constructor({
@@ -14,136 +15,150 @@ export class UpgradeSubscriptionUseCase {
 	}
 
 	async execute({ accountId, newPlanId, paymentId }) {
-		if (!accountId)
+		if (!accountId) {
 			throw new ValidationError("accountId is required");
+		}
 
-		if (!newPlanId)
+		if (!newPlanId) {
 			throw new ValidationError("newPlanId is required");
+		}
 
-		// 🔥 get active subscription
+		// -----------------------------
+		// GET ACTIVE SUBSCRIPTION
+		// -----------------------------
+
 		const subscription =
-			await this.subscriptionRepository.findActiveByAccount(
-				accountId
-			);
+			await this.subscriptionRepository.findActiveByAccount(accountId);
 
-		if (!subscription)
-			throw new NotFoundError(
-				"No active subscription found"
-			);
+		if (!subscription) {
+			throw new NotFoundError("No active subscription found");
+		}
 
-		// 🔥 get new plan
+		// -----------------------------
+		// GET PLANS
+		// -----------------------------
+
 		const newPlan =
 			await this.planRepository.findById(newPlanId);
 
-		if (!newPlan)
-			throw new NotFoundError("Plan not found");
+		if (!newPlan) {
+			throw new NotFoundError("New plan not found");
+		}
 
-		// 🔥 get current plan for comparison
 		const currentPlan =
-			await this.planRepository.findById(
-				subscription.planId
-			);
+			await this.planRepository.findById(subscription.planId);
 
-		if (!currentPlan)
+		if (!currentPlan) {
 			throw new NotFoundError("Current plan not found");
+		}
 
 		// -----------------------------
-		// ❗ ENFORCE UPGRADE ONLY
+		// UPGRADE RULE (price-based)
 		// -----------------------------
+
 		if (newPlan.price <= currentPlan.price) {
-			throw new ValidationError(
-				"Only upgrades are allowed for users"
-			);
+			throw new ValidationError("Only upgrades allowed");
 		}
 
 		const now = new Date();
 
 		// -----------------------------
-		// 🔥 preserve remaining time
+		// REMAINING TIME (ENTITLEMENT)
 		// -----------------------------
-		const remainingTime =
-			subscription.endDate > now
-				? subscription.endDate.getTime() - now.getTime()
+
+		const remainingMs =
+			subscription.expiresAt && subscription.expiresAt > now
+				? subscription.expiresAt.getTime() - now.getTime()
 				: 0;
 
+		const remainingDays = Math.ceil(remainingMs / 86400000);
+
 		// -----------------------------
-		// 🔥 new base duration
+		// NEW PLAN ENTITLEMENT
 		// -----------------------------
-		const baseEndDate = new Date(now);
-		baseEndDate.setDate(
-			baseEndDate.getDate() + newPlan.durationDays
+
+		const billing =
+			PlanBillingCalculator.calculate(newPlan, 1);
+
+		const newPlanDays =
+			PlanBillingCalculator.calculate(plan, 1).totalDays;
+
+		// -----------------------------
+		// FINAL EXPIRY (MERGED MODEL)
+		// -----------------------------
+
+		const totalDays =
+			newPlanDays + remainingDays;
+
+		const newExpiresAt = new Date(
+			now.getTime() + totalDays * 86400000
 		);
 
 		// -----------------------------
-		// 🔥 merge remaining time
+		// UPDATE SNAPSHOT
 		// -----------------------------
-		const endDate = new Date(
-			baseEndDate.getTime() + remainingTime
-		);
 
-		// -----------------------------
-		// 🔥 update subscription
-		// -----------------------------
+		const fromPlanName = currentPlan.name;
+
 		subscription.planId = newPlanId;
 
 		subscription.planSnapshot = {
 			name: newPlan.name,
+			serviceType: newPlan.serviceType,
 			price: newPlan.price,
-			durationDays: newPlan.durationDays,
+			durationValue: newPlan.durationValue,
+			durationUnit: newPlan.durationUnit,
 			speedRate: newPlan.speedRate,
-			devicesAllowed: newPlan.devicesAllowed
+			mikrotikProfile: newPlan.mikrotikProfile,
+			devicesAllowed: newPlan.devicesAllowed,
+			gracePeriodDays: newPlan.gracePeriodDays
 		};
 
-		subscription.startDate = now;
-		subscription.baseEndDate = baseEndDate;
-		subscription.endDate = endDate;
+		// -----------------------------
+		// USE ENTITY METHOD (IMPORTANT)
+		// -----------------------------
 
-		subscription.totalAmount += newPlan.price;
+		subscription.expiresAt = newExpiresAt;
+		subscription.lastRenewedAt = now;
+		subscription.status = "active";
+		subscription.expiredAt = null;
 
 		subscription.cycles += 1;
 
-		// -----------------------------
-		// 🔥 payment record
-		// -----------------------------
-		if (paymentId) {
-			subscription.payments.push({
-				paymentId,
-				amount: newPlan.price,
-				date: now
-			});
-		}
+		// IMPORTANT: do NOT touch totalAmount logic here (payment owns money)
 
 		// -----------------------------
-		// 🔥 audit event
+		// EVENT
 		// -----------------------------
-		subscription.events.push({
-			type: "upgraded",
-			date: now,
-			metadata: {
-				from: currentPlan.name,
-				to: newPlan.name,
-				price: newPlan.price
-			}
+
+		subscription.addEvent("upgraded", {
+			from: fromPlanName,
+			to: newPlan.name,
+			remainingDays,
+			newExpiresAt
 		});
 
 		// -----------------------------
-		// 🔥 persist
+		// SAVE
 		// -----------------------------
+
 		await this.subscriptionRepository.update(
 			subscription.id,
 			subscription
 		);
 
 		// -----------------------------
-		// ✅ analytics
+		// ANALYTICS
 		// -----------------------------
+
 		try {
 			await this.analyticsTracker.track(
 				ANALYTICS_EVENTS.SUBSCRIPTION_UPGRADED,
 				{
 					accountId,
-					from: currentPlan.name,
-					to: newPlan.name
+					from: fromPlanName,
+					to: newPlan.name,
+					remainingDays
 				}
 			);
 		} catch (err) {

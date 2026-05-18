@@ -1,139 +1,86 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
-import { calculateBonusDays } from "../../domain/calculate-bonus-days.js";
+import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
+import { Subscription } from "../../domain/subscription.entity.js";
 
 export class RenewSubscriptionUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,
-		analyticsTracker
+		analyticsTracker,
+		provisionNetworkAccountUseCase // <-- inject it
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.analyticsTracker = analyticsTracker;
+		this.provisionNetworkAccountUseCase = provisionNetworkAccountUseCase;
 	}
 
-	async execute({ accountId, paymentId, cycles = 1 }) {
-		if (!accountId)
-			throw new ValidationError("accountId is required");
+	async execute({ accountId, paymentId, cycles = 1, context = {} }) {
+		if (!accountId) throw new ValidationError("accountId is required");
+		if (cycles < 1) throw new ValidationError("cycles must be >= 1");
 
-		if (!cycles || cycles < 1)
-			throw new ValidationError("cycles must be >= 1");
+		// -------------------------
+		// GET SUBSCRIPTION
+		// -------------------------
+		const subscription = await this.subscriptionRepository.findByAccount(accountId);
+		if (!subscription) throw new NotFoundError("Subscription not found");
 
-		// 🔥 get subscription
-		let subscription =
-			await this.subscriptionRepository.findActiveByAccount(
-				accountId
-			);
-
-		if (!subscription) {
-			subscription =
-				await this.subscriptionRepository.findLatestByAccount(
-					accountId
-				);
-		}
-
-		if (!subscription)
-			throw new NotFoundError("No subscription found");
-
-		// 🔥 get plan
-		const plan = await this.planRepository.findById(
-			subscription.planId
-		);
-
-		if (!plan)
-			throw new NotFoundError("Plan not found");
+		// -------------------------
+		// GET PLAN
+		// -------------------------
+		const plan = await this.planRepository.findById(subscription.planId);
+		if (!plan) throw new NotFoundError("Plan not found");
 
 		const now = new Date();
+		const effectiveStart = subscription.expiresAt && subscription.expiresAt > now ? subscription.expiresAt : now;
 
-		// -----------------------------
-		// 🔥 determine renewal base
-		// -----------------------------
-		const effectiveStart =
-			subscription.endDate > now
-				? new Date(subscription.endDate)
-				: now;
+		// -------------------------
+		// BILLING CALCULATION
+		// -------------------------
+		const billing = PlanBillingCalculator.calculate(plan, cycles);
+		const newExpiresAt = PlanBillingCalculator.calculateExpiryDate(plan, cycles, effectiveStart);
 
-		// -----------------------------
-		// 🔥 calculate duration
-		// -----------------------------
-		const baseEndDate = new Date(effectiveStart);
+		// -------------------------
+		// ENTITY HANDLES STATE CHANGE
+		// -------------------------
+		subscription.renew({ newExpiresAt, paymentId, amount: plan.price * cycles });
+		subscription.bonusDays += billing.bonusDays;
 
-		baseEndDate.setDate(
-			baseEndDate.getDate() +
-				plan.durationDays * cycles
-		);
-
-		// -----------------------------
-		// 🔥 bonus calculation (RULE ENGINE)
-		// -----------------------------
-		const bonusDays = calculateBonusDays(plan, cycles);
-
-		const endDate = new Date(baseEndDate);
-		endDate.setDate(endDate.getDate() + bonusDays);
-
-		// -----------------------------
-		// 🔥 update subscription
-		// -----------------------------
-		subscription.startDate = effectiveStart;
-		subscription.baseEndDate = baseEndDate;
-		subscription.endDate = endDate;
-
-		subscription.status = "active";
-		subscription.lastRenewedAt = now;
-
-		subscription.cycles += cycles;
-		subscription.totalAmount += plan.price * cycles;
-
-		subscription.bonusDays += bonusDays;
-
-		// -----------------------------
-		// 🔥 payment record
-		// -----------------------------
-		if (paymentId) {
-			subscription.payments.push({
-				paymentId,
-				amount: plan.price * cycles,
-				date: now
-			});
-		}
-
-		// -----------------------------
-		// 🔥 audit event
-		// -----------------------------
-		subscription.events.push({
-			type: "renewed",
-			date: now,
-			metadata: {
-				price: plan.price,
-				cycles,
-				bonusDays
-			}
+		subscription.addEvent("renewed", {
+			accountId,
+			plan: plan.name,
+			cycles,
+			bonusDays: billing.bonusDays,
+			newExpiresAt
 		});
 
-		// -----------------------------
-		// 🔥 persist
-		// -----------------------------
-		await this.subscriptionRepository.update(
-			subscription.id,
-			subscription
-		);
+		// -------------------------
+		// SAVE SUBSCRIPTION
+		// -------------------------
+		await this.subscriptionRepository.update(subscription.id, subscription);
 
-		// -----------------------------
-		// ✅ ANALYTICS
-		// -----------------------------
+		// -------------------------
+		// PROVISION NETWORK ACCOUNT (if needed)
+		// -------------------------
 		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.SUBSCRIPTION_RENEWED,
-				{
-					accountId,
-					plan: plan.name,
-					price: plan.price,
-					cycles,
-					bonusDays
-				}
-			);
+			await this.provisionNetworkAccountUseCase.execute(subscription.id, context);
+		} catch (err) {
+			console.error("Provisioning after renewal failed:", err.message);
+			// Decide: fail hard or just log
+		}
+
+		// -------------------------
+		// ANALYTICS
+		// -------------------------
+		try {
+			await this.analyticsTracker.track(ANALYTICS_EVENTS.SUBSCRIPTION_RENEWED, {
+				accountId,
+				plan: plan.name,
+				cycles,
+				bonusDays: billing.bonusDays
+			});
 		} catch (err) {
 			console.error("Analytics failed:", err.message);
 		}

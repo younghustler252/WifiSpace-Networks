@@ -1,35 +1,78 @@
-import {PERMISSION } from "../../../../shared/constants/permissions.js";
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 
-import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
-
 export class ActivateAccount {
+    constructor(accountRepository, routerRepository, mikrotikService, auditService) {
+        this.accountRepository = accountRepository;
+        this.routerRepository = routerRepository;
+        this.mikrotikService = mikrotikService;
+        this.auditService = auditService;
+    }
 
-	constructor(accountRepository, permissionService) {
-		this.accountRepository = accountRepository;
-		this.permissionService = permissionService;
-	}
+    async execute(accountId, context = {}) {
+        // ----------------------------
+        // Load the account (already mapped to entity)
+        // ----------------------------
+        const account = await this.accountRepository.findById(accountId);
+        if (!account) throw new Error("Account not found");
 
-	async execute(currentUser, accountId) {
+        // ----------------------------
+        // Only allow activation if pending or suspended
+        // ----------------------------
+        if (account.isActive()) {
+            throw new Error("Account already active");
+        }
 
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.ACCOUNT.ACTIVATE
-		);
+        if (![PROFILE_STATUSES.PENDING, PROFILE_STATUSES.SUSPENDED].includes(account.profileStatus)) {
+            throw new Error(`Cannot activate account with status ${account.profileStatus}`);
+        }
 
-		const account = await this.accountRepository.findById(accountId);
+        // ----------------------------
+        // Provision on router if not yet created
+        // ----------------------------
+        if (!account.mikrotikUserCreated) {
+            const router = await this.routerRepository.findById(account.routerId);
+            if (!router) throw new Error("Assigned router not found");
+            if (!router.apiEnabled || !router.isEnabled) {
+                throw new Error("Router API is disabled");
+            }
 
-		if (!account) {
-			throw new NotFoundError("Account not found");
-		}
+            try {
+                await this.mikrotikService.createAccount(account, router);
+                account.mikrotikUserCreated = true;
+            } catch (err) {
+                throw new Error(`Failed to provision account on router: ${err.message}`);
+            }
+        }
 
-		if (account.profileStatus === PROFILE_STATUSES.ACTIVE) {
-			throw new ValidationError("Account already active");
-		}
+        // ----------------------------
+        // Activate profile
+        // ----------------------------
+        account.activateProfile();
 
-		account.activateProfile();
+        // ----------------------------
+        // Persist changes
+        // ----------------------------
+        await this.accountRepository.update(account.id, account);
 
-		return this.accountRepository.update(account.id, account);
-	}
+        // ----------------------------
+        // Audit log
+        // ----------------------------
+        if (this.auditService) {
+            await this.auditService.log({
+                actorId: context.actorId || "SYSTEM",
+                action: "ACCOUNT_ACTIVATED",
+                targetId: account.id,
+                resource: "Account",
+                metadata: {
+                    wsnId: account.wsnId,
+                    serviceType: account.serviceType,
+                    routerId: account.routerId
+                },
+                ip: context.ip,
+                userAgent: context.userAgent
+            });
+        }
+
+        return account;
+    }
 }

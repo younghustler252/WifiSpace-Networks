@@ -56,5 +56,12 @@ export const PERMISSION = {
 
 		REFUND: "payment:refund",
 		CANCEL: "payment:cancel"
-	}
+	},
+	ROUTER: {
+        PROVISION: "router:provision",
+        SUSPEND: "router:suspend",
+        RESUME: "router:resume",
+        VIEW: "router:view",
+        REBOOT: "router:reboot"
+    }
 };

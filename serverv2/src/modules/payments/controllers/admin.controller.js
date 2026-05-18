@@ -9,7 +9,7 @@ export class PaymentAdminController {
 	// ----------------------------
 	// Admin: Create Payment (for user via admin)
 	// ----------------------------
-	createPayment = async (req, res, next) => {
+	adminRecordPayment = async (req, res, next) => {
 		try {
 			const { userId, planId, amount, monthsPaid, method } = req.body;
 

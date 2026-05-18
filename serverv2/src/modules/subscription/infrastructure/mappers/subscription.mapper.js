@@ -1,174 +1,179 @@
-// src/infrastructure/mappers/subscription.mapper.js
-
 import { Subscription } from "../../domain/subscription.entity.js";
 
 export class SubscriptionMapper {
 
-	// -----------------------------
+	// ---------------------------------
 	// Mongo → Domain
-	// -----------------------------
+	// ---------------------------------
 	static toDomain(doc) {
 		if (!doc) return null;
 
 		return new Subscription({
 			id: doc._id?.toString(),
+
 			accountId: doc.accountId,
+			userId: doc.userId,
 			planId: doc.planId,
-
-			// Plan Snapshot (store historical data)
-			planSnapshot: doc.planSnapshot,
-
-			startDate: doc.startDate,
-			baseEndDate: doc.baseEndDate,
-			endDate: doc.endDate,
-
 			status: doc.status,
 
-			// Billing
-			billingCycle: doc.billingCycle,
+			planSnapshot: doc.planSnapshot,
+
 			cycles: doc.cycles,
 			totalAmount: doc.totalAmount,
 
-			// Adjustments
+			startsAt: doc.startsAt,
+			expiresAt: doc.expiresAt,
+			graceEndsAt: doc.graceEndsAt,
+			activatedAt: doc.activatedAt,
+			expiredAt: doc.expiredAt,
+
+			currentPeriodStart: doc.currentPeriodStart,
+			currentPeriodEnd: doc.currentPeriodEnd,
+
 			bonusDays: doc.bonusDays,
 			manualAdjustmentDays: doc.manualAdjustmentDays,
 
-			// Suspension
 			suspendedAt: doc.suspendedAt,
 			totalSuspendedDuration: doc.totalSuspendedDuration,
 			suspensionReason: doc.suspensionReason,
 
-			// Renewal
-			autoRenew: doc.autoRenew,
-			lastRenewedAt: doc.lastRenewedAt,
+			renewalStrategy: doc.renewalStrategy,
+			autoRenewEnabled: doc.autoRenewEnabled,
 			nextRenewalDate: doc.nextRenewalDate,
+			lastRenewedAt: doc.lastRenewedAt,
 
-			// Cancellation
 			canceledAt: doc.canceledAt,
 			cancellationReason: doc.cancellationReason,
 
-			// Grace period
-			gracePeriodDays: doc.gracePeriodDays,
+			lastPaymentId: doc.lastPaymentId,
+			lastPaymentDate: doc.lastPaymentDate,
+			lastPaymentAmount: doc.lastPaymentAmount,
 
-			// Payments history
-			payments: doc.payments,
+			defaultPaymentChannel: doc.defaultPaymentChannel,
+			billingAuthorization: doc.billingAuthorization,
+			authorizationReusable: doc.authorizationReusable,
 
-			// Audit trail
+			mikrotikStatus: doc.mikrotikStatus,
+			mikrotikLastSyncAt: doc.mikrotikLastSyncAt,
+			mikrotikError: doc.mikrotikError,
+
 			events: doc.events,
 
-			// Network integration
-			routerProfile: doc.routerProfile
+			createdAt: doc.createdAt,
+			updatedAt: doc.updatedAt
 		});
 	}
 
-	// -----------------------------
+	// ---------------------------------
 	// Domain → Mongo
-	// -----------------------------
+	// ---------------------------------
 	static toPersistence(entity) {
 		return {
 			accountId: entity.accountId,
+			userId: entity.userId,
 			planId: entity.planId,
-
-			// Plan Snapshot (store historical data)
-			planSnapshot: entity.planSnapshot,
-
-			startDate: entity.startDate,
-			baseEndDate: entity.baseEndDate,
-			endDate: entity.endDate,
-
 			status: entity.status,
 
-			// Billing
-			billingCycle: entity.billingCycle,
+			planSnapshot: entity.planSnapshot,
+
 			cycles: entity.cycles,
 			totalAmount: entity.totalAmount,
 
-			// Adjustments
+			startsAt: entity.startsAt,
+			expiresAt: entity.expiresAt,
+			graceEndsAt: entity.graceEndsAt,
+			activatedAt: entity.activatedAt,
+			expiredAt: entity.expiredAt,
+
+			currentPeriodStart: entity.currentPeriodStart,
+			currentPeriodEnd: entity.currentPeriodEnd,
+
 			bonusDays: entity.bonusDays,
 			manualAdjustmentDays: entity.manualAdjustmentDays,
 
-			// Suspension
 			suspendedAt: entity.suspendedAt,
 			totalSuspendedDuration: entity.totalSuspendedDuration,
 			suspensionReason: entity.suspensionReason,
 
-			// Renewal
-			autoRenew: entity.autoRenew,
-			lastRenewedAt: entity.lastRenewedAt,
+			renewalStrategy: entity.renewalStrategy,
+			autoRenewEnabled: entity.autoRenewEnabled,
 			nextRenewalDate: entity.nextRenewalDate,
+			lastRenewedAt: entity.lastRenewedAt,
 
-			// Cancellation
 			canceledAt: entity.canceledAt,
 			cancellationReason: entity.cancellationReason,
 
-			// Grace period
-			gracePeriodDays: entity.gracePeriodDays,
+			lastPaymentId: entity.lastPaymentId,
+			lastPaymentDate: entity.lastPaymentDate,
+			lastPaymentAmount: entity.lastPaymentAmount,
 
-			// Payments history
-			payments: entity.payments,
+			defaultPaymentChannel: entity.defaultPaymentChannel,
+			billingAuthorization: entity.billingAuthorization,
+			authorizationReusable: entity.authorizationReusable,
 
-			// Audit trail
-			events: entity.events,
+			mikrotikStatus: entity.mikrotikStatus,
+			mikrotikLastSyncAt: entity.mikrotikLastSyncAt,
+			mikrotikError: entity.mikrotikError,
 
-			// Network integration
-			routerProfile: entity.routerProfile
+			events: entity.events
 		};
 	}
 
-	// -----------------------------
-	// Mongo → DTO (API response)
-	// -----------------------------
+	// ---------------------------------
+	// Mongo → DTO
+	// ---------------------------------
 	static toDTO(doc) {
 		if (!doc) return null;
 
 		return {
-			id: doc._id,
+			id: doc._id?.toString(),
 			accountId: doc.accountId,
-			plan: doc.planId,
-
-			// Plan Snapshot
-			planSnapshot: doc.planSnapshot,
-
-			startDate: doc.startDate,
-			baseEndDate: doc.baseEndDate,
-			endDate: doc.endDate,
-
+			userId: doc.userId,
+			planId: doc.planId,
 			status: doc.status,
 
-			// Billing
-			billingCycle: doc.billingCycle,
+			planSnapshot: doc.planSnapshot,
+
 			cycles: doc.cycles,
 			totalAmount: doc.totalAmount,
 
-			// Adjustments
+			startsAt: doc.startsAt,
+			expiresAt: doc.expiresAt,
+			graceEndsAt: doc.graceEndsAt,
+			activatedAt: doc.activatedAt,
+			expiredAt: doc.expiredAt,
+
+			currentPeriodStart: doc.currentPeriodStart,
+			currentPeriodEnd: doc.currentPeriodEnd,
+
 			bonusDays: doc.bonusDays,
 			manualAdjustmentDays: doc.manualAdjustmentDays,
 
-			// Suspension
 			suspendedAt: doc.suspendedAt,
 			totalSuspendedDuration: doc.totalSuspendedDuration,
 			suspensionReason: doc.suspensionReason,
 
-			// Renewal
-			autoRenew: doc.autoRenew,
-			lastRenewedAt: doc.lastRenewedAt,
+			renewalStrategy: doc.renewalStrategy,
+			autoRenewEnabled: doc.autoRenewEnabled,
 			nextRenewalDate: doc.nextRenewalDate,
+			lastRenewedAt: doc.lastRenewedAt,
 
-			// Cancellation
 			canceledAt: doc.canceledAt,
 			cancellationReason: doc.cancellationReason,
 
-			// Grace period
-			gracePeriodDays: doc.gracePeriodDays,
+			lastPaymentId: doc.lastPaymentId,
+			lastPaymentDate: doc.lastPaymentDate,
+			lastPaymentAmount: doc.lastPaymentAmount,
 
-			// Payments history
-			payments: doc.payments,
+			defaultPaymentChannel: doc.defaultPaymentChannel,
+			billingAuthorization: doc.billingAuthorization,
+			authorizationReusable: doc.authorizationReusable,
 
-			// Audit trail
+			mikrotikStatus: doc.mikrotikStatus,
+			mikrotikLastSyncAt: doc.mikrotikLastSyncAt,
+			mikrotikError: doc.mikrotikError,
+
 			events: doc.events,
-
-			// Network integration
-			routerProfile: doc.routerProfile,
 
 			createdAt: doc.createdAt,
 			updatedAt: doc.updatedAt

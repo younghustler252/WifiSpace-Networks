@@ -3,59 +3,45 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
 export class ResumeSubscriptionUseCase {
-	constructor({ subscriptionRepository, analyticsTracker }) {
-		this.subscriptionRepository = subscriptionRepository;
-		this.analyticsTracker = analyticsTracker;
-	}
+    constructor({ subscriptionRepository, resumeNetworkAccountUseCase, analyticsTracker }) {
+        this.subscriptionRepository = subscriptionRepository;
+        this.resumeNetworkAccountUseCase = resumeNetworkAccountUseCase;
+        this.analyticsTracker = analyticsTracker;
+    }
 
-	async execute({ subscriptionId }) {
-		if (!subscriptionId)
-			throw new ValidationError("subscriptionId is required");
+    async execute({ subscriptionId, context = {} }) {
+        if (!subscriptionId) throw new ValidationError("subscriptionId is required");
 
-		const subscription =
-			await this.subscriptionRepository.findById(subscriptionId);
+        const subscription = await this.subscriptionRepository.findById(subscriptionId);
+        if (!subscription) throw new NotFoundError("Subscription not found");
 
-		if (!subscription)
-			throw new NotFoundError("Subscription not found");
+        if (!subscription.isSuspended()) {
+            throw new ValidationError("Subscription is not suspended");
+        }
 
-		if (!subscription.suspendedAt)
-			throw new ValidationError("Invalid suspension state");
+        // 1️⃣ Use entity method to resume subscription
+        subscription.resume();
 
-		const now = new Date();
+        // 2️⃣ Persist subscription changes
+        await this.subscriptionRepository.update(subscription.id, subscription);
 
-		const suspendedDuration =
-			now - new Date(subscription.suspendedAt);
+        // 3️⃣ Resume network account
+        try {
+            await this.resumeNetworkAccountUseCase.execute(subscription.accountId, context);
+        } catch (err) {
+            console.error(`Failed to resume network account for subscription ${subscription.id}:`, err.message);
+        }
 
-		subscription.endDate = new Date(
-			new Date(subscription.endDate).getTime() + suspendedDuration
-		);
+        // 4️⃣ Track analytics
+        try {
+            await this.analyticsTracker.track(
+                ANALYTICS_EVENTS.SUBSCRIPTION_RESUMED,
+                { subscriptionId }
+            );
+        } catch (err) {
+            console.error("Analytics failed:", err.message);
+        }
 
-		subscription.totalSuspendedDuration += suspendedDuration;
-
-		subscription.suspendedAt = null;
-		subscription.suspensionReason = null;
-		subscription.status = "active";
-
-		subscription.events.push({
-			type: "resumed",
-			date: now,
-			metadata: { suspendedDuration }
-		});
-
-		await this.subscriptionRepository.update(subscription.id, subscription);
-
-		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.SUBSCRIPTION_RESUMED,
-				{
-					subscriptionId,
-					suspendedDuration
-				}
-			);
-		} catch (err) {
-			console.error("Analytics failed:", err.message);
-		}
-
-		return subscription;
-	}
+        return subscription;
+    }
 }

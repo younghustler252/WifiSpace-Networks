@@ -11,6 +11,7 @@ import { subscriptionModule } from "./modules/subscription/subscription.module.j
 import { accountModule } from "./modules/account/account.module.js";
 import { authModule } from "./modules/auth/auth.module.js";
 import { userModule } from "./modules/user/user.module.js";
+import { RouterModule } from "./modules/router/router.module.js";
 
 // Services / Repositories
 import { PermissionService } from "./shared/services/permission.service.js";
@@ -18,6 +19,8 @@ import { PlanRepositoryMongo } from "./modules/plan/infrastructure/repositories/
 import { AccountRepositoryMongo } from "./modules/account/infrastructure/repositories/account.repository.mongo.js";
 import { UserRepositoryMongo } from "./modules/user/infrastructure/repositories/user.repository.mongo.js";
 import { PaymentRepositoryMongo } from "./modules/payments/infrastructure/repositories/payment.repository.mongo.js";
+import { RouterRepositoryMongo } from "./modules/router/infrastructure/repositories/router.repository.mongo.js";
+
 import { PaystackPaymentService } from "./modules/payments/services/paystack.service.js";
 
 
@@ -76,6 +79,11 @@ const account = accountModule({ userRepository, accountRepository, permissionSer
 const auth = authModule({ permissionService, jwtSecret: process.env.JWT_SECRET, jwtRefreshSecret: process.env.JWT_REFRESH_SECRET });
 const user = userModule({ permissionService });
 
+const router = RouterModule({
+    accountRepository,   
+    permissionService,  
+    userRepository      // Shared database auth repository
+})
 
 
 app.get("/", (req, res) => {
@@ -93,6 +101,8 @@ app.use("/api/accounts", account.routes);
 app.use("/api/auth", auth.routes);
 app.use("/api/users", user.routes);
 
+app.use("/api/router", router.routes);
+app.use("/api/admin/router", router.adminRoutes);
 // ----------------------------
 // Error handling middleware
 // ----------------------------

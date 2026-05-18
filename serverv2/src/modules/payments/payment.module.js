@@ -4,6 +4,8 @@ import { SubscriptionRepositoryMongo } from "../subscription/infrastructure/repo
 import { PlanRepositoryMongo } from "../plan/infrastructure/repositories/plan.repository.mongo.js";
 
 import { CreateSubscriptionUseCase } from "../subscription/usecases/account/create-subscription.js";
+import { RenewSubscriptionUseCase } from "../subscription/usecases/account/renew-subscription.js";
+import { UpgradeSubscriptionUseCase } from "../subscription/usecases/account/upgrade-subscription.js";
 
 // =============================
 // USER USECASES
@@ -14,7 +16,7 @@ import { ConfirmPaymentUseCase } from "./usecases/user/confirm-payment.js";
 // =============================
 // ADMIN USECASES
 // =============================
-import { AdminCreatePaymentUseCase } from "./usecases/admin/create-payment.js";
+import { AdminRecordPaymentUseCase } from "./usecases/admin/record-payment.js";
 import { AdminUpdatePaymentStatusUseCase } from "./usecases/admin/update-payment-status.js";
 
 // =============================
@@ -24,12 +26,12 @@ import { GetPaymentsUseCase } from "./usecases/shared/get-payments.js";
 import { GetPaymentByIdUseCase } from "./usecases/shared/get-payment.js";
 import { HandleWebhookUseCase } from "./usecases/user/handle-webhook.js";
 
-
 // =============================
 // SERVICES
 // =============================
 import { PaystackPaymentService } from "./services/paystack.service.js";
 import { PaystackGateway } from "./infrastructure/paystack/paystack.gateway.js";
+
 // =============================
 // CONTROLLERS
 // =============================
@@ -41,38 +43,46 @@ import { PaymentAdminController } from "./controllers/admin.controller.js";
 // =============================
 import paymentRoutes from "./routes/payment.routes.js";
 
-export function paymentModule({
-	planRepository,
-	accountRepository,
-	mikrotikService,
-	permissionService,
-	paystackSecretKey
-}) {
+export function paymentModule({ planRepository, accountRepository, mikrotikService, permissionService, paystackSecretKey }) {
 	// -----------------------------
-	// REPOSITORY
+	// REPOSITORIES
 	// -----------------------------
 	const paymentRepository = new PaymentRepositoryMongo();
 	const userRepository = new UserRepositoryMongo();
 	const subscriptionRepository = new SubscriptionRepositoryMongo();
-	// const planRepository = new PlanRepositoryMongo();
+	// const planRepository = new PlanRepositoryMongo(); // provided from outside
 
+	// -----------------------------
+	// SUBSCRIPTION USECASES
+	// -----------------------------
 	const createSubscriptionUseCase = new CreateSubscriptionUseCase({
 		subscriptionRepository,
 		planRepository
 	});
 
+	const renewSubscriptionUseCase = new RenewSubscriptionUseCase({
+		subscriptionRepository,
+		planRepository
+	});
+
+	const upgradeSubscriptionUseCase = new UpgradeSubscriptionUseCase({
+		subscriptionRepository,
+		planRepository
+	});
 
 	// -----------------------------
 	// PAYSTACK SERVICE
 	// -----------------------------
 	const paystackGateway = new PaystackGateway({
-		secretKey: process.env.PAYSTACK_SECRET_KEY
+		secretKey: paystackSecretKey || process.env.PAYSTACK_SECRET_KEY
 	});
 
 	const paystackPaymentService = new PaystackPaymentService({
-		paystackGateway, // ✅ REQUIRED
+		paystackGateway,
 		repository: paymentRepository,
-		createSubscriptionUseCase
+		createSubscriptionUseCase,
+		renewSubscriptionUseCase,
+		upgradeSubscriptionUseCase
 	});
 
 	// -----------------------------
@@ -92,15 +102,25 @@ export function paymentModule({
 			paymentRepository,
 			paystackPaymentService,
 			createSubscriptionUseCase,
+			renewSubscriptionUseCase,
+			upgradeSubscriptionUseCase,
 			accountRepository
 		}),
 
 		// =========================
 		// ADMIN
 		// =========================
-		adminCreatePayment: new AdminCreatePaymentUseCase({
+		adminRecordPayment: new AdminRecordPaymentUseCase({
 			paymentRepository,
 			planRepository
+		}),
+
+		adminUpdatePaymentStatus: new AdminUpdatePaymentStatusUseCase({
+			paymentRepository,
+			createSubscriptionUseCase,
+			renewSubscriptionUseCase,
+			upgradeSubscriptionUseCase,
+			accountRepository
 		}),
 
 		getPayments: new GetPaymentsUseCase({
@@ -108,34 +128,24 @@ export function paymentModule({
 			accountRepository
 		}),
 
-		adminUpdatePaymentStatus:
-			new AdminUpdatePaymentStatusUseCase({
-				paymentRepository,
-				createSubscriptionUseCase,
-				accountRepository
-			}),
+		getPaymentById: new GetPaymentByIdUseCase({
+			paymentRepository
+		}),
 
 		// =========================
-		// SHARED
+		// WEBHOOK
 		// =========================
 		handleWebhook: new HandleWebhookUseCase({
 			paystackPaymentService,
 			ConfirmPaymentUseCase
-		}),
-
-		getPaymentById: new GetPaymentByIdUseCase({
-			paymentRepository
 		})
 	};
 
 	// -----------------------------
 	// CONTROLLERS
 	// -----------------------------
-	const paymentController =
-		new PaymentController(usecases);
-
-	const paymentAdminController =
-		new PaymentAdminController(usecases);
+	const paymentController = new PaymentController(usecases);
+	const paymentAdminController = new PaymentAdminController(usecases);
 
 	// -----------------------------
 	// ROUTES

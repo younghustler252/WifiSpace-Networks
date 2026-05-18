@@ -133,7 +133,7 @@ export class AdminAccountController {
 				userAgent: req.get("User-Agent")
 			}
 		);
-		// console.log("accounts", accounts);
+		console.log("accounts", accounts);
 		
 
 		return successResponse({

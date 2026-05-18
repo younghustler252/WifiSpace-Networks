@@ -3,7 +3,7 @@ import "./config/env.js";
 import app from "./app.js";
 // impoort redis
 import { connectDatabase } from "./shared/infrastructure/database/mongo.connecton.js";
-import { mikrotikClient } from "./modules/mikrotik/infrastructure/client/mikrotik.client.js";
+import { mikrotikClient } from "./modules/router/infrastructure/client/mikrotik.client.js";
 
 
 

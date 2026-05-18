@@ -1,67 +1,17 @@
 export async function up(db) {
-	console.log("Running migration: 001-plan-service-type");
+    console.log("Running migration: 002-assign-default-router");
 
-	// PERSONAL → PPPoE PERSONAL
+    const defaultRouterId = "6a095ac9135798557f85cecb";
 
-	await db.collection("plans").updateMany(
-		{ type: "personal" },
-		{
-			$set: {
-				serviceType: "pppoe",
-				accountType: "personal",
+    const result = await db.collection("accounts").updateMany(
+        { $or: [{ routerId: { $exists: false } }, { routerId: null }] },
+        {
+            $set: {
+                routerId: defaultRouterId,
+                mikrotikUserCreated: false, // optional, ensures consistency
+            },
+        }
+    );
 
-				durationValue: 30,
-				durationUnit: "days",
-			},
-
-			$unset: {
-				type: "",
-				durationDays: "",
-			},
-		}
-	);
-
-	// BUSINESS → PPPoE BUSINESS
-
-	await db.collection("plans").updateMany(
-		{ type: "business" },
-		{
-			$set: {
-				serviceType: "pppoe",
-				accountType: "business",
-
-				durationValue: 30,
-				durationUnit: "days",
-			},
-
-			$unset: {
-				type: "",
-				durationDays: "",
-			},
-		}
-	);
-
-	// IF OLD DOCS HAVE durationDays
-
-	const plans = await db.collection("plans").find({}).toArray();
-
-	for (const plan of plans) {
-		if (plan.durationDays) {
-			await db.collection("plans").updateOne(
-				{ _id: plan._id },
-				{
-					$set: {
-						durationValue: plan.durationDays,
-						durationUnit: "days",
-					},
-
-					$unset: {
-						durationDays: "",
-					},
-				}
-			);
-		}
-	}
-
-	console.log("Migration complete");
+    console.log(`Migration complete. Updated ${result.modifiedCount} accounts.`);
 }

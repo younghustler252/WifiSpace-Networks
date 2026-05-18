@@ -1,77 +1,59 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
+import { Subscription } from "../../domain/subscription.entity.js";
 
 export class ExpireSubscriptionUseCase {
-	constructor({
-		subscriptionRepository,
-		analyticsTracker
-	}) {
-		this.subscriptionRepository = subscriptionRepository;
-		this.analyticsTracker = analyticsTracker;
-	}
+    constructor({ subscriptionRepository, analyticsTracker, suspendNetworkAccountUseCase }) {
+        this.subscriptionRepository = subscriptionRepository;
+        this.analyticsTracker = analyticsTracker;
+        this.suspendNetworkAccountUseCase = suspendNetworkAccountUseCase; // Injected dependency
+    }
 
-	async execute({ subscriptionId }) {
-		if (!subscriptionId)
-			throw new ValidationError("subscriptionId is required");
+    async execute({ subscriptionId, context = {} }) {
+        if (!subscriptionId) throw new ValidationError("subscriptionId is required");
 
-		const subscription =
-			await this.subscriptionRepository.findById(
-				subscriptionId
-			);
+        // Fetch subscription
+        const rawSub = await this.subscriptionRepository.findById(subscriptionId);
+        if (!rawSub) throw new NotFoundError("Subscription not found");
 
-		if (!subscription)
-			throw new NotFoundError("Subscription not found");
+        const subscription = new Subscription(rawSub);
 
-		// -----------------------------
-		// ❗ already expired safety check
-		// -----------------------------
-		if (subscription.status === "expired") {
-			return subscription;
-		}
+        // Already expired safety check
+        if (subscription.isExpired()) return subscription;
 
-		const now = new Date();
+        // Expire subscription
+        subscription.expire();
 
-		// -----------------------------
-		// 🔥 expire subscription
-		// -----------------------------
-		subscription.status = "expired";
-		subscription.expiredAt = now;
+        // Persist changes
+        await this.subscriptionRepository.update(subscription.id, subscription);
 
-		// -----------------------------
-		// 🔥 audit event
-		// -----------------------------
-		subscription.events.push({
-			type: "expired",
-			date: now,
-			metadata: {
-				endDate: subscription.endDate
-			}
-		});
+        // Suspend network account if needed
+        if (subscription.accountId) {
+            try {
+                await this.suspendNetworkAccountUseCase.execute(
+                    subscription.accountId,
+                    "Subscription Expired",
+                    context
+                );
+            } catch (err) {
+                console.error(`[ExpireSubscriptionUseCase] Failed to suspend network account:`, err.message);
+            }
+        }
 
-		// -----------------------------
-		// 🔥 persist
-		// -----------------------------
-		await this.subscriptionRepository.update(
-			subscription.id,
-			subscription
-		);
+        // Analytics tracking
+        try {
+            await this.analyticsTracker.track(
+                ANALYTICS_EVENTS.SUBSCRIPTION_EXPIRED,
+                {
+                    accountId: subscription.accountId,
+                    subscriptionId: subscription.id,
+                }
+            );
+        } catch (err) {
+            console.error("Analytics failed:", err.message);
+        }
 
-		// -----------------------------
-		// ✅ analytics
-		// -----------------------------
-		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.SUBSCRIPTION_EXPIRED,
-				{
-					accountId: subscription.accountId,
-					subscriptionId: subscription.id
-				}
-			);
-		} catch (err) {
-			console.error("Analytics failed:", err.message);
-		}
-
-		return subscription;
-	}
+        return subscription;
+    }
 }

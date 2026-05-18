@@ -1,9 +1,14 @@
-import { RouterEntity } from "../../domain/router.entity.js";
+import { RouterEntity } from "./router.entity.js";
 
 export class RouterMapper {
 	/**
 	 * Convert mongoose document -> entity
+	 * 
 	 */
+	static toEntities(docs) {
+    if (!docs || !docs.length) return [];
+    return docs.map(doc => this.toEntity(doc));
+  }
 	static toEntity(doc) {
 		if (!doc) return null;
 

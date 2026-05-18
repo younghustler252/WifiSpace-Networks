@@ -1,235 +1,156 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { calculateBonusDays } from "../../domain/calculate-bonus-days.js";
+import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
+import { Subscription } from "../../domain/subscription.entity.js";
 
 export class AdminCreateSubscriptionUseCase {
-
 	constructor({
 		subscriptionRepository,
-		planRepository
+		planRepository,
+		adminRecordPaymentUseCase, // <-- injected
+		provisionNetworkAccountUseCase // <-- injected
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
+		this.adminRecordPaymentUseCase = adminRecordPaymentUseCase;
+		this.provisionNetworkAccountUseCase = provisionNetworkAccountUseCase;
 	}
 
 	async execute({
 		accountId,
+		userId,
 		planId,
-
-		// admin controls
 		status = "active",
 		cycles = 1,
-
 		overrideExisting = false,
-
-		startDate = new Date(),
-
+		startsAt = new Date(),
 		manualAdjustmentDays = 0,
-		bonusDays: customBonusDays,
-
-		autoRenew = false,
-
-		gracePeriodDays = 0,
-
-		routerProfile,
-
+		autoRenewEnabled = false,
 		adminId,
-		reason
+		reason,
+		paymentAmount, // { total, base, discount }
+		paymentChannel = "bank_transfer",
+		currency = "NGN",
+		adminNote = null
 	}) {
-
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
-		if (!accountId)
-			throw new ValidationError(
-				"accountId is required"
-			);
+		if (!accountId) throw new ValidationError("accountId is required");
+		if (!userId) throw new ValidationError("userId is required");
+		if (!planId) throw new ValidationError("planId is required");
+		if (cycles < 1) throw new ValidationError("cycles must be at least 1");
 
-		if (!planId)
-			throw new ValidationError(
-				"planId is required"
-			);
-
-		if (cycles < 1)
-			throw new ValidationError(
-				"cycles must be at least 1"
-			);
-
-		const allowedStatuses = [
-			"active",
-			"expired",
-			"suspended",
-			"canceled"
-		];
-
-		if (!allowedStatuses.includes(status))
-			throw new ValidationError(
-				"Invalid subscription status"
-			);
+		const allowedStatuses = ["active", "expired", "suspended", "canceled"];
+		if (!allowedStatuses.includes(status)) throw new ValidationError("Invalid subscription status");
 
 		// -----------------------------
-		// ACTIVE SUBSCRIPTION CHECK
+		// PREVENT DUPLICATE ACTIVE SUBSCRIPTION
 		// -----------------------------
-		const existing =
-			await this.subscriptionRepository
-				.findActiveByAccount(accountId);
-
-		if (
-			existing &&
-			status === "active" &&
-			!overrideExisting
-		) {
-			throw new ValidationError(
-				"Account already has an active subscription"
-			);
+		const existing = await this.subscriptionRepository.findActiveByAccount(accountId);
+		if (existing && status === "active" && !overrideExisting) {
+			throw new ValidationError("Account already has an active subscription");
 		}
 
 		// -----------------------------
-		// PLAN
+		// FETCH PLAN
 		// -----------------------------
-		const plan =
-			await this.planRepository.findById(
-				planId
-			);
-
-		if (!plan)
-			throw new NotFoundError(
-				"Plan not found"
-			);
+		const plan = await this.planRepository.findById(planId);
+		if (!plan) throw new NotFoundError("Plan not found");
 
 		// -----------------------------
-		// DATES
+		// RECORD PAYMENT (if provided)
 		// -----------------------------
-		const normalizedStartDate =
-			new Date(startDate);
-
-		const baseEndDate =
-			new Date(normalizedStartDate);
-
-		baseEndDate.setDate(
-			baseEndDate.getDate() +
-				plan.durationDays * cycles
-		);
-
-		// -----------------------------
-		// BONUS DAYS
-		// -----------------------------
-		const calculatedBonusDays =
-			calculateBonusDays(plan, cycles);
-
-		const finalBonusDays =
-			typeof customBonusDays === "number"
-				? customBonusDays
-				: calculatedBonusDays;
-
-		// -----------------------------
-		// FINAL END DATE
-		// -----------------------------
-		const endDate = new Date(baseEndDate);
-
-		endDate.setDate(
-			endDate.getDate() +
-				finalBonusDays +
-				manualAdjustmentDays
-		);
-
-		// -----------------------------
-		// STATUS DATES
-		// -----------------------------
-		const suspendedAt =
-			status === "suspended"
-				? new Date()
-				: undefined;
-
-		const canceledAt =
-			status === "canceled"
-				? new Date()
-				: undefined;
-
-		// -----------------------------
-		// CREATE
-		// -----------------------------
-		const subscription =
-			await this.subscriptionRepository.create({
+		let savedPayment = null;
+		if (paymentAmount) {
+			savedPayment = await this.adminRecordPaymentUseCase.execute({
+				userId,
 				accountId,
 				planId,
-
-				planSnapshot: {
-					name: plan.name,
-					price: plan.price,
-					durationDays:
-						plan.durationDays,
-					speedRate:
-						plan.speedRate,
-					devicesAllowed:
-						plan.devicesAllowed
-				},
-
-				startDate:
-					normalizedStartDate,
-
-				baseEndDate,
-				endDate,
-
-				status,
-
-				billingCycle:
-					plan.billingCycle,
-
-				cycles,
-
-				totalAmount:
-					plan.price * cycles,
-
-				bonusDays:
-					finalBonusDays,
-
-				manualAdjustmentDays,
-
-				autoRenew,
-
-				gracePeriodDays,
-
-				routerProfile,
-
-				suspendedAt,
-				canceledAt,
-
-				payments: [],
-
-				events: [
-					{
-						type: "created",
-						date: new Date(),
-
-						metadata: {
-							source: "admin",
-
-							adminId,
-
-							reason,
-
-							planName:
-								plan.name,
-
-							price:
-								plan.price,
-
-							status,
-
-							cycles,
-
-							bonusDays:
-								finalBonusDays,
-
-							manualAdjustmentDays,
-
-							overrideExisting
-						}
-					}
-				]
+				amount: paymentAmount,
+				currency,
+				paymentChannel,
+				adminNote
 			});
+		}
 
-		return subscription;
+		// -----------------------------
+		// BILLING CALCULATION
+		// -----------------------------
+		const billing = PlanBillingCalculator.calculate(plan, cycles);
+		const expiresAt = new Date(startsAt.getTime() + (billing.totalDays + manualAdjustmentDays) * 86400000);
+		const graceEndsAt = plan.gracePeriodDays
+			? new Date(expiresAt.getTime() + plan.gracePeriodDays * 24 * 60 * 60 * 1000)
+			: null;
+
+		// -----------------------------
+		// CREATE SUBSCRIPTION ENTITY
+		// -----------------------------
+		const subscription = new Subscription({
+			accountId,
+			userId,
+			planId,
+			planSnapshot: {
+				name: plan.name,
+				serviceType: plan.serviceType,
+				price: plan.price,
+				durationValue: plan.durationValue,
+				durationUnit: plan.durationUnit,
+				speedRate: plan.speedRate,
+				mikrotikProfile: plan.mikrotikProfile,
+				devicesAllowed: plan.devicesAllowed,
+				gracePeriodDays: plan.gracePeriodDays
+			},
+			status,
+			cycles,
+			totalAmount: plan.price * cycles,
+			startsAt,
+			expiresAt,
+			graceEndsAt,
+			bonusDays: billing.bonusDays,
+			manualAdjustmentDays,
+			autoRenewEnabled,
+			activatedAt: status === "active" ? new Date() : null,
+			lastPaymentId: savedPayment?.id || null,
+			lastPaymentDate: savedPayment ? new Date() : null,
+			lastPaymentAmount: savedPayment ? savedPayment.amount.total : null,
+			events: [
+				{
+					type: "created",
+					date: new Date(),
+					metadata: {
+						source: "admin",
+						adminId,
+						reason,
+						planName: plan.name,
+						price: plan.price,
+						status,
+						cycles,
+						bonusDays: billing.bonusDays,
+						manualAdjustmentDays,
+						overrideExisting,
+						paymentId: savedPayment?.id || null
+					}
+				}
+			]
+		});
+
+		// -----------------------------
+		// SAVE SUBSCRIPTION
+		// -----------------------------
+		const savedSubscription = await this.subscriptionRepository.create(subscription);
+
+		// -----------------------------
+		// OPTIONAL: PROVISION NETWORK ACCOUNT
+		// -----------------------------
+		if (status === "active" && this.provisionNetworkAccountUseCase) {
+			try {
+				await this.provisionNetworkAccountUseCase.execute(savedSubscription.id, { actorId: adminId });
+			} catch (err) {
+				console.error("Provisioning failed:", err.message);
+			}
+		}
+
+		return savedSubscription;
 	}
 }

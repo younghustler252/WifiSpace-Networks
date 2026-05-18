@@ -16,7 +16,7 @@ export class AccountMapper {
 				? user._id.toString()
 				: user?.toString(),
 
-			// UI object (new addition — Option B)
+			// UI object (optional, if user is populated)
 			user: isPopulated
 				? {
 						id: user._id.toString(),
@@ -33,15 +33,18 @@ export class AccountMapper {
 			taxId: raw.taxId,
 
 			wsnId: raw.wsnId,
-			pppoePassword: raw.pppoePassword,
+			routerPassword: raw.routerPassword, // UPDATED
 
 			routerId: raw.routerId,
 			routerProfile: raw.routerProfile,
+			macAddress: raw.macAddress, // ADD if present in raw
 
 			profileStatus: raw.profileStatus,
 			serviceType: raw.serviceType,
 
+			limitUptime: raw.limitUptime, // ADD monitoring fields
 			lastSeenAt: raw.lastSeenAt,
+			mikrotikUserCreated: raw.mikrotikUserCreated,
 		});
 	}
 
@@ -56,15 +59,18 @@ export class AccountMapper {
 			taxId: account.taxId,
 
 			wsnId: account.wsnId,
-			pppoePassword: account.pppoePassword,
+			routerPassword: account.routerPassword, // UPDATED
 
 			routerId: account.routerId,
 			routerProfile: account.routerProfile,
+			macAddress: account.macAddress, // ADD
 
 			profileStatus: account.profileStatus,
 			serviceType: account.serviceType,
 
+			limitUptime: account.limitUptime, // ADD
 			lastSeenAt: account.lastSeenAt,
+			mikrotikUserCreated: account.mikrotikUserCreated, // ADD
 		};
 	}
 }

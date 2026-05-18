@@ -5,7 +5,6 @@ const planSchema = new mongoose.Schema(
 		name: {
 			type: String,
 			required: true,
-			unique: true,
 			trim: true
 		},
 
@@ -56,6 +55,12 @@ const planSchema = new mongoose.Schema(
 			trim: true
 		},
 
+		gracePeriodDays: {
+			type: Number,
+			default: 0,
+			min: 0
+		},
+
 		status: {
 			type: String,
 			enum: ["active", "inactive"],
@@ -81,6 +86,11 @@ const planSchema = new mongoose.Schema(
 		]
 	},
 	{ timestamps: true }
+);
+
+planSchema.index(
+	{ name: 1, serviceType: 1 },
+	{ unique: true }
 );
 
 export default mongoose.model("Plan", planSchema);

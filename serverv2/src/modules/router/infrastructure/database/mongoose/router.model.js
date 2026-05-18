@@ -27,7 +27,6 @@ const routerSchema = new mongoose.Schema(
 		code: {
 			type: String,
 			required: true,
-			unique: true,
 			uppercase: true,
 			trim: true,
 		},
@@ -97,9 +96,19 @@ const routerSchema = new mongoose.Schema(
 			default: "offline",
 		},
 
+		lastError: {
+			type: String, // Stores things like "Connection timed out" or "Invalid credentials"
+			default: null
+		},
+
 		isEnabled: {
 			type: Boolean,
 			default: true,
+		},
+
+		apiEnabled: {
+			type: Boolean,
+			default: true, // Allows you to temporarily disable API commands to a router without taking it offline
 		},
 
 		lastSeenAt: {

@@ -2,133 +2,108 @@ import PaymentModel from "../database/mongoose/payment.model.js";
 import { PaymentMapper } from "../mappers/payment.mapper.js";
 
 export class PaymentRepositoryMongo {
-	async create(payment) {
-		const doc = await PaymentModel.create(
-			PaymentMapper.toPersistence(payment)
-		);
 
-		return PaymentMapper.toDomain(doc);
-	}
+    // ---------------- CREATE ----------------
+    async create(payment) {
+        const doc = await PaymentModel.create(PaymentMapper.toPersistence(payment));
+        return PaymentMapper.toDomain(doc);
+    }
 
-	async findById(id) {
-		const doc = await PaymentModel.findById(id);
-		return PaymentMapper.toDomain(doc);
-	}
+    // ---------------- UPDATE ----------------
+    async update(payment) {
+        const updated = await PaymentModel.findByIdAndUpdate(
+            payment.id,
+            PaymentMapper.toPersistence(payment),
+            { runValidators: true, returnDocument: 'after' } // ✅ updated
+        );
+        return PaymentMapper.toDomain(updated);
+    }
 
-	// ==============================
-	// IMPORTANT: REQUIRED FOR FLOW
-	// ==============================
-	async findByTransactionId(transactionId) {
-		const doc = await PaymentModel.findOne({
-			transactionId
-		});
+    // ---------------- FIND ----------------
+    async findById(id) {
+        const doc = await PaymentModel.findById(id);
+        return PaymentMapper.toDomain(doc);
+    }
 
-		return PaymentMapper.toDomain(doc);
-	}
+    async findByGatewayReference(gatewayReference) {
+        const doc = await PaymentModel.findOne({ gatewayReference });
+        return PaymentMapper.toDomain(doc);
+    }
 
-	async findByUser(userId) {
-		const docs = await PaymentModel.find({ userId }).sort({
-			paymentDate: -1
-		});
+    async findByUser(userId) {
+        const docs = await PaymentModel.find({ userId }).sort({ paymentDate: -1 });
+        return docs.map(PaymentMapper.toDomain);
+    }
 
-		return docs.map(PaymentMapper.toDomain);
-	}
+    async findByAccount(accountId) {
+        const docs = await PaymentModel.find({ accountId }).sort({ paymentDate: -1 });
+        return docs.map(PaymentMapper.toDomain);
+    }
 
-	async findByAccount(accountId) {
-		const docs = await PaymentModel.find({ accountId }).sort(
-			{ paymentDate: -1 }
-		);
+    async findPayments(filters = {}, { skip = 0, limit = 10 } = {}) {
+        const query = {};
 
-		return docs.map(PaymentMapper.toDomain);
-	}
+        if (filters.userId) query.userId = filters.userId;
+        if (filters.accountId) query.accountId = filters.accountId;
+        if (filters.planId) query.planId = filters.planId;
+        if (filters.status) query.status = filters.status;
+        if (filters.paymentChannel) query.paymentChannel = filters.paymentChannel;
+        if (filters.renewalStrategy) query.renewalStrategy = filters.renewalStrategy;
 
-	async findPayments(filters = {}, { skip = 0, limit = 10 } = {}) {
-		const query = {};
+        if (filters.startDate || filters.endDate) {
+            query.paymentDate = {};
+            if (filters.startDate) query.paymentDate.$gte = filters.startDate;
+            if (filters.endDate) query.paymentDate.$lte = filters.endDate;
+        }
 
-		if (filters.userId) query.userId = filters.userId;
-		if (filters.accountId) query.accountId = filters.accountId;
-		if (filters.planId) query.planId = filters.planId;
-		if (filters.status) query.status = filters.status;
+        const docs = await PaymentModel.find(query)
+            .sort({ paymentDate: -1 })
+            .skip(skip)
+            .limit(limit);
 
-		if (filters.startDate || filters.endDate) {
-			query.paymentDate = {};
-			if (filters.startDate)
-				query.paymentDate.$gte = filters.startDate;
-			if (filters.endDate)
-				query.paymentDate.$lte = filters.endDate;
-		}
+        return docs.map(PaymentMapper.toDomain);
+    }
 
-		const docs = await PaymentModel.find(query)
-			.sort({ paymentDate: -1 })
-			.skip(skip)
-			.limit(limit);
+    // ---------------- COUNT ----------------
+    async countPayments(filters = {}) {
+        const query = {};
+        if (filters.userId) query.userId = filters.userId;
+        if (filters.accountId) query.accountId = filters.accountId;
+        if (filters.planId) query.planId = filters.planId;
+        if (filters.status) query.status = filters.status;
 
-		return docs.map(PaymentMapper.toDomain);
-	}
+        if (filters.startDate || filters.endDate) {
+            query.paymentDate = {};
+            if (filters.startDate) query.paymentDate.$gte = filters.startDate;
+            if (filters.endDate) query.paymentDate.$lte = filters.endDate;
+        }
 
-	async countPayments(filters = {}) {
-		const query = {};
+        return PaymentModel.countDocuments(query);
+    }
 
-		if (filters.userId) query.userId = filters.userId;
-		if (filters.accountId) query.accountId = filters.accountId;
-		if (filters.planId) query.planId = filters.planId;
-		if (filters.status) query.status = filters.status;
+    // ---------------- PENDING & AUTO-RENEW ----------------
+    async findPendingPayments() {
+        const docs = await PaymentModel.find({ status: "pending" }).sort({ paymentDate: 1 });
+        return docs.map(PaymentMapper.toDomain);
+    }
 
-		if (filters.startDate || filters.endDate) {
-			query.paymentDate = {};
-			if (filters.startDate)
-				query.paymentDate.$gte = filters.startDate;
-			if (filters.endDate)
-				query.paymentDate.$lte = filters.endDate;
-		}
+    async findAutoRenewPaymentsDue() {
+        const now = new Date();
+        const docs = await PaymentModel.find({
+            autoRenewEnabled: true,
+            authorizationReusable: true,
+            nextBillingDate: { $lte: now },
+            status: "successful"
+        });
+        return docs.map(PaymentMapper.toDomain);
+    }
 
-		return PaymentModel.countDocuments(query);
-	}
+    // ---------------- STATS ----------------
+    async countAllPayments() {
+        return PaymentModel.countDocuments();
+    }
 
-	async findPendingPayments() {
-		const docs = await PaymentModel.find({
-			status: "pending"
-		}).sort({ paymentDate: 1 });
-
-		return docs.map(PaymentMapper.toDomain);
-	}
-
-	// ==============================
-	// SAFE STATUS UPDATE
-	// ==============================
-	async updateStatus(id, status) {
-		const doc = await PaymentModel.findByIdAndUpdate(
-			id,
-			{ status },
-			{ new: true }
-		);
-
-		return PaymentMapper.toDomain(doc);
-	}
-
-	// ==============================
-	// IDENTITY PROTECTION (NEW)
-	// ==============================
-	async markProcessed(id) {
-		const doc = await PaymentModel.findByIdAndUpdate(
-			id,
-			{ processed: true },
-			{ new: true }
-		);
-
-		return PaymentMapper.toDomain(doc);
-	}
-
-	// ==============================
-	// STATS
-	// ==============================
-	async countAllPayments() {
-		return PaymentModel.countDocuments();
-	}
-
-	async countSuccessfulPayments() {
-		return PaymentModel.countDocuments({
-			status: "successful"
-		});
-	}
+    async countSuccessfulPayments() {
+        return PaymentModel.countDocuments({ status: "successful" });
+    }
 }

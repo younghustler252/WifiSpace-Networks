@@ -26,7 +26,7 @@ const accountSchema = new mongoose.Schema(
 		userId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "User",
-			required: true,
+			// required: true,
 		},
 
 		// ----------------------------
@@ -71,7 +71,7 @@ const accountSchema = new mongoose.Schema(
 
 		
 
-		pppoePassword: {
+		routerPassword: {
 			type: String
 		},
 
@@ -82,7 +82,7 @@ const accountSchema = new mongoose.Schema(
 		routerId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Router",
-            required: true, // Make this required!
+            // required: true, 
         },
 
 		routerProfile: {
@@ -115,11 +115,6 @@ const accountSchema = new mongoose.Schema(
 		limitUptime: {
             type: String, // format "2h", "30m", or seconds
             default: "0"
-        },
-
-        limitBytes: {
-            type: Number, // In bytes (e.g., 1073741824 for 1GB)
-            default: 0
         },
 
 		lastSeenAt: {
@@ -160,17 +155,8 @@ accountSchema.index({ lastSeenAt: -1 });
 
 
 // ----------------------------
-// Hide Sensitive Fields
+// Hide Sensitive Fieldsa
 // ----------------------------
-
-accountSchema.set("toJSON", {
-	transform: (doc, ret) => {
-
-		delete ret.pppoePassword;
-
-		return ret;
-	}
-});
 
 
 

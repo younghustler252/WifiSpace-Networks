@@ -5,7 +5,6 @@ const dailyAnalyticsSchema = new mongoose.Schema(
 		date: {
 			type: String,
 			required: true,
-			unique: true
 		},
 
 		// USERS

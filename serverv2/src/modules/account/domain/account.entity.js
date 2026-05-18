@@ -1,223 +1,168 @@
 import {
-	ACCOUNT_TYPES,
-	ACCOUNT_TYPE_LIST,
-	PROFILE_STATUSES,
-	PROFILE_STATUS_LIST,
-	SERVICE_TYPES,
-	SERVICE_TYPE_LIST
+    ACCOUNT_TYPES,
+    ACCOUNT_TYPE_LIST,
+    PROFILE_STATUSES,
+    PROFILE_STATUS_LIST,
+    SERVICE_TYPES,
+    SERVICE_TYPE_LIST
 } from "./account.enum.js";
 
 export class Account {
+    constructor({
+        id,
+        userId,
+        user = null,
 
-	constructor({
-		id,
-		userId,
-		user = null,
+        accountType = ACCOUNT_TYPES.PERSONAL,
 
-		accountType = ACCOUNT_TYPES.PERSONAL,
+        businessName = null,
+        companyRegistrationNumber = null,
+        taxId = null,
 
-		businessName = null,
-		companyRegistrationNumber = null,
-		taxId = null,
+        wsnId,
+        routerPassword = null,
 
-		wsnId,
-		pppoePassword,
+        routerId,
+        routerProfile = "default",
+        macAddress = null,
 
-		routerId,
-		routerProfile = "default",
+        serviceType = SERVICE_TYPES.PPPOE,
+        profileStatus = PROFILE_STATUSES.PENDING,
 
-		profileStatus = PROFILE_STATUSES.PENDING,
+        limitUptime = "0",
+        lastSeenAt = null,
+        mikrotikUserCreated = false,
+    }) {
 
-		serviceType = SERVICE_TYPES.PPPOE,
+        // ----------------------------
+        // Required Fields Validation
+        // ----------------------------
+        if (!userId) throw new Error("User ID is required");
+        // if (!wsnId) throw new Error("WSN ID is required");
+        // if (!routerId) throw new Error("Router ID is required");
 
-		lastSeenAt = null
-	}) {
+        // ----------------------------
+        // Enum Validation
+        // ----------------------------
+        if (!ACCOUNT_TYPE_LIST.includes(accountType)) throw new Error("Invalid account type");
+        if (!PROFILE_STATUS_LIST.includes(profileStatus)) throw new Error("Invalid profile status");
+        if (!SERVICE_TYPE_LIST.includes(serviceType)) throw new Error("Invalid service type");
 
-		// ----------------------------
-		// Required Fields
-		// ----------------------------
+        // ----------------------------
+        // Identity
+        // ----------------------------
+        this.id = id;
+        this.userId = userId;
+        this.user = user;
 
-		if (!userId) {
-			throw new Error("User ID is required");
-		}
+        // ----------------------------
+        // Account Type
+        // ----------------------------
+        this.accountType = accountType;
 
-		// if (!wsnId) {
-		// 	throw new Error("WSN ID is required");
-		// }
+        this.businessName = accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
+        this.companyRegistrationNumber = accountType === ACCOUNT_TYPES.BUSINESS ? companyRegistrationNumber : null;
+        this.taxId = accountType === ACCOUNT_TYPES.BUSINESS ? taxId : null;
 
-		// if (!routerId) {
-		// 	throw new Error("Router ID is required");
-		// }
+        // ----------------------------
+        // Network Identity
+        // ----------------------------
+        this.wsnId = wsnId;
+        this.routerPassword = routerPassword;
+        this.routerId = routerId;
+        this.routerProfile = routerProfile;
+        this.macAddress = macAddress;
 
-		// ----------------------------
-		// Enum Validation
-		// ----------------------------
+        // ----------------------------
+        // Service Info
+        // ----------------------------
+        this.serviceType = serviceType;
+        this.profileStatus = profileStatus;
 
-		if (!ACCOUNT_TYPE_LIST.includes(accountType)) {
-			throw new Error("Invalid account type");
-		}
+        // ----------------------------
+        // Monitoring
+        // ----------------------------
+        this.limitUptime = limitUptime;
+        this.lastSeenAt = lastSeenAt;
+        this.mikrotikUserCreated = mikrotikUserCreated;
 
-		if (!PROFILE_STATUS_LIST.includes(profileStatus)) {
-			throw new Error("Invalid profile status");
-		}
+    }
 
-		if (!SERVICE_TYPE_LIST.includes(serviceType)) {
-			throw new Error("Invalid service type");
-		}
+    // ----------------------------
+    // Account Type Helpers
+    // ----------------------------
+    isBusinessAccount() {
+        return this.accountType === ACCOUNT_TYPES.BUSINESS;
+    }
 
-		// ----------------------------
-		// Identity
-		// ----------------------------
+    isPersonalAccount() {
+        return this.accountType === ACCOUNT_TYPES.PERSONAL;
+    }
 
-		this.id = id;
-		this.userId = userId;
-  		this.user = user;
+    // ----------------------------
+    // Business Validation
+    // ----------------------------
+    isBusinessComplete() {
+        if (!this.isBusinessAccount()) return true;
+        return Boolean(this.businessName && this.companyRegistrationNumber && this.taxId);
+    }
 
-		// ----------------------------
-		// Account Type
-		// ----------------------------
+    needsBusinessVerification() {
+        return this.isBusinessAccount() && !this.isBusinessComplete();
+    }
 
-		this.accountType = accountType;
+    // ----------------------------
+    // Profile Status Management
+    // ----------------------------
+    activateProfile() {
+        if (this.profileStatus === PROFILE_STATUSES.ACTIVE) throw new Error("Account already active");
+        this.profileStatus = PROFILE_STATUSES.ACTIVE;
+    }
 
-		this.businessName =
-			accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
+    suspendProfile() {
+        if (this.profileStatus !== PROFILE_STATUSES.ACTIVE) throw new Error("Only active accounts can be suspended");
+        this.profileStatus = PROFILE_STATUSES.SUSPENDED;
+    }
 
-		this.companyRegistrationNumber =
-			accountType === ACCOUNT_TYPES.BUSINESS
-				? companyRegistrationNumber
-				: null;
+    cancelProfile() {
+        this.profileStatus = PROFILE_STATUSES.CANCELED;
+    }
 
-		this.taxId =
-			accountType === ACCOUNT_TYPES.BUSINESS
-				? taxId
-				: null;
+    isActive() {
+        return this.profileStatus === PROFILE_STATUSES.ACTIVE;
+    }
 
-		// ----------------------------
-		// Network Identity
-		// ----------------------------
+    // ----------------------------
+    // Router / PPPoE Management
+    // ----------------------------
+    updateRouterPassword(newPassword) {
+        if (!newPassword) throw new Error("Password cannot be empty");
+        this.routerPassword = newPassword;
+    }
 
-		this.wsnId = wsnId;
+    updateRouterProfile(newProfile) {
+        if (!newProfile) throw new Error("Router profile cannot be empty");
+        this.routerProfile = newProfile;
+    }
 
-		this.pppoePassword = pppoePassword;
+    moveToRouter(newRouterId) {
+        if (!newRouterId) throw new Error("Router ID is required");
+        this.routerId = newRouterId;
+    }
 
-		this.routerId = routerId;
+    // ----------------------------
+    // Monitoring
+    // ----------------------------
+    updateLastSeen(date = new Date()) {
+        this.lastSeenAt = date;
+    }
 
-		this.routerProfile = routerProfile;
-
-		// ----------------------------
-		// Service Info
-		// ----------------------------
-
-		this.profileStatus = profileStatus;
-
-		this.serviceType = serviceType;
-
-		// ----------------------------
-		// Monitoring
-		// ----------------------------
-
-		this.lastSeenAt = lastSeenAt;
-	}
-
-	// ----------------------------
-	// Account Type Helpers
-	// ----------------------------
-
-	isBusinessAccount() {
-		return this.accountType === ACCOUNT_TYPES.BUSINESS;
-	}
-
-	isPersonalAccount() {
-		return this.accountType === ACCOUNT_TYPES.PERSONAL;
-	}
-
-	// ----------------------------
-	// Business Validation
-	// ----------------------------
-
-	isBusinessComplete() {
-
-		if (!this.isBusinessAccount()) {
-			return true;
-		}
-
-		return Boolean(
-			this.businessName &&
-			this.companyRegistrationNumber &&
-			this.taxId
-		);
-	}
-
-	needsBusinessVerification() {
-		return this.isBusinessAccount() && !this.isBusinessComplete();
-	}
-
-	// ----------------------------
-	// Profile Status Management
-	// ----------------------------
-
-	activateProfile() {
-
-		if (this.profileStatus === PROFILE_STATUSES.ACTIVE) {
-			throw new Error("Account already active");
-		}
-
-		this.profileStatus = PROFILE_STATUSES.ACTIVE;
-	}
-
-	suspendProfile() {
-
-		if (this.profileStatus !== PROFILE_STATUSES.ACTIVE) {
-			throw new Error("Only active accounts can be suspended");
-		}
-
-		this.profileStatus = PROFILE_STATUSES.SUSPENDED;
-	}
-
-	cancelProfile() {
-		this.profileStatus = PROFILE_STATUSES.CANCELED;
-	}
-
-	isActive() {
-		return this.profileStatus === PROFILE_STATUSES.ACTIVE;
-	}
-
-	// ----------------------------
-	// Router / PPPoE Management
-	// ----------------------------
-
-	updatePPPoEPassword(newPassword) {
-
-		if (!newPassword) {
-			throw new Error("Password cannot be empty");
-		}
-
-		this.pppoePassword = newPassword;
-	}
-
-	updateRouterProfile(newProfile) {
-
-		if (!newProfile) {
-			throw new Error("Router profile cannot be empty");
-		}
-
-		this.routerProfile = newProfile;
-	}
-
-	moveToRouter(newRouterId) {
-
-		if (!newRouterId) {
-			throw new Error("Router ID is required");
-		}
-
-		this.routerId = newRouterId;
-	}
-
-	// ----------------------------
-	// Monitoring
-	// ----------------------------
-
-	updateLastSeen(date = new Date()) {
-		this.lastSeenAt = date;
-	}
+    // ----------------------------
+    // JSON Transformation
+    // ----------------------------
+    toJSON() {
+        const obj = { ...this };
+        delete obj.routerPassword; // hide sensitive
+        return obj;
+    }
 }

@@ -54,7 +54,7 @@ export default function paymentRoutes({
 		asyncHandler(paymentController.getPaymentById)
 	);
 
-	router.post("/webhook/paystack",auth(), asyncHandler(paymentController.handleWebhook));
+	router.post("/webhook/paystack", asyncHandler(paymentController.handleWebhook));
 
 	// -----------------------------
 	// ADMIN ROUTES

@@ -1,90 +1,149 @@
-// src/infrastructure/database/mongoose/payment.model.js
 import mongoose from "mongoose";
+import {
+	PAYMENT_STATUSES,
+	PAYMENT_CHANNELS,
+	PAYMENT_GATEWAYS,
+	PAYMENT_ACTIONS
+} from "../../../domain/payment.enum.js";
 
-const paymentSchema = new mongoose.Schema(
+const PaymentSchema = new mongoose.Schema(
 	{
+		// ===========================
+		// RELATIONSHIPS
+		// ===========================
 		userId: {
 			type: mongoose.Schema.Types.ObjectId,
-			required: true,
 			ref: "User",
+			required: true,
 			index: true
 		},
 
 		accountId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Account",
+			required: true,
 			index: true
 		},
 
-		wsnId: {
-			type: String
-		},
-
-		planId: {
+		subscriptionId: {
 			type: mongoose.Schema.Types.ObjectId,
-			ref: "Plan",
-			required: true
+			ref: "Subscription"
 		},
 
-		amount: {
-			type: Number,
-			required: true,
-			min: 0
-		},
-
-		// Updated: Renaming monthsPaid to cycles to match Subscription
-		cycles: {
-			type: Number,
-			required: true,
-			min: 1
-		},
-
-		bonusDays: {
-			type: Number,
-			default: 0,
-			min: 0
-		},
-
-		method: {
+		// ===========================
+		// ACTION TYPE
+		// ===========================
+		actionType: {
 			type: String,
-			enum: ["paystack", "credit_card", "bank_transfer"],
+			enum: PAYMENT_ACTIONS,
 			required: true
 		},
 
+		// ===========================
+		// MONEY (CLEAN + FUTURE PROOF)
+		// ===========================
+		amount: {
+			total: {
+				type: Number,
+				required: true,
+				min: 0
+			},
+			base: {
+				type: Number,
+				required: true,
+				min: 0
+			},
+			discount: {
+				type: Number,
+				default: 0
+			}
+		},
+
+		currency: {
+			type: String,
+			default: "NGN"
+		},
+
+		// ===========================
+		// PAYMENT STATE
+		// ===========================
 		status: {
 			type: String,
-			enum: ["pending", "successful", "failed", "expired"],
-			default: "pending",
-			required: true
+			enum: PAYMENT_STATUSES,
+			default: "initiated",
+			index: true
 		},
 
-		transactionId: { 
+		paymentChannel: {
+			type: String,
+			enum: PAYMENT_CHANNELS,
+			default: null
+		},
+
+		gateway: {
+			type: String,
+			enum: PAYMENT_GATEWAYS,
+			default: "paystack"
+		},
+
+		gatewayReference: {
 			type: String,
 			unique: true,
-			sparse: true 
+			sparse: true,
+			index: true
 		},
 
+		// ===========================
+		// SAFETY (CRITICAL FOR ISP)
+		// ===========================
+		idempotencyKey: {
+			type: String,
+		},
+
+		isWebhookProcessed: {
+			type: Boolean,
+			default: false,
+			index: true
+		},
+
+		// ===========================
+		// PLAN REFERENCE
+		// ===========================
+		planId: {
+			type: mongoose.Schema.Types.ObjectId,
+			ref: "Plan"
+		},
+
+		// ===========================
+		// GATEWAY RESPONSE
+		// ===========================
+		metadata: {
+			type: mongoose.Schema.Types.Mixed,
+			default: {}
+		},
+
+		// ===========================
+		// TIMING
+		// ===========================
 		paymentDate: {
 			type: Date,
 			default: Date.now
 		},
-		processed: {
-			type: Boolean,
-			default: false
-		},
 
-
-		// 🔥 New: Payment details (if available)
-		paymentDetails: {
-			type: Object
-		}
+		processedAt: Date,
+		failedAt: Date,
+		failureReason: String
 	},
 	{
 		timestamps: true
 	}
 );
 
-// Optional: index for quick query by user & active payments
-paymentSchema.index({ userId: 1, status: 1 });
+// ===========================
+// INDEXES
+// ===========================
+PaymentSchema.index({ userId: 1, status: 1 });
+PaymentSchema.index({ accountId: 1, createdAt: -1 });
+PaymentSchema.index({ idempotencyKey: 1 });
 
-export default mongoose.model("Payment", paymentSchema);
+export default mongoose.model("Payment", PaymentSchema);

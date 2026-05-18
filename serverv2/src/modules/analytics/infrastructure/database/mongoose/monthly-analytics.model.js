@@ -5,7 +5,6 @@ const monthlyAnalyticsSchema = new mongoose.Schema(
 		month: {
 			type: String,
 			required: true,
-			unique: true
 		},
 
 		// USERS

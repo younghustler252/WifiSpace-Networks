@@ -1,138 +1,121 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
-import { calculateBonusDays } from "../../domain/calculate-bonus-days.js";
+import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
+import { Subscription } from "../../domain/subscription.entity.js";
 
 export class CreateSubscriptionUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,
-		analyticsTracker
+		analyticsTracker,
+		provisionNetworkAccountUseCase // <-- inject this
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.analyticsTracker = analyticsTracker;
+		this.provisionNetworkAccountUseCase = provisionNetworkAccountUseCase;
 	}
 
 	async execute({
 		accountId,
+		userId,
 		planId,
 		paymentId,
-		cycles = 1
+		cycles = 1,
+		context = {}
 	}) {
-		if (!accountId)
-			throw new ValidationError("accountId is required");
+		if (!accountId) throw new ValidationError("accountId is required");
+		if (!userId) throw new ValidationError("userId is required");
+		if (!planId) throw new ValidationError("planId is required");
 
-		if (!planId)
-			throw new ValidationError("planId is required");
+		// ---------------------------------
+		// prevent duplicate active subscription
+		// ---------------------------------
+		const existing = await this.subscriptionRepository.findActiveByAccount(accountId);
+		if (existing) throw new ValidationError("Account already has an active subscription");
 
-		// 🔥 prevent duplicate active subscription
-		const existing =
-			await this.subscriptionRepository.findActiveByAccount(
-				accountId
-			);
+		// ---------------------------------
+		// get plan
+		// ---------------------------------
+		const plan = await this.planRepository.findById(planId);
+		if (!plan) throw new NotFoundError("Plan not found");
 
-		if (existing)
-			throw new ValidationError(
-				"Account already has an active subscription"
-			);
-
-		// 🔥 get plan
-		const plan =
-			await this.planRepository.findById(planId);
-
-		if (!plan)
-			throw new NotFoundError("Plan not found");
-
+		// ---------------------------------
+		// BILLING CALCULATION
+		// ---------------------------------
+		const billing = PlanBillingCalculator.calculate(plan, cycles);
+		const expiresAt = PlanBillingCalculator.calculateExpiryDate(plan, cycles);
 		const startDate = new Date();
+		const graceEndsAt = plan.gracePeriodDays
+			? new Date(expiresAt.getTime() + plan.gracePeriodDays * 24 * 60 * 60 * 1000)
+			: null;
 
-		// 🔥 calculate base duration (MULTI-CYCLE SUPPORT)
-		const baseEndDate = new Date(startDate);
-		baseEndDate.setDate(
-			baseEndDate.getDate() +
-				plan.durationDays * cycles
-		);
+		// ---------------------------------
+		// CREATE SUBSCRIPTION ENTITY
+		// ---------------------------------
+		const subscription = new Subscription({
+			accountId,
+			userId,
+			planId,
+			planSnapshot: {
+				name: plan.name,
+				serviceType: plan.serviceType,
+				price: plan.price,
+				durationValue: plan.durationValue,
+				durationUnit: plan.durationUnit,
+				speedRate: plan.speedRate,
+				mikrotikProfile: plan.mikrotikProfile,
+				devicesAllowed: plan.devicesAllowed,
+				gracePeriodDays: plan.gracePeriodDays
+			},
+			status: "active",
+			cycles,
+			totalAmount: plan.price * cycles,
+			startsAt: startDate,
+			expiresAt,
+			graceEndsAt,
+			bonusDays: billing.bonusDays,
+			activatedAt: startDate,
+			lastPaymentId: paymentId,
+			lastPaymentDate: paymentId ? startDate : null,
+			lastPaymentAmount: paymentId ? plan.price * cycles : null,
+			events: [
+				{
+					type: "created",
+					date: new Date(),
+					metadata: { planName: plan.name, price: plan.price, cycles, bonusDays: billing.bonusDays, expiresAt, graceEndsAt }
+				}
+			]
+		});
 
-		// 🔥 calculate bonus properly (RULE ENGINE)
-		const bonusDays = calculateBonusDays(plan, cycles);
+		// ---------------------------------
+		// SAVE SUBSCRIPTION
+		// ---------------------------------
+		const savedSubscription = await this.subscriptionRepository.create(subscription);
 
-		// 🔥 final expiry
-		const endDate = new Date(baseEndDate);
-		endDate.setDate(endDate.getDate() + bonusDays);
+		// ---------------------------------
+		// PROVISION NETWORK ACCOUNT
+		// ---------------------------------
+		try {
+			await this.provisionNetworkAccountUseCase.execute(savedSubscription.id, context);
+		} catch (err) {
+			console.error("Provisioning failed:", err.message);
+			// Decide: either fail the whole create, or continue and let admin retry
+		}
 
-		// 🔥 create subscription
-		const subscription =
-			await this.subscriptionRepository.create({
-				accountId,
-				planId,
-
-				planSnapshot: {
-					name: plan.name,
-					price: plan.price,
-					durationDays: plan.durationDays,
-					speedRate: plan.speedRate,
-					devicesAllowed: plan.devicesAllowed
-				},
-
-				startDate,
-				baseEndDate,
-				endDate,
-
-				status: "active",
-
-				billingCycle: plan.billingCycle,
-				cycles,
-
-				totalAmount: plan.price * cycles,
-
-				bonusDays,
-
-				autoRenew: false,
-
-				payments: paymentId
-					? [
-							{
-								paymentId,
-								amount: plan.price * cycles,
-								date: new Date()
-							}
-					  ]
-					: [],
-
-				events: [
-					{
-						type: "created",
-						date: new Date(),
-						metadata: {
-							planName: plan.name,
-							price: plan.price,
-							cycles,
-							bonusDays
-						}
-					}
-				]
-			});
-
-		// ----------------------------
-		// ✅ ANALYTICS
-		// ----------------------------
+		// ---------------------------------
+		// TRACK ANALYTICS
+		// ---------------------------------
 		try {
 			await this.analyticsTracker.track(
 				ANALYTICS_EVENTS.SUBSCRIPTION_CREATED,
-				{
-					plan: plan.name,
-					price: plan.price,
-					cycles,
-					bonusDays
-				}
+				{ plan: plan.name, price: plan.price, cycles, bonusDays: billing.bonusDays, graceEndsAt }
 			);
 		} catch (err) {
-			console.error(
-				"Analytics failed:",
-				err.message
-			);
+			console.error("Analytics failed:", err.message);
 		}
 
-		return subscription;
+		return savedSubscription;
 	}
 }

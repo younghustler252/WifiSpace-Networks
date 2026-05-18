@@ -5,7 +5,6 @@ const weeklyAnalyticsSchema = new mongoose.Schema(
 		week: {
 			type: String,
 			required: true,
-			unique: true
 		},
 
 		// USERS

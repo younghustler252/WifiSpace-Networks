@@ -1,87 +1,91 @@
 import { ACCOUNT_TYPE_LIST, PROFILE_STATUS_LIST, SERVICE_TYPE_LIST } from "../../domain/account.enum.js";
-
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetAllAccounts {
-	constructor(accountRepository, permissionService) {
-		this.accountRepository = accountRepository;
-		this.permissionService = permissionService;
-	}
+    constructor(accountRepository, permissionService) {
+        this.accountRepository = accountRepository;
+        this.permissionService = permissionService;
+    }
 
-	async execute(currentUser, params = {}) {
-		if (!currentUser) {
-			throw new Error("Unauthorized");
-		}
+    async execute(currentUser, params = {}) {
+        if (!currentUser) {
+            throw new Error("Unauthorized");
+        }
 
-		
+        const {
+            accountType,
+            serviceType,
+            profileStatus,
+            userId,
+            routerId,           // optional filter for router
+            createdAfter,
+            createdBefore,
+            sort = "wsnid_desc",
+            skip = 0,
+            limit = 50,
+        } = params;
 
-		const {
-			accountType,
-			serviceType,
-			profileStatus,
-			userId,
-			createdAfter,
-			createdBefore,
-			sort = "wsnid_desc",
-			skip = 0,
-			limit = 50,
-		} = params;
+        // ----------------------------
+        // VALIDATION
+        // ----------------------------
+        if (accountType && !ACCOUNT_TYPE_LIST.includes(accountType)) {
+            throw new ValidationError(`Invalid accountType: ${accountType}`);
+        }
 
-		// ----------------------------
-		// VALIDATION
-		// ----------------------------
-		if (accountType && !ACCOUNT_TYPE_LIST.includes(accountType)) {
-			throw new ValidationError(`Invalid accountType: ${accountType}`);
-		}
+        if (serviceType && !SERVICE_TYPE_LIST.includes(serviceType)) {
+            throw new ValidationError(`Invalid serviceType: ${serviceType}`);
+        }
 
-		if (serviceType && !SERVICE_TYPE_LIST.includes(serviceType)) {
-			throw new ValidationError(`Invalid serviceType: ${serviceType}`);
-		}
+        if (profileStatus && !PROFILE_STATUS_LIST.includes(profileStatus)) {
+            throw new ValidationError(`Invalid profileStatus: ${profileStatus}`);
+        }
 
-		if (profileStatus && !PROFILE_STATUS_LIST.includes(profileStatus)) {
-			throw new ValidationError(`Invalid profileStatus: ${profileStatus}`);
-		}
+        // ----------------------------
+        // QUERY BUILD
+        // ----------------------------
+        const query = {};
 
-		// ----------------------------
-		// QUERY
-		// ----------------------------
-		const query = {};
+        if (accountType) query.accountType = accountType;
+        if (serviceType) query.serviceType = serviceType;
+        if (profileStatus) query.profileStatus = profileStatus;
+        if (userId) query.userId = userId;
+        if (routerId) query.routerId = routerId;
 
-		if (accountType) query.accountType = accountType;
-		if (serviceType) query.serviceType = serviceType;
-		if (profileStatus) query.profileStatus = profileStatus;
-		if (userId) query.userId = userId;
+        if (createdAfter || createdBefore) query.createdAt = {};
+        if (createdAfter) query.createdAt.$gte = createdAfter;
+        if (createdBefore) query.createdAt.$lte = createdBefore;
 
-		if (createdAfter || createdBefore) query.createdAt = {};
-		if (createdAfter) query.createdAt.$gte = createdAfter;
-		if (createdBefore) query.createdAt.$lte = createdBefore;
+        // ----------------------------
+        // SORTING
+        // ----------------------------
+        const sortOptions = {
+            wsnid_desc: { wsnId: -1 },
+            wsnid_asc: { wsnId: 1 },
+            newest: { createdAt: -1 },
+            oldest: { createdAt: 1 },
+        };
 
-		// ----------------------------
-		// SORT
-		// ----------------------------
-		const sortOptions = {
-			wsnid_desc: { wsnId: -1 },
-			wsnid_asc: { wsnId: 1 },
-			newest: { createdAt: -1 },
-			oldest: { createdAt: 1 },
-		};
+        const safeSort = sortOptions[sort] || sortOptions.wsnid_desc;
 
-		const safeSort = sortOptions[sort] || sortOptions.wsnid_desc;
+        // ----------------------------
+        // PAGINATION
+        // ----------------------------
+        const safeLimit = Math.min(Number(limit) || 50, 100);
+        const safeSkip = Math.max(Number(skip) || 0, 0);
 
-		// ----------------------------
-		// PAGINATION
-		// ----------------------------
-		const safeLimit = Math.min(Number(limit) || 50, 100);
-		const safeSkip = Math.max(Number(skip) || 0, 0);
+        // ----------------------------
+        // FETCH FROM REPOSITORY
+        // ----------------------------
+        const result = await this.accountRepository.findAll(
+            query,
+            safeSort,
+            safeSkip,
+            safeLimit
+        );
 
-		// ----------------------------
-		// FETCH
-		// ----------------------------
-		return this.accountRepository.findAll(
-			query,
-			safeSort,
-			safeSkip,
-			safeLimit
-		);
-	}
+        // ----------------------------
+        // RETURN
+        // ----------------------------
+        return result; // { data: [...], total, skip, limit }
+    }
 }

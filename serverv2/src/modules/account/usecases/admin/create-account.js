@@ -1,7 +1,6 @@
 import { Account } from "../../domain/account.entity.js";
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
-
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class CreateAccount {
@@ -10,73 +9,85 @@ export class CreateAccount {
 		accountRepository,
 		permissionService,
 		auditService,
-		analyticsTracker
+		analyticsTracker,
+		createRouterAccountUseCase // NEW: Inject the router creation use case
 	) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;
 		this.analyticsTracker = analyticsTracker;
+		this.createRouterAccountUseCase = createRouterAccountUseCase;
 	}
 
 	async execute(currentUser, data, context = {}) {
+    // ----------------------------
+    // Create Domain Entity
+    // ----------------------------
+    const account = new Account({ ...data });
 
-		
+    // ----------------------------
+    // Set profile status
+    // ----------------------------
+    account.profileStatus = PROFILE_STATUSES.ACTIVE;
 
-		// ----------------------------
-		// Create Domain Entity
-		// ----------------------------
+    // ----------------------------
+    // Persist Account
+    // ----------------------------
+    const createdAccount = await this.accountRepository.create(account);
 
-		const account = new Account({
-			...data
-		});
+    let routerResult = null;
 
-		// ----------------------------
-		// Business Validation
-		// ----------------------------
+    // ----------------------------
+    // Provision Router Account
+    // ----------------------------
+    if (createdAccount.routerId && createdAccount.routerPassword) {
+        try {
+            routerResult = await this.createRouterAccountUseCase.execute(createdAccount.id, context);
+        } catch (err) {
+            console.error("Router provisioning failed:", err.message);
+            routerResult = {
+                success: false,
+                message: err.message
+            };
+        }
+    }
 
-		// if (account.needsBusinessVerification()) {
-		// 	account.profileStatus = PROFILE_STATUSES.PENDING;
-		// }
+    // ----------------------------
+    // Audit Log
+    // ----------------------------
+    await this.auditService.log({
+        actorId: currentUser.id,
+        action: "ACCOUNT_CREATED",
+        targetId: createdAccount.id,
+        resource: "Account",
+        metadata: {
+            accountType: createdAccount.accountType,
+            userId: createdAccount.userId,
+            wsnId: createdAccount.wsnId
+        },
+        ip: context.ip,
+        userAgent: context.userAgent
+    });
 
-		// ----------------------------
-		// Persist Account
-		// ----------------------------
+    // ----------------------------
+    // Analytics Tracking
+    // ----------------------------
+    try {
+        await this.analyticsTracker.track(ANALYTICS_EVENTS.ACCOUNT_CREATED, {
+            accountType: createdAccount.accountType,
+            serviceType: createdAccount.serviceType,
+            profileStatus: createdAccount.profileStatus
+        });
+    } catch (err) {
+        console.error("Analytics tracking failed:", { event: "ACCOUNT_CREATED", error: err.message });
+    }
 
-		const createdAccount = await this.accountRepository.create(account);
-
-		// ----------------------------
-		// Audit Log
-		// ----------------------------
-
-		await this.auditService.log({
-			actorId: currentUser.id,
-			action: "ACCOUNT_CREATED",
-			targetId: createdAccount.id,
-			resource: "Account",
-			metadata: {
-				accountType: createdAccount.accountType,
-				userId: createdAccount.userId,
-				wsnId: createdAccount.wsnId
-			},
-			ip: context.ip,
-			userAgent: context.userAgent
-		});
-
-		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.ACCOUNT_CREATED,
-				{
-					accountType: createdAccount.accountType,
-					serviceType: createdAccount.serviceType,
-					profileStatus: createdAccount.profileStatus
-				}
-			);
-		} catch (err) {
-			console.error("Analytics tracking failed:", {
-				event: "ACCOUNT_CREATED",
-				error: err.message
-			});
-		}
-		return createdAccount;
-	}
+    // ----------------------------
+    // Return both account and router provisioning result
+    // ----------------------------
+    return {
+        account: createdAccount,
+        routerProvision: routerResult
+    };
+}
 }

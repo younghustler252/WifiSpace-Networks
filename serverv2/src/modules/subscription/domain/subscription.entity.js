@@ -3,55 +3,53 @@ export class Subscription {
 		id,
 		accountId,
 		planId,
-
-		planSnapshot,
-
-		startDate,
-		baseEndDate,
-		endDate,
-
-		status = "active",
-
-		billingCycle = "monthly",
+		userId,
+		planSnapshot = {},
+		status = "pending",
 		cycles = 1,
 		totalAmount = 0,
-
+		startsAt = null,
+		expiresAt = null,
+		activatedAt = null,
+		expiredAt = null,
 		bonusDays = 0,
 		manualAdjustmentDays = 0,
-
 		suspendedAt = null,
 		totalSuspendedDuration = 0,
 		suspensionReason = null,
-
-		autoRenew = false,
+		renewalStrategy = "manual",
+		autoRenewEnabled = false,
+		defaultPaymentChannel = null,
+		billingAuthorization = null,
+		authorizationReusable = false,
 		lastRenewedAt = null,
 		nextRenewalDate = null,
-
 		canceledAt = null,
 		cancellationReason = null,
-
-		gracePeriodDays = 0,
-
-		payments = [],
-		events = [],
-
-		routerProfile = null
+		lastPaymentId = null,
+		lastPaymentDate = null,
+		lastPaymentAmount = null,
+		graceEndsAt = null,
+		currentPeriodStart = null,
+		currentPeriodEnd = null,
+		mikrotikStatus = "pending",
+		mikrotikLastSyncAt = null,
+		mikrotikError = null,
+		events = []
 	}) {
 		this.id = id;
 		this.accountId = accountId;
 		this.planId = planId;
-
+		this.userId = userId;
 		this.planSnapshot = planSnapshot;
-
-		this.startDate = new Date(startDate);
-		this.baseEndDate = new Date(baseEndDate);
-		this.endDate = new Date(endDate);
-
 		this.status = status;
-
-		this.billingCycle = billingCycle;
 		this.cycles = cycles;
 		this.totalAmount = totalAmount;
+
+		this.startsAt = startsAt ? new Date(startsAt) : null;
+		this.expiresAt = expiresAt ? new Date(expiresAt) : null;
+		this.activatedAt = activatedAt ? new Date(activatedAt) : null;
+		this.expiredAt = expiredAt ? new Date(expiredAt) : null;
 
 		this.bonusDays = bonusDays;
 		this.manualAdjustmentDays = manualAdjustmentDays;
@@ -60,172 +58,94 @@ export class Subscription {
 		this.totalSuspendedDuration = totalSuspendedDuration;
 		this.suspensionReason = suspensionReason;
 
-		this.autoRenew = autoRenew;
+		this.renewalStrategy = renewalStrategy;
+		this.autoRenewEnabled = autoRenewEnabled;
+
+		this.defaultPaymentChannel = defaultPaymentChannel;
+		this.billingAuthorization = billingAuthorization;
+		this.authorizationReusable = authorizationReusable;
+
 		this.lastRenewedAt = lastRenewedAt ? new Date(lastRenewedAt) : null;
 		this.nextRenewalDate = nextRenewalDate ? new Date(nextRenewalDate) : null;
 
 		this.canceledAt = canceledAt ? new Date(canceledAt) : null;
 		this.cancellationReason = cancellationReason;
 
-		this.gracePeriodDays = gracePeriodDays;
+		this.lastPaymentId = lastPaymentId;
+		this.lastPaymentDate = lastPaymentDate ? new Date(lastPaymentDate) : null;
+		this.lastPaymentAmount = lastPaymentAmount;
 
-		this.payments = payments;
+		this.graceEndsAt = graceEndsAt ? new Date(graceEndsAt) : null;
+		this.currentPeriodStart = currentPeriodStart ? new Date(currentPeriodStart) : null;
+		this.currentPeriodEnd = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
+
+		this.mikrotikStatus = mikrotikStatus;
+		this.mikrotikLastSyncAt = mikrotikLastSyncAt ? new Date(mikrotikLastSyncAt) : null;
+		this.mikrotikError = mikrotikError;
+
 		this.events = events;
-
-		this.routerProfile = routerProfile;
 	}
 
-	// -----------------------------
-	// Status checks
-	// -----------------------------
+	// STATUS METHODS
 	isActive() {
-		return (
-			this.status === "active" &&
-			!this.suspendedAt &&
-			new Date() <= this.getEffectiveEndDate()
-		);
+		return this.status === "active" && !this.isSuspended() && (!this.expiresAt || new Date() <= this.expiresAt);
 	}
 
-	isExpired() {
-		return new Date() > this.getEffectiveEndDate();
-	}
-
-	isSuspended() {
-		return this.status === "suspended";
-	}
+	isSuspended() { return this.status === "suspended"; }
+	isExpired() { return this.expiresAt && new Date() > this.expiresAt; }
 
 	isInGracePeriod() {
-		const now = new Date();
-		const graceEnd = new Date(
-			this.endDate.getTime() +
-			this.gracePeriodDays * 24 * 60 * 60 * 1000
-		);
-
-		return now > this.endDate && now <= graceEnd;
+		if (!this.expiresAt) return false;
+		const graceDays = this.planSnapshot?.gracePeriodDays || 0;
+		const graceEnd = new Date(this.expiresAt.getTime() + graceDays * 86400000);
+		return new Date() > this.expiresAt && new Date() <= graceEnd;
 	}
 
-	// -----------------------------
-	// Core logic
-	// -----------------------------
-	getEffectiveEndDate() {
-		return this.endDate;
-	}
+	hasAccess() { return this.isActive() || this.isInGracePeriod(); }
 
-	// -----------------------------
-	// Lifecycle actions
-	// -----------------------------
+	// LIFECYCLE METHODS
+	activate() { this.status = "active"; this.activatedAt ||= new Date(); this.addEvent("activated"); }
+
 	suspend(reason) {
 		if (this.isSuspended()) return;
-
 		this.status = "suspended";
-		this.suspensionReason = reason;
 		this.suspendedAt = new Date();
-
+		this.suspensionReason = reason;
 		this.addEvent("suspended", { reason });
 	}
 
 	resume() {
 		if (!this.suspendedAt) return;
-
-		const now = new Date();
-		const duration = now - this.suspendedAt;
-
+		const duration = Date.now() - this.suspendedAt.getTime();
 		this.totalSuspendedDuration += duration;
-
-		// extend fairly
-		this.endDate = new Date(this.endDate.getTime() + duration);
-
 		this.suspendedAt = null;
-		this.status = "active";
 		this.suspensionReason = null;
-
+		if (!this.isExpired()) this.expiresAt = new Date(this.expiresAt.getTime() + duration);
+		this.status = "active";
 		this.addEvent("resumed", { duration });
 	}
 
-	cancel(reason) {
-		this.status = "canceled";
-		this.canceledAt = new Date();
-		this.cancellationReason = reason;
+	cancel(reason) { this.status = "canceled"; this.canceledAt = new Date(); this.cancellationReason = reason; this.addEvent("canceled", { reason }); }
+	expire() { this.status = "expired"; this.expiredAt = new Date(); this.addEvent("expired"); }
 
-		this.addEvent("canceled", { reason });
-	}
-
-	expire() {
-		this.status = "expired";
-		this.addEvent("expired");
-	}
-
-	renew({ newEndDate, amountPaid }) {
+	renew({ newExpiresAt, paymentId = null, amount = 0 }) {
 		const now = new Date();
-
-		// stack renewal properly
-		this.startDate =
-			this.endDate > now ? this.endDate : now;
-
-		this.baseEndDate = new Date(newEndDate);
-		this.endDate = new Date(newEndDate);
-
+		if (!this.startsAt) this.startsAt = now;
+		this.expiresAt = new Date(newExpiresAt);
 		this.status = "active";
+		this.expiredAt = null;
 		this.lastRenewedAt = now;
-
 		this.cycles += 1;
-		this.totalAmount += amountPaid;
-
-		this.addEvent("renewed", {
-			newEndDate,
-			amountPaid
-		});
+		this.lastPaymentId = paymentId;
+		this.lastPaymentDate = now;
+		this.lastPaymentAmount = amount;
+		this.addEvent("renewed", { newExpiresAt, amount });
 	}
 
-	// -----------------------------
-	// Adjustments
-	// -----------------------------
-	addManualDays(days) {
-		if (days <= 0) return;
+	// MICROTIK SYNC
+	markSynced() { this.mikrotikStatus = "synced"; this.mikrotikLastSyncAt = new Date(); this.mikrotikError = null; }
+	markSyncFailed(error) { this.mikrotikStatus = "failed"; this.mikrotikError = error; this.mikrotikLastSyncAt = new Date(); }
 
-		this.manualAdjustmentDays += days;
-
-		const ms = days * 24 * 60 * 60 * 1000;
-
-		this.endDate = new Date(this.endDate.getTime() + ms);
-
-		this.addEvent("manual_adjustment", { days });
-	}
-
-	addBonusDays(days) {
-		if (days <= 0) return;
-
-		this.bonusDays += days;
-
-		const ms = days * 24 * 60 * 60 * 1000;
-
-		this.endDate = new Date(this.endDate.getTime() + ms);
-
-		this.addEvent("manual_adjustment", {
-			type: "bonus",
-			days
-		});
-	}
-
-	// -----------------------------
-	// Payments
-	// -----------------------------
-	addPayment({ paymentId, amount }) {
-		this.payments.push({
-			paymentId,
-			amount,
-			date: new Date()
-		});
-	}
-
-	// -----------------------------
-	// Events (audit trail)
-	// -----------------------------
-	addEvent(type, metadata = {}) {
-		this.events.push({
-			type,
-			date: new Date(),
-			metadata
-		});
-	}
+	// EVENTS
+	addEvent(type, metadata = {}) { this.events.push({ type, date: new Date(), metadata }); }
 }

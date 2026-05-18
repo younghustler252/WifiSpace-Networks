@@ -1,105 +1,73 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
+import { Payment } from "../../domain/payment.entity.js";
+import { PAYMENT_STATUSES } from "../../domain/payment.enum.js";
 
 export class AdminUpdatePaymentStatusUseCase {
-	constructor({
-		paymentRepository,
-		createSubscriptionUseCase,
-		accountRepository
-	}) {
-		this.paymentRepository = paymentRepository;
-		this.createSubscriptionUseCase = createSubscriptionUseCase;
-		this.accountRepository = accountRepository;
-	}
+    constructor({ paymentRepository }) {
+        this.paymentRepository = paymentRepository;
+    }
 
-	async execute({ paymentId, status }) {
-		if (!paymentId) {
-			throw new ValidationError("Payment ID is required");
-		}
+    // ==============================
+    // UPDATE PAYMENT STATUS
+    // ==============================
+    async execute({ paymentId, newStatus, adminNote = null }) {
+        // -----------------------------
+        // VALIDATION
+        // -----------------------------
+        if (!paymentId) throw new ValidationError("Payment ID is required");
 
-		const allowed = [
-			"pending",
-			"successful",
-			"failed",
-			"expired"
-		];
+        if (!newStatus || !PAYMENT_STATUSES.includes(newStatus)) {
+            throw new ValidationError(`Invalid status: ${newStatus}`);
+        }
 
-		if (!allowed.includes(status)) {
-			throw new ValidationError("Invalid payment status");
-		}
+        // -----------------------------
+        // FETCH PAYMENT
+        // -----------------------------
+        const payment = await this.paymentRepository.findById(paymentId);
 
-		const payment =
-			await this.paymentRepository.findById(paymentId);
+        if (!payment) {
+            throw new NotFoundError("Payment not found");
+        }
 
-		if (!payment) {
-			throw new NotFoundError("Payment not found");
-		}
+        // -----------------------------
+        // UPDATE STATUS
+        // -----------------------------
+        payment.status = newStatus;
 
-		// ----------------------------
-		// IDENTITY GUARD (IMPORTANT)
-		// ----------------------------
-		if (payment.status === status) {
-			return payment;
-		}
+        // update timestamps according to status
+        if (newStatus === "successful") {
+            payment.processed = true;
+            payment.processedAt = new Date();
+            payment.failedAt = null;
+            payment.failureReason = null;
+        } else if (newStatus === "failed") {
+            payment.processed = false;
+            payment.failedAt = new Date();
+            if (!payment.failureReason) payment.failureReason = "Admin update";
+        } else if (newStatus === "pending") {
+            payment.processed = false;
+            payment.failedAt = null;
+            payment.processedAt = null;
+            payment.failureReason = null;
+        } else if (newStatus === "expired") {
+            // optional: mark processed false for expired
+            payment.processed = false;
+        }
 
-		// ----------------------------
-		// UPDATE STATUS
-		// ----------------------------
-		const updated =
-			await this.paymentRepository.updateStatus(
-				paymentId,
-				status
-			);
+        // add admin note to metadata if provided
+        if (adminNote) {
+            payment.metadata = {
+                ...payment.metadata,
+                adminNote
+            };
+        }
 
-		// ----------------------------
-		// BUSINESS LOGIC ONLY IF SUCCESSFUL
-		// ----------------------------
-		if (status === "successful") {
-			// prevent double processing safety
-			await this.handleSuccessfulPayment(payment);
-		}
+        // -----------------------------
+        // SAVE PAYMENT
+        // -----------------------------
+        const updatedPayment = await this.paymentRepository.update(payment);
 
-		return updated;
-	}
-
-	// ==============================
-	// SIDE EFFECTS HANDLER
-	// ==============================
-	async handleSuccessfulPayment(payment) {
-		// prevent duplicate execution
-		if (payment.processed === true) return;
-
-		// mark processed (optional field strongly recommended)
-		await this.paymentRepository.markProcessed(payment.id);
-
-		// create subscription
-		await this.createSubscriptionUseCase.execute({
-			accountId: payment.accountId,
-			planId: payment.planId
-		});
-
-		// optional: MikroTik provisioning (better move to event later)
-		const account =
-			await this.accountRepository.findById(
-				payment.accountId
-			);
-
-		if (account) {
-			const exists =
-				await this.mikrotikService.checkUserExists(
-					account.wsnId,
-					account.serviceType
-				);
-
-			if (!exists) {
-				await this.mikrotikService.createUser({
-					wsId: account.wsnId,
-					password:
-						account.pppoePassword || "defaultPass123",
-					profile: account.routerProfile || "default",
-					serviceType: account.serviceType
-				});
-			}
-		}
-	}
+        return updatedPayment;
+    }
 }
