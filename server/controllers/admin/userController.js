@@ -136,7 +136,7 @@ const getAllUsers = asyncHandler(async (req, res) => {
 // Admin Create User
 // ------------------------------------------------------------
 const createUser = asyncHandler(async (req, res) => {
-    const { firstName, lastName, email, password, macAddress, profile, role, address, wsnId: customWsnId } = req.body;
+    const { firstName, lastName, email, password, macAddress, profile, role, address, wsnId: customWsnId, phone, nin } = req.body;
 
     // Required fields
     if (!firstName || !lastName || !email || !password || !role)
@@ -173,6 +173,8 @@ const createUser = asyncHandler(async (req, res) => {
         role,
         address,
         wsnId,
+        phone,
+        nin,
     });
 
     // 🔹 Queue MikroTik job asynchronously (non-blocking)
