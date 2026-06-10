@@ -26,20 +26,22 @@ export class HotspotController {
 	// START PURCHASE
 	// -----------------------------
 	startPurchase = async (req, res) => {
-    const result = await this.startHotspotPurchaseUseCase.execute({
-        ...req.body,
-        ipAddress:  req.body.ipAddress || req.ip,  // ← use frontend value first
-        userAgent:  req.headers["user-agent"]
-		
-    });
-	console.log("resolved ip", ipAddress);
 
-    return successResponse({
-        res,
-        data: result,
-        message: "Hotspot purchase initiated successfully"
-    });
-};
+		console.log("resolved ip", req.body.ipAddress );
+		const result = await this.startHotspotPurchaseUseCase.execute({
+			...req.body,
+			ipAddress:  req.body.ipAddress || req.ip,  // ← use frontend value first
+			userAgent:  req.headers["user-agent"]
+			
+		});
+		console.log("Result:", result);
+
+		return successResponse({
+			res,
+			data: result,
+			message: "Hotspot purchase initiated successfully"
+		});
+	};
 	// -----------------------------
 	// CONFIRM PAYMENT
 	// -----------------------------
