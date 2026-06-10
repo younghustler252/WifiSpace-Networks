@@ -2,7 +2,7 @@ import { ValidationError } from "../../../shared/errors/validation-error.js";
 import { User } from "../../user/domain/user.entity.js";
 
 export class RegisterUser {
-	constructor(userRepository, passwordService, auditService, mailService , tokenService) {
+	constructor({userRepository, passwordService, auditService, mailService , tokenService}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;

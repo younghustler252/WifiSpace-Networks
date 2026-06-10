@@ -15,7 +15,7 @@ export class ExtendSubscriptionUseCase {
 
 		days,
 
-		adminId,
+		// adminId,
 		reason
 	}) {
 
@@ -70,8 +70,6 @@ export class ExtendSubscriptionUseCase {
 									"extend",
 
 								days,
-
-								adminId,
 
 								reason
 							}

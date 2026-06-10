@@ -30,5 +30,8 @@ export class AccountRepository {
 	async findAll(query) {
 		throw new Error("Not implemented");
 	}
+	async getDashboardStats() {
+        throw new Error("Not implemented");
+    }
 
 }

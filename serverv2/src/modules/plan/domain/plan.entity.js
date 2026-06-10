@@ -12,7 +12,7 @@ export class Plan {
 		durationValue,
 		durationUnit,
 
-		dataLimitBytes = 0,
+		// dataLimitBytes = 0,
 
 		devicesAllowed = 1,
 
@@ -42,7 +42,7 @@ export class Plan {
 		this.durationValue = durationValue;
 		this.durationUnit = durationUnit;
 
-		this.dataLimitBytes = dataLimitBytes;
+		// this.dataLimitBytes = dataLimitBytes;
 
 		this.devicesAllowed = devicesAllowed;
 
@@ -91,9 +91,9 @@ export class Plan {
 		return this.serviceType === "pppoe";
 	}
 
-	isUnlimitedPlan() {
-		return this.dataLimitBytes === 0;
-	}
+	// isUnlimitedPlan() {
+	// 	return this.dataLimitBytes === 0;
+	// }
 
 	activate() {
 		this.status = "active";

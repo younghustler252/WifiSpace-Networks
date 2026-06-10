@@ -3,7 +3,7 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
 export class UpdatePlan {
 
-	constructor(planRepository, permissionService) {
+	constructor({planRepository, permissionService}) {
 		this.planRepository = planRepository;
 	}
 

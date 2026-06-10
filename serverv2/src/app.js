@@ -2,109 +2,65 @@ import express from "express";
 import morgan from "morgan";
 import cors from "cors";
 
-import { errorMiddleware } from "./shared/middleware/error.middleware.js";
+import { container } from "./container/index.js";
 
 // Modules
+import { usageModule } from "./modules/usage/usage.module.js";
 import { paymentModule } from "./modules/payments/payment.module.js";
 import { planModule } from "./modules/plan/plan.module.js";
 import { subscriptionModule } from "./modules/subscription/subscription.module.js";
+import { hotspotModule } from "./modules/hotspot/hotspot.module.js";
 import { accountModule } from "./modules/account/account.module.js";
 import { authModule } from "./modules/auth/auth.module.js";
 import { userModule } from "./modules/user/user.module.js";
 import { RouterModule } from "./modules/router/router.module.js";
+import { dashboardModule } from "./modules/dashboard/dashboard.module.js";
+import { errorMiddleware } from "./shared/middleware/error.middleware.js";
 
-// Services / Repositories
-import { PermissionService } from "./shared/services/permission.service.js";
-import { PlanRepositoryMongo } from "./modules/plan/infrastructure/repositories/plan.repository.mongo.js";
-import { AccountRepositoryMongo } from "./modules/account/infrastructure/repositories/account.repository.mongo.js";
-import { UserRepositoryMongo } from "./modules/user/infrastructure/repositories/user.repository.mongo.js";
-import { PaymentRepositoryMongo } from "./modules/payments/infrastructure/repositories/payment.repository.mongo.js";
-import { RouterRepositoryMongo } from "./modules/router/infrastructure/repositories/router.repository.mongo.js";
-
-import { PaystackPaymentService } from "./modules/payments/services/paystack.service.js";
-
-
-import "./shared/jobs/index.js";
-
- 
 const app = express();
 
 // ----------------------------
-// Body parsers
+// Middleware
 // ----------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ----------------------------
-// Logger
-// ----------------------------
 app.use(morgan("dev"));
-
-const FRONTEND_URL = process.env.FRONTEND_URL
-
-// app.use(cors({
-//     origin: FRONTEND_URL,
-//     credentials: false
-// }));
-
 app.use(cors());
-// ----------------------------
-// Initialize shared services & repositories
-// ----------------------------
-const userRepository = new UserRepositoryMongo();
-const planRepository = new PlanRepositoryMongo();
-const accountRepository = new AccountRepositoryMongo();
-const permissionService = new PermissionService(userRepository);
-const paymentRepository = new PaymentRepositoryMongo();
-
-// Initialize the Paystack service (if you're using Paystack)
-const paystackService = new PaystackPaymentService({
-    repository: paymentRepository,
-    secretKey: process.env.PAYSTACK_SECRET_KEY
-});
 
 // ----------------------------
-// Initialize modules
+// MODULES (AWILIX CRADLE MODE)
 // ----------------------------
-const payment = paymentModule({
-    planRepository, // You already have this
-    accountRepository,
-    permissionService,
-    paystackService,
-    userRepository
-});
-const plan = planModule({ permissionService });
-const subscription = subscriptionModule({ planRepository, accountRepository, permissionService });
-const account = accountModule({ userRepository, accountRepository, permissionService });
-const auth = authModule({ permissionService, jwtSecret: process.env.JWT_SECRET, jwtRefreshSecret: process.env.JWT_REFRESH_SECRET });
-const user = userModule({ permissionService });
 
-const router = RouterModule({
-    accountRepository,   
-    permissionService,  
-    userRepository      // Shared database auth repository
-})
-
-
+const auth = authModule(container.cradle);
+const account = accountModule(container.cradle);
+const hotspot = hotspotModule(container.cradle)
+const payment = paymentModule(container.cradle);
+const plan = planModule(container.cradle);
+const subscription = subscriptionModule(container.cradle);
+const user = userModule(container.cradle);
+const router = RouterModule(container.cradle);
+const dashboard = dashboardModule(container.cradle);
+const usage = usageModule(container.cradle);
+// ----------------------------
+// ROUTES
+// ----------------------------
 app.get("/", (req, res) => {
-    res.status(200).json({
-        message: "✅ Server is running and ready for API testing!"
-    });
+  res.json({ message: "Server running" });
 });
-// ----------------------------
-// Mount routes
-// ----------------------------\
+
+app.use("/api/auth", auth.routes);
+app.use("/api/accounts", account.routes);
+app.use("/api/hotspot", hotspot.routes)
 app.use("/api/payments", payment.routes);
 app.use("/api/plans", plan.routes);
 app.use("/api/subscriptions", subscription.routes);
-app.use("/api/accounts", account.routes);
-app.use("/api/auth", auth.routes);
 app.use("/api/users", user.routes);
-
-app.use("/api/router", router.routes);
-app.use("/api/admin/router", router.adminRoutes);
+app.use("/routers/admin", router.routes.admin);
+app.use("/routers", router.routes.provisioning);
+app.use("/api/usage", usage.routes);
+app.use("/api/dashboard", dashboard.routes)
 // ----------------------------
-// Error handling middleware
+// ERROR HANDLER
 // ----------------------------
 app.use(errorMiddleware);
 

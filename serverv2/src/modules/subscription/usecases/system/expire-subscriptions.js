@@ -3,7 +3,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 import { Subscription } from "../../domain/subscription.entity.js";
 
-export class ExpireSubscriptionUseCase {
+export class ExpireSubscriptionsUseCase {
     constructor({ subscriptionRepository, analyticsTracker, suspendNetworkAccountUseCase }) {
         this.subscriptionRepository = subscriptionRepository;
         this.analyticsTracker = analyticsTracker;

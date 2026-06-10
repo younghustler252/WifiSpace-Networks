@@ -3,8 +3,23 @@
 import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class AuthController {
-	constructor(usecases) {
-		this.usecases = usecases;
+
+	constructor({
+		registerUser,
+		loginUser,
+		refreshTokenUseCase,
+		logoutUser,
+		verifyOtp,
+		resendOtp,
+		
+	}) {
+	
+		this.registerUserUseCase = registerUser;
+		this.loginUserUseCase = loginUser;
+		this.refreshTokenUseCase = refreshTokenUseCase;
+		this.logoutUserUseCase = logoutUser;
+		this.verifyOtpUseCase = verifyOtp;
+		this.resendOtpUseCase = resendOtp;
 	}
 
 	// -----------------------------
@@ -12,11 +27,13 @@ export class AuthController {
 	// -----------------------------
 
 	register = async (req, res) => {
-		const user = await this.usecases.registerUser.execute({
-			...req.body,
-			ip: req.ip,
-			userAgent: req.headers["user-agent"]
-		});
+
+		const user =
+			await this.registerUserUseCase.execute({
+				...req.body,
+				ip: req.ip,
+				userAgent: req.headers["user-agent"]
+			});
 
 		return successResponse({
 			res,
@@ -26,11 +43,13 @@ export class AuthController {
 	};
 
 	login = async (req, res) => {
-		const result = await this.usecases.loginUser.execute({
-			...req.body,
-			ip: req.ip,
-			userAgent: req.headers["user-agent"]
-		});
+
+		const result =
+			await this.loginUserUseCase.execute({
+				...req.body,
+				ip: req.ip,
+				userAgent: req.headers["user-agent"]
+			});
 
 		return successResponse({
 			res,
@@ -40,11 +59,14 @@ export class AuthController {
 	};
 
 	refreshToken = async (req, res) => {
-		const result = await this.usecases.refreshTokenUseCase.execute({
-			...req.body,
-			ip: req.ip,
-			userAgent: req.headers["user-agent"]
-		});
+
+		const result =
+			await this.refreshTokenUseCase.execute({
+				...req.body,
+				ip: req.ip,
+				userAgent: req.headers["user-agent"]
+			});
+
 		return successResponse({
 			res,
 			data: result,
@@ -53,7 +75,8 @@ export class AuthController {
 	};
 
 	logout = async (req, res) => {
-		await this.usecases.logoutUser.execute({
+
+		await this.logoutUserUseCase.execute({
 			userId: req.user?.id,
 			...req.body
 		});
@@ -65,13 +88,15 @@ export class AuthController {
 	};
 
 	verifyOtp = async (req, res) => {
+
 		const { email, otp } = req.body;
 
-		const result = await this.usecases.verifyOtp.execute({
-			email,
-			otp,
-			ip: req.ip
-		});
+		const result =
+			await this.verifyOtpUseCase.execute({
+				email,
+				otp,
+				ip: req.ip
+			});
 
 		return successResponse({
 			res,
@@ -85,13 +110,15 @@ export class AuthController {
 	};
 
 	resendOtp = async (req, res) => {
+
 		const { email } = req.body;
 
-		const result = await this.usecases.resendOtp.execute({
-			email,
-			ip: req.ip,
-			userAgent: req.headers["user-agent"]
-		});
+		const result =
+			await this.resendOtpUseCase.execute({
+				email,
+				ip: req.ip,
+				userAgent: req.headers["user-agent"]
+			});
 
 		return successResponse({
 			res,

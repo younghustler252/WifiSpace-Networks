@@ -3,10 +3,10 @@ import { successResponse } from "../../../../shared/utils/api-response.js";
 export class SharedAccountController {
 	constructor({
 		getAccountById,
-		getAccountByWSN
+		getAccountByWsnId
 	}) {
 		this.getAccountByIdUseCase = getAccountById;
-		this.getAccountByWSNUseCase = getAccountByWSN;
+		this.getAccountByWSNUseCase = getAccountByWsnId;
 	}
 
 	// ----------------------------------
@@ -39,7 +39,7 @@ export class SharedAccountController {
 	// ----------------------------------
 	// Get Account by WSN (Wireless Serial Number)
 	// ----------------------------------
-	getAccountByWSN = async (req, res) => {
+	getAccountByWsnId = async (req, res) => {
 		try {
 			const { wsn } = req.params;
 

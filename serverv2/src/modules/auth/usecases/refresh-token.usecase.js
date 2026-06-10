@@ -1,7 +1,7 @@
 // src/modules/auth/usecases/refresh-token.usecase.js
 export class RefreshToken {
 
-    constructor(userRepository, tokenService, auditService) {
+    constructor({userRepository, tokenService, auditService}) {
       this.userRepository = userRepository;
       this.tokenService = tokenService;
       this.auditService = auditService;

@@ -3,7 +3,7 @@ import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class ImpersonateUser {
-	constructor(userRepository) {
+	constructor({userRepository}) {
 		this.userRepository = userRepository;
 	}
 

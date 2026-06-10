@@ -5,7 +5,7 @@ import { UnauthorizedError } from "../errors/unauthorized-error.js";
 
 export class PermissionService {
 
-	constructor(userRepository) {
+	constructor({ userRepository }) {
 		this.userRepository = userRepository;
 	}
 

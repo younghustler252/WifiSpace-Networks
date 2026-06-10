@@ -7,15 +7,14 @@ const planSchema = new mongoose.Schema(
 			required: true,
 			trim: true
 		},
-
 		accountType: {
 			type: String,
 			enum: ["personal", "business"],
 			required: function () {
 				return this.serviceType === "pppoe";
-			}
+			},
+			default: "personal"
 		},
-
 		price: {
 			type: Number,
 			required: true,

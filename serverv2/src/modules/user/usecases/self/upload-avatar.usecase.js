@@ -3,7 +3,7 @@
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 
 export class UploadAvatar {
-	constructor(userRepository, fileStorageService, auditService) {
+	constructor({userRepository, fileStorageService, auditService}) {
 		this.userRepository = userRepository;
 		this.fileStorageService = fileStorageService;
 		this.auditService = auditService;

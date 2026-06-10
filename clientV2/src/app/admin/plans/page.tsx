@@ -8,7 +8,7 @@ import { planApi, Plan } from "@/lib/api/plan";
 
 import Button from "@/components/ui/Button";
 import Modal, { ModalHeader, ModalBody } from "@/components/ui/Modal";
-import PlanForm from "@/components/forms/PlanForm";
+import PlanForm from "@/features/plan/PlanForm";
 
 import Dropdown, {
 	DropdownItem,

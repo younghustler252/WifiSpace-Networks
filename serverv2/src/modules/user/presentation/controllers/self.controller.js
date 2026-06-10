@@ -1,24 +1,30 @@
-// src/modules/user/presentation/controllers/self.controller.js
-
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class SelfController {
-	constructor(usecases) {
-		this.usecases = usecases;
+
+	constructor({
+		getMyProfile,
+		updateMyProfile,
+		changePassword,
+		uploadAvatar
+	}) {
+		this.getMyProfileUseCase = getMyProfile;
+		this.updateMyProfileUseCase = updateMyProfile;
+		this.changePasswordUseCase = changePassword;
+		this.uploadAvatarUseCase = uploadAvatar;
 	}
 
-	// -----------------------------
-	// GET /users/me
-	// -----------------------------
 	getProfile = async (req, res) => {
+
 		const userId = req.user?.id;
 
 		if (!userId) {
 			throw new UnauthorizedError("User not authenticated");
 		}
 
-		const user = await this.usecases.getMyProfile.execute({ userId });
+		const user =
+			await this.getMyProfileUseCase.execute({ userId });
 
 		return successResponse({
 			res,
@@ -26,21 +32,20 @@ export class SelfController {
 		});
 	};
 
-	// -----------------------------
-	// PUT /users/me
-	// -----------------------------
 	updateProfile = async (req, res) => {
+
 		const userId = req.user?.id;
 
 		if (!userId) {
 			throw new UnauthorizedError("User not authenticated");
 		}
 
-		const updatedUser = await this.usecases.updateMyProfile.execute({
-			userId,
-			profileData: req.body, // ✅ FIXED
-			ip: req.ip             // ✅ optional but good
-		});
+		const updatedUser =
+			await this.updateMyProfileUseCase.execute({
+				userId,
+				profileData: req.body,
+				ip: req.ip
+			});
 
 		return successResponse({
 			res,
@@ -49,10 +54,8 @@ export class SelfController {
 		});
 	};
 
-	// -----------------------------
-	// POST /users/me/change-password
-	// -----------------------------
 	changePassword = async (req, res) => {
+
 		const userId = req.user?.id;
 
 		if (!userId) {
@@ -61,7 +64,7 @@ export class SelfController {
 
 		const { currentPassword: oldPassword, newPassword } = req.body;
 
-		await this.usecases.changePassword.execute({
+		await this.changePasswordUseCase.execute({
 			userId,
 			oldPassword,
 			newPassword,
@@ -73,16 +76,20 @@ export class SelfController {
 			message: "Password changed successfully"
 		});
 	};
-	async uploadAvatar(req, res) {
-		try {
-			const user = await this.usecases.uploadAvatar.execute({
+
+	uploadAvatar = async (req, res) => {
+
+		const user =
+			await this.uploadAvatarUseCase.execute({
 				userId: req.user.id,
 				file: req.file,
 				ip: req.ip
 			});
-			res.json(user); // entity -> toJSON
-		} catch (err) {
-			res.status(err.statusCode || 500).json({ message: err.message });
-		}
-	}
+
+		return successResponse({
+			res,
+			data: user,
+			message: "Avatar uploaded successfully"
+		});
+	};
 }

@@ -1,5 +1,5 @@
 export class DeleteAccount {
-    constructor(accountRepository, routerRepository, mikrotikService, auditService) {
+    constructor({accountRepository, routerRepository, mikrotikService, auditService}) {
         this.accountRepository = accountRepository;
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService;

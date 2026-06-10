@@ -77,4 +77,82 @@ export class UserRepositoryMongo extends UserRepository {
     async countActiveUsers() {
         return UserModel.countDocuments({ status: "active" });
     }
+
+	async count(filter = {}) {
+		return UserModel.countDocuments(filter);
+	}
+
+	async getDashboardStats() {
+		const [stats] = await UserModel.aggregate([
+			{
+				$group: {
+					_id: null,
+
+					total: { $sum: 1 },
+
+					customers: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$role", "customer"] },
+								1,
+								0
+							]
+						}
+					},
+
+					staff: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$role", "staff"] },
+								1,
+								0
+							]
+						}
+					},
+
+					superadmins: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$role", "superadmin"] },
+								1,
+								0
+							]
+						}
+					},
+
+					active: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$status", "active"] },
+								1,
+								0
+							]
+						}
+					},
+
+					suspended: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$status", "suspended"] },
+								1,
+								0
+							]
+						}
+					},
+
+					banned: {
+						$sum: {
+							$cond: [
+								{ $eq: ["$status", "banned"] },
+								1,
+								0
+							]
+						}
+					}
+				}
+			}
+		]);
+
+		return stats;
+	}
 }

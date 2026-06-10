@@ -1,31 +1,93 @@
-import { Account } from '@/lib/api/types';
+import { Account } from "@/lib/api/types";
 import { API } from "./client";
 import { ApiResponse } from "./types";
 
-// ================================
+// ===================================
+// ENUM TYPES (MATCH BACKEND)
+// ===================================
+export type PaymentActionType = "new_subscription" | "renewal" | "upgrade";
+
+export type PaymentStatus = "initiated" | "pending" | "successful" | "failed" | "expired";
+
+export type PaymentChannel = "card" | "bank_transfer" | "ussd" | "cash";
+
+export type PaymentGateway = "paystack" | "manual";
+
+// ===================================
+// TYPES
+// ===================================
+export interface PlanRef {
+	_id: string;
+	name: string;
+	price: number;
+}
+
 // REQUEST TYPES
-// ================================
-
-interface CreatePaymentDto {
-	accountId: string;   // ✅ REQUIRED
+export interface CreatePaymentDto {
+	accountId: string;
 	planId: string;
+	subscriptionId?: string;
+	cycles?: number;
+	paymentChannel?: PaymentChannel;
+}
+
+export interface ConfirmPaymentDto {
+	reference: string;
+}
+
+// RESPONSE TYPES
+export interface PaymentAmount {
+	total: number;
+	base: number;
+	discount: number;
+}
+
+export interface Payment {
+	id: string;
+
+	// relationships
+	userId: string;
+	accountId: string;
+	subscriptionId?: string | null;
+	planId?: PlanRef;
+	account?: Account;
+
+	// billing
+	amount: PaymentAmount;
 	cycles: number;
-	method: "paystack";
+
+	// state
+	status: PaymentStatus;
+
+	// channel
+	paymentChannel?: PaymentChannel | null;
+	actionType?: PaymentActionType;
+	gateway: PaymentGateway;
+	gatewayReference?: string;
+
+	// safety
+	idempotencyKey?: string;
+
+	// processing flags
+	processed?: boolean;
+	businessProcessed?: boolean;
+	isWebhookProcessed?: boolean;
+
+	// timing
+	paymentDate: string;
+	processedAt?: string;
+	failedAt?: string;
+	failureReason?: string;
+
+	createdAt: string;
+	updatedAt: string;
+
+	metadata?: Record<string, any>;
 }
 
-interface ConfirmPaymentDto {
-	transactionId: string;
-}
-
-interface UpdatePaymentStatusDto {
-	paymentId: string;
-	status: "pending" | "success" | "failed";
-}
-
-
-interface CreatePaymentResponse {
+export interface CreatePaymentResponse {
 	payment: Payment;
-	paystack: {
+	paystack?: {
 		status: boolean;
 		message: string;
 		data: {
@@ -35,112 +97,105 @@ interface CreatePaymentResponse {
 		};
 	};
 }
-// ================================
-// RESPONSE TYPES
-// ================================
 
-export interface Payment {
-	id: string;
-
-	userId: string;
-	accountId?: string;
-	planId: string;
-
-	wsnId?: string;
-	account?: Account;
-
-	amount: number;
-	cycles: number;
-	bonusDays: number;
-
-	method: "paystack" | "credit_card" | "bank_transfer";
-
-	status: "pending" | "successful" | "failed" | "expired";
-
-	transactionId?: string;
-
-	paymentDate: string;
-
-	subscriptionStartDate?: string;
-	subscriptionEndDate?: string;
-
-	subscriptionStatus: "active" | "suspended" | "expired" | "canceled";
-
-	paymentDetails?: Record<string, any>;
-
-	createdAt: string;
-	updatedAt: string;
+export interface ConfirmPaymentResponse {
+	payment: Payment;
+	gatewayResponse?: any;
+	alreadyProcessed?: boolean;
 }
 
+// pagination
 export interface PaymentListData {
 	data: Payment[];
 	pagination: {
 		total: number;
-		page: number;
+		skip: number;
 		limit: number;
 		totalPages: number;
 	};
 }
+export interface ResolvePaymentDto {
+	reference: string;
+}
 
-// ================================
+export interface ResolvePaymentResponse {
+	reference: string;
+	serviceType: string;
+	redirectTo: string;
+}
+
+// ===================================
 // PAYMENT API
-// ================================
-
+// ===================================
 export const paymentApi = {
-	// -----------------------------
+	// ================================
 	// USER
-	// -----------------------------
-
-	create: (
-		data: CreatePaymentDto
-	): Promise<ApiResponse<CreatePaymentResponse>> =>
+	// ================================
+	create: (data: CreatePaymentDto): Promise<ApiResponse<CreatePaymentResponse>> =>
 		API.post("/payments", data),
 
-	confirm: (
-		data: ConfirmPaymentDto
-	): Promise<ApiResponse<Payment>> =>
+	confirm: (data: ConfirmPaymentDto): Promise<ApiResponse<ConfirmPaymentResponse>> =>
 		API.post("/payments/confirm", data),
 
-	// getMyPayments: (
-	// 	params?: { page?: number; limit?: number; status?: string }
-	// ): Promise<ApiResponse<PaymentListData>> =>
-	// 	API.get("/payments/me", { params }),
+	resolve: (
+		data: ResolvePaymentDto
+	): Promise<ApiResponse<ResolvePaymentResponse>> =>
+		API.get("/payments/resolve", {
+			params: {
+				reference: data.reference
+			}
+		}),
 
-	// -----------------------------
+	reprocess: (paymentId: string): Promise<ApiResponse<ConfirmPaymentResponse>> =>
+		API.post(`/payments/${paymentId}/reprocess`),
+
+	getMyPayments: (params?: { page?: number; limit?: number; status?: PaymentStatus }) =>
+		API.get<ApiResponse<PaymentListData>>("/payments/me", { params }),
+
+	// ================================
 	// ADMIN
-	// -----------------------------
+	// ================================
+	adminRecord: (data: CreatePaymentDto): Promise<ApiResponse<Payment>> =>
+		API.post("/payments/admin/record", data),
 
-	adminCreate: (
-		data: CreatePaymentDto
-	): Promise<ApiResponse<Payment>> =>
-		API.post("/payments/admin", data),
-
-	updateStatus: (
-		data: {
-			paymentId: string;
-			status: Payment["status"];
-		}
-	): Promise<ApiResponse<Payment>> =>
+	updateStatus: (data: { paymentId: string; status: PaymentStatus }): Promise<ApiResponse<Payment>> =>
 		API.patch("/payments/admin/status", data),
 
-	getAll: (
-		params?: {
-			status?: string;
-			userId?: string;
-			accountId?: string;
+	getAll: (params?: {
+	search?: string;
 
-			page?: number;
-			limit?: number;
+	accountId?: string;
 
-			fromDate?: string;
-			toDate?: string;
+	status?: PaymentStatus;
 
-			sortField?: string;
-			sortOrder?: "asc" | "desc";
-		}
-	): Promise<ApiResponse<PaymentListData>> =>
-		API.get("/payments/all", { params }),
+	gateway?: PaymentGateway;
+
+	paymentChannel?: PaymentChannel;
+
+	actionType?: PaymentActionType;
+
+	businessProcessed?: boolean;
+
+	isWebhookProcessed?: boolean;
+
+	fromDate?: string;
+
+	toDate?: string;
+
+	skip?: number;
+
+	limit?: number;
+
+	sort?:
+		| "newest"
+		| "oldest"
+		| "amount_desc"
+		| "amount_asc";
+}): Promise<ApiResponse<PaymentListData>> =>
+	API.get("/payments/all", {
+		params,
+	}),
 
 	getById: (id: string): Promise<ApiResponse<Payment>> =>
-		API.get(`/payments/admin/${id}`),
+		API.get(`/payments/${id}`)
 };

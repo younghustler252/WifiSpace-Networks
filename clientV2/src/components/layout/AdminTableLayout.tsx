@@ -35,9 +35,9 @@ export default function AdminTableLayout({
 	secondary,
 	actions,
 
-	loading,
-	fetching,
-	isEmpty,
+	loading = false,
+	fetching = false,
+	isEmpty = false,
 	emptyText = "No data found",
 
 	table,
@@ -49,6 +49,8 @@ export default function AdminTableLayout({
 	onPageChange,
 	onLimitChange,
 }: AdminTableLayoutProps) {
+	const isFirstLoad = loading && !fetching;
+
 	return (
 		<>
 			<PageHeader title={title} />
@@ -61,25 +63,33 @@ export default function AdminTableLayout({
 						primary={primary}
 						secondary={secondary}
 						right={actions}
-						loading={fetching && !loading}
+						loading={fetching}
 					/>
 
 					{/* 📱 Mobile */}
 					<div className="md:hidden">
-						{loading ? (
+						{isFirstLoad ? (
 							<CenterLoader label="Loading..." />
 						) : isEmpty ? (
 							<p className="text-center text-muted-foreground">
 								{emptyText}
 							</p>
 						) : (
-							mobile
+							<div
+								className={`transition-opacity duration-200 ${
+									fetching
+										? "opacity-60"
+										: "opacity-100"
+								}`}
+							>
+								{mobile}
+							</div>
 						)}
 					</div>
 
 					{/* 🖥 Desktop */}
-					<div className="hidden md:block ui-card p-0 overflow-hidden">
-						{loading ? (
+					<div className="hidden md:block ui-card p-0 overflow-hidden relative">
+						{isFirstLoad ? (
 							<div className="py-10">
 								<CenterLoader label="Loading..." />
 							</div>
@@ -88,7 +98,20 @@ export default function AdminTableLayout({
 								{emptyText}
 							</p>
 						) : (
-							table
+							<div
+								className={`transition-opacity duration-200 ${
+									fetching
+										? "opacity-60"
+										: "opacity-100"
+								}`}
+							>
+								{table}
+							</div>
+						)}
+
+						{/* 🔵 optional fetching indicator */}
+						{fetching && (
+							<div className="absolute top-0 left-0 w-full h-1 bg-blue-500 animate-pulse" />
 						)}
 					</div>
 

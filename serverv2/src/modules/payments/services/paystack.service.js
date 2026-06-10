@@ -5,9 +5,9 @@ import { AppError } from "../../../shared/errors/app-error.js";
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 
 export class PaystackPaymentService {
-	constructor({ paystackGateway, repository }) {
+	constructor({ paystackGateway, paymentRepository }) {
 		this.paystackGateway = paystackGateway;
-		this.repository = repository;
+		this.paymentRepository = paymentRepository;
 	}
 
 	// ==============================
@@ -17,13 +17,15 @@ export class PaystackPaymentService {
 		userId,
 		accountId,
 		planId,
+		subscriptionId = null,
 		amount,
 		cycles = 1,
 		bonusDays = 0,
 		paymentChannel = null,
 		actionType = "new_subscription",
 		renewalStrategy = "manual",
-		currency = "NGN"
+		currency = "NGN",
+		metadata = {}
 	}) {
 		const reference = `PAY_${crypto.randomUUID()}`;
 
@@ -31,6 +33,8 @@ export class PaystackPaymentService {
 			userId,
 			accountId,
 			planId,
+			subscriptionId,
+			subscriptionId,
 			amount,
 			cycles,
 			paymentChannel,
@@ -38,14 +42,16 @@ export class PaystackPaymentService {
 			currency,
 			status: "pending",
 			gateway: "paystack",
+			businessProcessed: false,
 			gatewayReference: reference,
 			metadata: {
+				...metadata,
 				bonusDays,
 				renewalStrategy
 			}
 		});
 
-		return await this.repository.create(payment);
+		return await this.paymentRepository.create(payment);
 	}
 
 	// ==============================
@@ -55,12 +61,15 @@ export class PaystackPaymentService {
 		userId,
 		accountId,
 		planId,
+		subscriptionId = null,
 		amount,
 		cycles = 1,
 		bonusDays = 0,
 		email,
+		paymentChannel = null,
 		actionType = "new_subscription",
-		renewalStrategy = "manual"
+		renewalStrategy = "manual",
+		metadata = {}
 	}) {
 		if (!email) {
 			throw new ValidationError("Email is required");
@@ -70,20 +79,23 @@ export class PaystackPaymentService {
 			userId,
 			accountId,
 			planId,
+			subscriptionId,
 			amount,
 			cycles,
 			bonusDays,
-			paymentChannel: null,
+			paymentChannel,
 			actionType,
-			renewalStrategy
+			renewalStrategy,
+			metadata,
 		});
 
 		const paystackResponse = await this.paystackGateway.initializeTransaction({
 			email,
 			amount: amount.total,
 			reference: payment.gatewayReference,
-			callbackUrl: `${process.env.FRONTEND_URL}/user/payment/callback`,
+			callbackUrl: `${process.env.FRONTEND_URL}/payments/callback`,
 			metadata: {
+				...metadata,
 				userId,
 				accountId,
 				planId,
@@ -107,7 +119,7 @@ export class PaystackPaymentService {
 			throw new ValidationError("Payment reference is required");
 		}
 
-		const payment = await this.repository.findByGatewayReference(reference);
+		const payment = await this.paymentRepository.findByGatewayReference(reference);
 		if (!payment) throw new AppError("Payment not found", 404);
 
 		// Idempotency: return if already successful
@@ -143,7 +155,7 @@ export class PaystackPaymentService {
 			payment.markPending();
 		}
 
-		const updated = await this.repository.update(payment);
+		const updated = await this.paymentRepository.update(payment);
 		return {
 			payment: updated,
 			gatewayResponse: result,
@@ -162,7 +174,7 @@ export class PaystackPaymentService {
 		const reference = payload.data?.reference;
 		if (!reference) return null;
 
-		const payment = await this.repository.findByGatewayReference(reference);
+		const payment = await this.paymentRepository.findByGatewayReference(reference);
 		if (!payment) return null;
 
 		// Idempotency: return if already successful
@@ -193,6 +205,6 @@ export class PaystackPaymentService {
 			return null;
 		}
 
-		return await this.repository.update(payment);
+		return await this.paymentRepository.update(payment);
 	}
 }

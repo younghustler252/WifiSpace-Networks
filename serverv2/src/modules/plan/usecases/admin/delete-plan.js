@@ -5,7 +5,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class DeletePlan {
 
-	constructor(planRepository, permissionService, auditService) {
+	constructor({planRepository, permissionService, auditService}) {
 		this.planRepository = planRepository;
 		this.auditService = auditService;
 	}

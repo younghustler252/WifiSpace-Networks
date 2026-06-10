@@ -3,9 +3,9 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
 export class SuspendSubscriptionUseCase {
-    constructor({ subscriptionRepository, suspendNetworkAccountUseCase, analyticsTracker }) {
+    constructor({ subscriptionRepository, suspendNetworkAccount, analyticsTracker }) {
         this.subscriptionRepository = subscriptionRepository;
-        this.suspendNetworkAccountUseCase = suspendNetworkAccountUseCase;
+        this.suspendNetworkAccount = suspendNetworkAccount;
         this.analyticsTracker = analyticsTracker;
     }
 
@@ -24,7 +24,7 @@ export class SuspendSubscriptionUseCase {
 
         // 3️⃣ Suspend network account
         try {
-            await this.suspendNetworkAccountUseCase.execute(subscription.accountId, reason, context);
+            await this.suspendNetworkAccount.execute(subscription.accountId, reason, context);
         } catch (err) {
             console.error(`Failed to suspend network account for subscription ${subscription.id}:`, err.message);
         }

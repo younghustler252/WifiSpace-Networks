@@ -1,150 +1,254 @@
-// controllers/payment.controller.js
 import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class PaymentController {
-	constructor(usecases) {
-		this.usecases = usecases;
+	constructor({
+		createPayment,
+		confirmPayment,
+		reprocessPayment,
+		resolvePayment,
+		getPayments,
+		getPaymentById,
+		handleWebhook
+	}) {
+		this.createPaymentUseCase = createPayment;
+		this.confirmPaymentUseCase = confirmPayment;
+		this.getPaymentsUseCase = getPayments;
+		this.getPaymentByIdUseCase = getPaymentById;
+		this.handleWebhookUseCase = handleWebhook;
+		this.reprocessPaymentUseCase = reprocessPayment;
+		this.resolvePaymentUseCase = resolvePayment;
 	}
 
 	// ----------------------------
-	// User: Create Payment (Paystack)
+	// CREATE PAYMENT
 	// ----------------------------
-	createPayment = async (req, res, next) => {
-		try {
-			const { accountId, planId, cycles } = req.body;
-			const user = req.user;
+		createPayment = async (req, res, next) => {
+			try {
+				const {
+					userId,
+					accountId,
+					planId,
+					cycles,
+					actionType,
+					subscriptionId,
+					paymentChannel
+				} = req.body;
 
-			const payment = await this.usecases.createPayment.execute({
-				userId: user.id,
-				accountId,
-				planId,
-				cycles,
+				const user = req.user;
+				const payment =
+					await this.createPaymentUseCase.execute({
+						userId:
+							user.id ,
+
+						email: user.email,
+
+						accountId,
+
+						planId,
+
+						subscriptionId,
+
+						cycles,
+
+						actionType,
+
+						paymentChannel
+					});
+
+				return successResponse({
+					res,
+					data: payment,
+					message:
+						"Payment created successfully"
+				});
+			} catch (err) {
+				next(err);
+			}
+		};
+	// ----------------------------
+	// CONFIRM PAYMENT
+	// ----------------------------
+	confirmPayment = async (req, res, next) => {
+		try {
+			const { reference } = req.body;
+
+			const {
+				payment
+			} = await this.confirmPaymentUseCase.execute({
+				reference
 			});
 
 			return successResponse({
 				res,
 				data: payment,
-				message: "Payment created successfully",
+				message: "Payment confirmed successfully"
 			});
 		} catch (err) {
 			next(err);
 		}
 	};
 
-	// ----------------------------
-	// User: Confirm Payment (Paystack callback)
-	// ----------------------------
-	confirmPayment = async (req, res, next) => {
-	try {
-		const { transactionId } = req.body;
+	reprocessPayment = async (req, res, next) => {
+		try {
+			const { paymentId } = req.params;
 
-		const updatedPayment =
-			await this.usecases.confirmPayment.execute({
-				transactionId
+			console.log("🔁 REPROCESS PAYMENT START:", {
+				paymentId,
+				adminId: req.user?.id
 			});
 
-		return successResponse({
-			res,
-			data: updatedPayment,
-			message: "Payment confirmed successfully"
-		});
-	} catch (err) {
-		next(err);
-	}
-};
+			const result =
+				await this.reprocessPaymentUseCase.execute({
+					paymentId
+				});
+
+			console.log("✅ REPROCESS PAYMENT SUCCESS:", {
+				paymentId,
+				alreadyProcessed: result.alreadyProcessed
+			});
+
+			return successResponse({
+				res,
+				data: result.payment,
+				message: result.alreadyProcessed
+					? "Payment already processed"
+					: "Payment reprocessed successfully"
+			});
+
+		} catch (err) {
+
+			console.error("❌ REPROCESS PAYMENT ERROR:", err);
+
+			next(err);
+		}
+	};
+
+
 	// ----------------------------
-	// User: Get my payments
+	// GET PAYMENTS
 	// ----------------------------
 	getPayments = async (req, res, next) => {
-	try {
-		const {
-			planId,
-			status,
-			fromDate,
-			toDate,
-			page,
-			limit,
-			sortField,
-			sortOrder
-		} = req.query;
+		try {
+			const {
+				accountId,
+				status,
+				gateway,
+				search,
+				paymentChannel,
+				actionType,
+				businessProcessed,
+				isWebhookProcessed,
+				fromDate,
+				toDate,
+				skip,
+				limit,
+				sort
+			} = req.query;
 
-		const payments =
-			await this.usecases.getPayments.execute({
-				userRole: req.user.role,
+			console.log("QUERY RECEIVED:", req.query);
 
-				authenticatedUserId: req.user.id,
-
-				accountId:
-					req.user.role === "customer"
-						? req.user.accountId
-						: req.query.accountId,
-
-				filters: {
-					planId,
+			const paymentsResult = await this.getPaymentsUseCase.execute(
+				req.user,
+				{
+					accountId,
 					status,
-					fromDate,
-					toDate,
-
-					// only allow admin filters safely
-					userId:
-						req.user.role === "admin"
-							? req.query.userId
-							: undefined,
-
-					accountId:
-						req.user.role === "admin"
-							? req.query.accountId
-							: undefined
-				},
-
-				pagination: {
-					page: parseInt(page) || 1,
-					limit: parseInt(limit) || 10
-				},
-
-				sort: {
-					field: sortField,
-					order: sortOrder || "desc"
+					gateway,
+					paymentChannel,
+					search,
+					actionType,
+					businessProcessed: businessProcessed === "true"
+						? true
+						: businessProcessed === "false"
+						? false
+						: undefined,
+					isWebhookProcessed: isWebhookProcessed === "true"
+						? true
+						: isWebhookProcessed === "false"
+						? false
+						: undefined,
+					createdAfter: fromDate,
+					createdBefore: toDate,
+					skip: Number(skip) || 0,
+					limit: Number(limit) || 50,
+					sort
 				}
+			);
+
+			// paymentsResult has { data, pagination }
+			return successResponse({
+				res,
+				data: paymentsResult,
+				message: "Payments fetched successfully"
 			});
 
-		return successResponse({
-			res,
-			data: payments,
-			message: "Payments fetched successfully"
-		});
-	} catch (err) {
-		next(err);
-	}
-};
+		} catch (err) {
+			next(err);
+		}
+	};
+	// ----------------------------
+	// GET PAYMENT BY ID
+	// ----------------------------
 	getPaymentById = async (req, res, next) => {
 		try {
 			const { id } = req.params;
 
-			const payment = await this.usecases.getPaymentById.execute({ paymentId: id });
+			const payment = await this.getPaymentByIdUseCase.execute({
+				id,
+				userRole: req.user.role,
+				userId: req.user.id
+			});
 
-			return successResponse({ res, data: payment, message: "Payment fetched successfully" });
+			return successResponse({
+				res,
+				data: payment,
+				message: "Payment fetched successfully"
+			});
 		} catch (err) {
 			next(err);
 		}
 	};
 
+	// ----------------------------
+	// WEBHOOK
+	// ----------------------------
 	handleWebhook = async (req, res, next) => {
 		try {
-			const signature = req.headers["x-paystack-signature"];
+			const signature =
+				req.headers["x-paystack-signature"];
+
 			const payload = req.body;
 
-			// verify + extract reference
-			await this.usecases.handleWebhook.execute({
+			await this.handleWebhookUseCase.execute({
 				payload,
 				signature
 			});
 
-			// respond fast (VERY IMPORTANT)
 			return res.status(200).send("OK");
 		} catch (err) {
 			next(err);
 		}
 	};
 
+	resolvePayment = async (req, res, next) => {
+		try {
+
+			const { reference } = req.query;
+
+			const result =
+				await this.resolvePaymentUseCase
+					.execute({
+						reference
+					});
+
+			return successResponse({
+				res,
+				data: result,
+				message: "Payment resolved successfully"
+			});
+
+		} catch (err) {
+			next(err);
+		}
+	};
 }
+

@@ -1,12 +1,13 @@
 import bcrypt from "bcrypt";
 
 export class PasswordService {
-	constructor(saltRounds = 10) {
-		this.saltRounds = saltRounds;
+	constructor({bcryptSaltRounds}) {
+		this.saltRounds = bcryptSaltRounds || 10;
 	}
 	
 	// ✅ hash a plain password
 	async hash(Password) {
+		console.log("SALT ROUNDS =>", this.saltRounds, typeof this.saltRounds);
 	  	return bcrypt.hash(Password, this.saltRounds);
 	}
 

@@ -2,9 +2,9 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class ForceExpireSubscriptionUseCase {
-	constructor({ subscriptionRepository, suspendNetworkAccountUseCase }) {
+	constructor({ subscriptionRepository, suspendNetworkAccount }) {
 		this.subscriptionRepository = subscriptionRepository;
-		this.suspendNetworkAccountUseCase = suspendNetworkAccountUseCase;
+		this.suspendNetworkAccount = suspendNetworkAccount;
 	}
 
 	async execute({ subscriptionId, adminId, reason, context = {} }) {
@@ -33,9 +33,9 @@ export class ForceExpireSubscriptionUseCase {
 		// -----------------------------
 		// 3. Suspend network account
 		// -----------------------------
-		if (this.suspendNetworkAccountUseCase) {
+		if (this.suspendNetworkAccount) {
 			try {
-				await this.suspendNetworkAccountUseCase.execute(subscription.accountId, reason, context);
+				await this.suspendNetworkAccount.execute(subscription.accountId, reason, context);
 			} catch (err) {
 				console.error("Network suspension failed:", err.message);
 				// We don't fail the force-expire just because network suspend failed

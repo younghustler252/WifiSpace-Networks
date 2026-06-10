@@ -21,7 +21,7 @@ const PaymentSchema = new mongoose.Schema(
 		accountId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Account",
-			required: true,
+			// required: true,
 			index: true
 		},
 
@@ -105,13 +105,21 @@ const PaymentSchema = new mongoose.Schema(
 			default: false,
 			index: true
 		},
-
+		businessProcessed: {
+			type: Boolean,
+			default: false
+		},
 		// ===========================
 		// PLAN REFERENCE
 		// ===========================
 		planId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Plan"
+		},
+		cycles: {
+			type: Number,
+			default: 1,
+			min: 1
 		},
 
 		// ===========================

@@ -1,93 +1,151 @@
 import { Account } from "../../domain/account.entity.js";
-import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class CreateAccount {
-
-	constructor(
+	constructor({
 		accountRepository,
 		permissionService,
 		auditService,
 		analyticsTracker,
-		createRouterAccountUseCase // NEW: Inject the router creation use case
-	) {
+		createRouterAccount,
+	}) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;
 		this.analyticsTracker = analyticsTracker;
-		this.createRouterAccountUseCase = createRouterAccountUseCase;
+		this.createRouterAccount = createRouterAccount;
 	}
 
-	async execute(currentUser, data, context = {}) {
-    // ----------------------------
-    // Create Domain Entity
-    // ----------------------------
-    const account = new Account({ ...data });
+	async execute( data, context = {}) {
+		// console.log("data", data);
+		// console.log("context", context);
+		// ----------------------------
+		// Create Domain Entity
+		// ----------------------------
+		const account = new Account({
+			...data,
+			userId: context.user?.id || data.userId
+		});
 
-    // ----------------------------
-    // Set profile status
-    // ----------------------------
-    account.profileStatus = PROFILE_STATUSES.ACTIVE;
+		account.profileStatus = "pending";
 
-    // ----------------------------
-    // Persist Account
-    // ----------------------------
-    const createdAccount = await this.accountRepository.create(account);
+		// ----------------------------
+		// Persist Account
+		// ----------------------------
+		const createdAccount =
+			await this.accountRepository.create(account);
 
-    let routerResult = null;
+		let routerResult = null;
 
-    // ----------------------------
-    // Provision Router Account
-    // ----------------------------
-    if (createdAccount.routerId && createdAccount.routerPassword) {
-        try {
-            routerResult = await this.createRouterAccountUseCase.execute(createdAccount.id, context);
-        } catch (err) {
-            console.error("Router provisioning failed:", err.message);
-            routerResult = {
-                success: false,
-                message: err.message
-            };
-        }
-    }
+		// ----------------------------
+		// RESOLVE ROUTER PASSWORD (DEFAULT FALLBACK)
+		// ----------------------------
+		const routerPassword =
+			createdAccount.routerPassword ||
+			"access@C0NN3CT@pppoe123$";
 
-    // ----------------------------
-    // Audit Log
-    // ----------------------------
-    await this.auditService.log({
-        actorId: currentUser.id,
-        action: "ACCOUNT_CREATED",
-        targetId: createdAccount.id,
-        resource: "Account",
-        metadata: {
-            accountType: createdAccount.accountType,
-            userId: createdAccount.userId,
-            wsnId: createdAccount.wsnId
-        },
-        ip: context.ip,
-        userAgent: context.userAgent
-    });
+		// optional: persist resolved password so DB is consistent
+		createdAccount.routerPassword = routerPassword;
 
-    // ----------------------------
-    // Analytics Tracking
-    // ----------------------------
-    try {
-        await this.analyticsTracker.track(ANALYTICS_EVENTS.ACCOUNT_CREATED, {
-            accountType: createdAccount.accountType,
-            serviceType: createdAccount.serviceType,
-            profileStatus: createdAccount.profileStatus
-        });
-    } catch (err) {
-        console.error("Analytics tracking failed:", { event: "ACCOUNT_CREATED", error: err.message });
-    }
+		// ----------------------------
+		// Provision Router Account
+		// ----------------------------
+		if (createdAccount.routerId) {
+			try {
+				routerResult =
+					await this.createRouterAccount.execute(
+						createdAccount.id,
+						{
+							...context,
+							routerId:
+								createdAccount.routerId,
+							routerPassword,
+						}
+					);
 
-    // ----------------------------
-    // Return both account and router provisioning result
-    // ----------------------------
-    return {
-        account: createdAccount,
-        routerProvision: routerResult
-    };
-}
+				createdAccount.routerProvision.status =
+					"synced";
+
+				createdAccount.profileStatus = "active";
+
+			} catch (err) {
+				console.error(
+					"Router provisioning failed:",
+					err.message
+				);
+
+				routerResult = {
+					success: false,
+					message: err.message,
+				};
+
+				createdAccount.routerProvision.status =
+					"failed";
+
+				createdAccount.routerProvision.lastError =
+					err.message;
+
+				createdAccount.profileStatus = "pending";
+			}
+
+			createdAccount.routerProvision.lastAttemptAt =
+				new Date();
+
+			await this.accountRepository.update(
+				createdAccount.id,
+				createdAccount
+			);
+		}
+
+		// ----------------------------
+		// Audit Log
+		// ----------------------------
+		// await this.auditService.log({
+		// 	actorId: context.id,
+		// 	action: "ACCOUNT_CREATED",
+		// 	targetId: createdAccount.id,
+		// 	resource: "Account",
+		// 	metadata: {
+		// 		accountType: createdAccount.accountType,
+		// 		userId: createdAccount.userId,
+		// 		wsnId: createdAccount.wsnId,
+		// 		routerProvision:
+		// 			createdAccount.routerProvision.status,
+		// 	},
+		// 	ip: context.ip,
+		// 	userAgent: context.userAgent,
+		// });
+
+		// ----------------------------
+		// Analytics Tracking
+		// ----------------------------
+		try {
+			await this.analyticsTracker.track(
+				ANALYTICS_EVENTS.ACCOUNT_CREATED,
+				{
+					accountType:
+						createdAccount.accountType,
+					serviceType:
+						createdAccount.serviceType,
+					profileStatus:
+						createdAccount.profileStatus,
+					routerProvisionStatus:
+						createdAccount.routerProvision.status,
+				}
+			);
+		} catch (err) {
+			console.error(
+				"Analytics tracking failed:",
+				err.message
+			);
+		}
+
+		// ----------------------------
+		// Return result
+		// ----------------------------
+		return {
+			account: createdAccount,
+			routerProvision: routerResult,
+		};
+	}
 }

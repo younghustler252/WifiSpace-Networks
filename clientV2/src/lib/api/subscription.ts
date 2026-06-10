@@ -6,17 +6,21 @@ import { ApiResponse } from "./types";
 // ======================================
 
 export type SubscriptionStatus =
+	| "pending"
 	| "active"
-	| "grace"
-	| "expired"
 	| "suspended"
+	| "expired"
 	| "canceled";
 
-export type BillingCycle =
-	| "daily"
-	| "weekly"
-	| "monthly"
-	| "yearly";
+export type RenewalStrategy =
+	| "manual"
+	| "auto_renew"
+	| "invoice";
+
+export type MikrotikSyncStatus =
+	| "pending"
+	| "synced"
+	| "failed";
 
 // ======================================
 // SUBSCRIPTION
@@ -26,52 +30,97 @@ export interface Subscription {
 	id: string;
 
 	accountId: string;
+
+	userId: string;
+
 	planId: string;
 
-	planSnapshot: {
-		name: string;
-		price: number;
-		durationDays: number;
-		speedRate?: string;
-		devicesAllowed?: number;
-	};
-
 	// ----------------------------------
-	// Dates
-	// ----------------------------------
-
-	startDate: string;
-
-	baseEndDate: string;
-
-	endDate: string;
-
-	// ----------------------------------
-	// Status
+	// STATUS
 	// ----------------------------------
 
 	status: SubscriptionStatus;
 
 	// ----------------------------------
-	// Billing
+	// PLAN SNAPSHOT
 	// ----------------------------------
 
-	billingCycle: BillingCycle;
+	planSnapshot: {
+		name: string;
+
+		serviceType:
+			| "pppoe"
+			| "hotspot";
+
+		price: number;
+
+		durationValue: number;
+
+		durationUnit:
+			| "minutes"
+			| "hours"
+			| "days"
+			| "months";
+
+		speedRate?: string;
+
+		mikrotikProfile?: string;
+
+		devicesAllowed?: number;
+
+		gracePeriodDays?: number;
+	};
+
+	// ----------------------------------
+	// BILLING
+	// ----------------------------------
 
 	cycles: number;
 
 	totalAmount: number;
 
 	// ----------------------------------
-	// Adjustments
+	// DATES
 	// ----------------------------------
 
-	bonusDays: number;
+	startsAt?: string;
 
-	manualAdjustmentDays: number;
+	expiresAt: string;
+
+	graceEndsAt?: string;
+
+	activatedAt?: string;
+
+	expiredAt?: string;
+
+	currentPeriodStart?: string;
+
+	currentPeriodEnd?: string;
 
 	// ----------------------------------
-	// Suspension
+	// RENEWAL
+	// ----------------------------------
+
+	renewalStrategy: RenewalStrategy;
+
+	autoRenewEnabled: boolean;
+
+	nextRenewalDate?: string;
+
+	lastRenewedAt?: string;
+
+	// ----------------------------------
+	// PAYMENTS
+	// ----------------------------------
+
+	lastPaymentId?: string;
+
+	lastPaymentDate?: string;
+
+	lastPaymentAmount?: number;
+
+	// ----------------------------------
+	// SUSPENSION
 	// ----------------------------------
 
 	suspendedAt?: string;
@@ -81,17 +130,7 @@ export interface Subscription {
 	suspensionReason?: string;
 
 	// ----------------------------------
-	// Renewal
-	// ----------------------------------
-
-	autoRenew: boolean;
-
-	lastRenewedAt?: string;
-
-	nextRenewalDate?: string;
-
-	// ----------------------------------
-	// Cancellation
+	// CANCELLATION
 	// ----------------------------------
 
 	canceledAt?: string;
@@ -99,37 +138,36 @@ export interface Subscription {
 	cancellationReason?: string;
 
 	// ----------------------------------
-	// Grace
+	// ADJUSTMENTS
 	// ----------------------------------
 
-	gracePeriodDays: number;
+	bonusDays: number;
 
-	gracePeriodEndsAt?: string;
-
-	// ----------------------------------
-	// Payments
-	// ----------------------------------
-
-	payments: {
-		paymentId?: string;
-
-		amount: number;
-
-		date: string;
-	}[];
+	manualAdjustmentDays: number;
 
 	// ----------------------------------
-	// Events / Audit
+	// MIKROTIK
+	// ----------------------------------
+
+	mikrotikStatus: MikrotikSyncStatus;
+
+	mikrotikLastSyncAt?: string;
+
+	mikrotikError?: string;
+
+	// ----------------------------------
+	// EVENTS
 	// ----------------------------------
 
 	events: {
 		type:
 			| "created"
+			| "activated"
 			| "renewed"
 			| "suspended"
 			| "resumed"
-			| "canceled"
 			| "expired"
+			| "canceled"
 			| "manual_adjustment";
 
 		date: string;
@@ -141,13 +179,7 @@ export interface Subscription {
 	}[];
 
 	// ----------------------------------
-	// Router
-	// ----------------------------------
-
-	routerProfile?: string;
-
-	// ----------------------------------
-	// Timestamps
+	// TIMESTAMPS
 	// ----------------------------------
 
 	createdAt: string;
@@ -166,7 +198,9 @@ export interface CreateSubscriptionDto {
 
 	cycles?: number;
 
-	autoRenew?: boolean;
+	autoRenewEnabled?: boolean;
+
+	renewalStrategy?: RenewalStrategy;
 }
 
 // --------------------------------------
@@ -184,17 +218,17 @@ export interface AdminCreateSubscriptionDto {
 
 	overrideExisting?: boolean;
 
-	startDate?: string;
+	startsAt?: string;
 
 	manualAdjustmentDays?: number;
 
 	bonusDays?: number;
 
-	autoRenew?: boolean;
+	autoRenewEnabled?: boolean;
+
+	renewalStrategy?: RenewalStrategy;
 
 	gracePeriodDays?: number;
-
-	routerProfile?: string;
 
 	reason?: string;
 }
@@ -329,6 +363,10 @@ export const subscriptionApi = {
 		userId?: string;
 
 		status?: SubscriptionStatus;
+
+		renewalStrategy?: RenewalStrategy;
+
+		mikrotikStatus?: MikrotikSyncStatus;
 	}): Promise<
 		ApiResponse<{
 			data: Subscription[];
@@ -368,24 +406,29 @@ export const subscriptionApi = {
 	// ----------------------------------
 
 	suspend: (
-	subscriptionId: string,
-	data?: SubscriptionActionDto
-): Promise<ApiResponse<Subscription>> =>
-	API.post(
-		`/subscriptions/admin/${subscriptionId}/suspend`,
-		data
-	),
+		subscriptionId: string,
+
+		data?: SubscriptionActionDto
+	): Promise<
+		ApiResponse<Subscription>
+	> =>
+		API.post(
+			`/subscriptions/admin/${subscriptionId}/suspend`,
+			data
+		),
 
 	// ----------------------------------
 	// RESUME
 	// ----------------------------------
 
 	resume: (
-	subscriptionId: string
-): Promise<ApiResponse<Subscription>> =>
-	API.post(
-		`/subscriptions/admin/${subscriptionId}/resume`
-	),
+		subscriptionId: string
+	): Promise<
+		ApiResponse<Subscription>
+	> =>
+		API.post(
+			`/subscriptions/admin/${subscriptionId}/resume`
+		),
 
 	// ----------------------------------
 	// CANCEL

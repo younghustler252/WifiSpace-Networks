@@ -3,8 +3,8 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetSubscriptionUseCase {
 
-	constructor({ accountSubscriptionRepository }) {
-		this.accountSubscriptionRepository = accountSubscriptionRepository;
+	constructor({ subscriptionRepository }) {
+		this.subscriptionRepository = subscriptionRepository;
 	}
 
 	async execute({ subscriptionId }) {
@@ -13,7 +13,7 @@ export class GetSubscriptionUseCase {
 			throw new ValidationError("subscriptionId is required");
 
 		const subscription =
-			await this.accountSubscriptionRepository.findById(subscriptionId);
+			await this.subscriptionRepository.findById(subscriptionId);
 
 		if (!subscription)
 			throw new NotFoundError("Subscription not found");

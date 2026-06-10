@@ -2,7 +2,7 @@ import { ValidationError } from "../../../shared/errors/validation-error.js";
 import { NotFoundError } from "../../../shared/errors/not-found-error.js";
 
 export class VerifyOtp {
-	constructor(userRepository, auditService, tokenService, passwordService) {
+	constructor({userRepository, auditService, tokenService, passwordService}) {
 		this.userRepository = userRepository;
 		this.auditService = auditService;
 		this.tokenService = tokenService;

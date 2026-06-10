@@ -50,6 +50,18 @@ export class AccountRepositoryMongo extends AccountRepository {
         const models = await accountModel.find({ userId });
         return models.map(AccountMapper.toDomain);
     }
+    // In your AccountRepository implementation
+
+    async findByMac(macAddress) {
+        const normalized = macAddress.toUpperCase().trim();
+
+        const doc = await accountModel.findOne({
+            "devices.macAddress": normalized,
+            serviceType: "hotspot"
+        }).lean();
+
+        return doc ? AccountMapper.toDomain(doc) : null;
+    }
 
     async update(id, accountEntity) {
         const updateData = AccountMapper.toPersistence(accountEntity);
@@ -78,12 +90,114 @@ export class AccountRepositoryMongo extends AccountRepository {
     async countAllAccounts() {
         return accountModel.countDocuments();
     }
-
-    async countActiveAccounts() {
-        return accountModel.countDocuments({ profileStatus: "active" });
+    async count(filter = {}) {
+        return accountModel.countDocuments(filter);
     }
+    async getDashboardStats() {
+        const [stats] = await accountModel.aggregate([
+            {
+                $group: {
+                    _id: null,
 
-    async countSuspendedAccounts() {
-        return accountModel.countDocuments({ profileStatus: "suspended" });
+                    total: {
+                        $sum: 1
+                    },
+
+                    active: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$profileStatus", "active"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    pending: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$profileStatus", "pending"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    suspended: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$profileStatus", "suspended"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    canceled: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$profileStatus", "canceled"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    pppoe: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$serviceType", "pppoe"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    hotspot: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$serviceType", "hotspot"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    personal: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$accountType", "personal"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    business: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$accountType", "business"] },
+                                1,
+                                0
+                            ]
+                        }
+                    }
+                }
+            }
+        ]);
+
+        return (
+            stats || {
+                total: 0,
+                active: 0,
+                pending: 0,
+                suspended: 0,
+                canceled: 0,
+                pppoe: 0,
+                hotspot: 0,
+                personal: 0,
+                business: 0
+            }
+        );
     }
 }

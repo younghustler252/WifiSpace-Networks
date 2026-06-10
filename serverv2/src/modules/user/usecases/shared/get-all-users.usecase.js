@@ -1,5 +1,5 @@
 export class GetAllUsers {
-	constructor(userRepository) {
+	constructor({userRepository}) {
 		this.userRepository = userRepository;
 	}
 

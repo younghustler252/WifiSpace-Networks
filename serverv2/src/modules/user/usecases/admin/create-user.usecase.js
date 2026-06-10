@@ -3,12 +3,12 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { User } from "../../domain/user.entity.js";
 
 export class CreateUser {
-	constructor(
+	constructor({
 		userRepository,
 		passwordService,
 		auditService,
-		analyticsTracker // ✅ ADD THIS
-	) {
+		analyticsTracker 
+	}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;

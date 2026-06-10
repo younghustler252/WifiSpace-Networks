@@ -2,18 +2,22 @@
 import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class PaymentAdminController {
-	constructor(usecases) {
-		this.usecases = usecases;
+	constructor({
+		adminRecordPayment,
+		adminUpdatePaymentStatus
+	}) {
+		this.adminRecordPaymentUseCase = adminRecordPayment;
+		this.adminUpdatePaymentStatusUseCase = adminUpdatePaymentStatus;
 	}
 
 	// ----------------------------
-	// Admin: Create Payment (for user via admin)
+	// Admin: Record Payment
 	// ----------------------------
-	adminRecordPayment = async (req, res, next) => {
+	recordPayment = async (req, res, next) => {
 		try {
 			const { userId, planId, amount, monthsPaid, method } = req.body;
 
-			const payment = await this.usecases.adminCreatePayment.execute({
+			const payment = await this.adminRecordPaymentUseCase.execute({
 				userId,
 				planId,
 				amount,
@@ -21,7 +25,11 @@ export class PaymentAdminController {
 				method
 			});
 
-			return successResponse({ res, data: payment, message: "Payment created by admin successfully" });
+			return successResponse({
+				res,
+				data: payment,
+				message: "Payment created by admin successfully"
+			});
 		} catch (err) {
 			next(err);
 		}
@@ -34,20 +42,19 @@ export class PaymentAdminController {
 		try {
 			const { paymentId, status } = req.body;
 
-			const updatedPayment = await this.usecases.adminUpdatePaymentStatus.execute({
-				paymentId,
-				status
-			});
+			const updatedPayment =
+				await this.adminUpdatePaymentStatusUseCase.execute({
+					paymentId,
+					status
+				});
 
-			return successResponse({ res, data: updatedPayment, message: "Payment status updated successfully" });
+			return successResponse({
+				res,
+				data: updatedPayment,
+				message: "Payment status updated successfully"
+			});
 		} catch (err) {
 			next(err);
 		}
 	};
-
-	
-	// ----------------------------
-	// Shared: Get Payment by ID
-	// ----------------------------
-	
 }

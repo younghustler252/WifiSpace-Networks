@@ -1,113 +1,287 @@
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { PAYMENT_STATUSES } from "../../domain/payment.enum.js";
-
 export class GetPaymentsUseCase {
-	constructor({ paymentRepository, accountRepository }) {
-		this.paymentRepository = paymentRepository;
-		this.accountRepository = accountRepository;
+	constructor({
+		paymentRepository,
+		accountRepository,
+	}) {
+		this.paymentRepository =
+			paymentRepository;
+
+		this.accountRepository =
+			accountRepository;
 	}
 
-	async execute({ userRole, authenticatedUserId, accountId, filters = {}, pagination = {}, sort = {} }) {
-		const { page = 1, limit = 10 } = pagination;
-		const skip = (page - 1) * limit;
+	async execute(
+		currentUser,
+		params = {}
+	) {
+		if (!currentUser) {
+			throw new Error(
+				"Unauthorized"
+			);
+		}
+
+		const {
+			search,
+
+			accountId,
+
+			status,
+			gateway,
+			paymentChannel,
+			actionType,
+
+			businessProcessed,
+			isWebhookProcessed,
+
+			createdAfter,
+			createdBefore,
+
+			sort = "newest",
+
+			skip = 0,
+			limit = 50,
+		} = params;
+
+		// =========================================
+		// ROLE-BASED ACCOUNT SCOPE
+		// =========================================
+
+		let accountScope = null;
+
+		if (
+			currentUser.role ===
+				"customer" ||
+			currentUser.role ===
+				"staff"
+		) {
+			const accounts =
+				await this.accountRepository.findByUserId(
+					currentUser.id
+				);
+
+			accountScope =
+				accounts.map(
+					(acc) => acc.id
+				);
+		}
+
+		// =========================================
+		// BUILD QUERY
+		// =========================================
 
 		const query = {};
 
-		// =================================================
-		// CUSTOMER SCOPE (STRICT ACCOUNT OWNERSHIP)
-		// =================================================
-		if (userRole === "customer") {
-			if (!accountId) throw new ValidationError("Account ID is required");
+		// Restrict customers/staff
+		if (accountScope) {
+			query.accountId = {
+				$in: accountScope,
+			};
+		}
 
-			const account = await this.accountRepository.findById(accountId);
-			if (!account) throw new ValidationError("Account not found");
-
-			if (account.userId.toString() !== authenticatedUserId.toString()) {
-				throw new ValidationError("Unauthorized account access");
+		// Admin account filter
+		if (accountId) {
+			if (
+				accountScope &&
+				!accountScope.includes(
+					accountId
+				)
+			) {
+				throw new Error(
+					"Forbidden account access"
+				);
 			}
 
-			query.accountId = accountId;
+			query.accountId =
+				accountId;
 		}
 
-		// =================================================
-		// ADMIN SCOPE (FULL ACCESS)
-		// =================================================
-		if (userRole === "admin") {
-			if (filters.accountId) query.accountId = filters.accountId;
-			if (filters.userId) query.userId = filters.userId;
+		// =========================================
+		// SEARCH
+		// =========================================
+
+		if (search?.trim()) {
+			query.$or = [
+				{
+					gatewayReference:
+						{
+							$regex:
+								search.trim(),
+							$options:
+								"i",
+						},
+				},
+				{
+					idempotencyKey:
+						{
+							$regex:
+								search.trim(),
+							$options:
+								"i",
+						},
+				},
+			];
 		}
 
-		// =================================================
-		// COMMON FILTERS
-		// =================================================
-		if (filters.planId) query.planId = filters.planId;
+		// =========================================
+		// FILTERS
+		// =========================================
 
-		if (filters.status) {
-			if (!PAYMENT_STATUSES.includes(filters.status)) {
-				throw new ValidationError(`Invalid status filter: ${filters.status}`);
+		if (status)
+			query.status = status;
+
+		if (gateway)
+			query.gateway =
+				gateway;
+
+		if (paymentChannel)
+			query.paymentChannel =
+				paymentChannel;
+
+		if (actionType)
+			query.actionType =
+				actionType;
+
+		if (
+			businessProcessed !==
+			undefined
+		) {
+			query.businessProcessed =
+				businessProcessed;
+		}
+
+		if (
+			isWebhookProcessed !==
+			undefined
+		) {
+			query.isWebhookProcessed =
+				isWebhookProcessed;
+		}
+
+		// =========================================
+		// DATE RANGE
+		// =========================================
+
+		if (
+			createdAfter ||
+			createdBefore
+		) {
+			query.createdAt = {};
+
+			if (createdAfter) {
+				query.createdAt.$gte =
+					new Date(
+						createdAfter
+					);
 			}
-			query.status = filters.status;
+
+			if (createdBefore) {
+				const endDate =
+					new Date(
+						createdBefore
+					);
+
+				endDate.setHours(
+					23,
+					59,
+					59,
+					999
+				);
+
+				query.createdAt.$lte =
+					endDate;
+			}
 		}
 
-		// =================================================
-		// DATE FILTERS
-		// =================================================
-		if (filters.fromDate || filters.toDate) {
-			query.paymentDate = {};
-			if (filters.fromDate) query.paymentDate.$gte = new Date(filters.fromDate);
-			if (filters.toDate) query.paymentDate.$lte = new Date(filters.toDate);
-		}
-
-		// =================================================
+		// =========================================
 		// SORTING
-		// =================================================
-		const sortOption = {};
-		if (sort.field) {
-			sortOption[sort.field] = sort.order === "asc" ? 1 : -1;
-		} else {
-			sortOption.paymentDate = -1;
-		}
+		// =========================================
 
-		// =================================================
-		// FETCH PAYMENTS
-		// =================================================
-		const payments = await this.paymentRepository.findPayments(query, {
-			skip,
-			limit,
-			sort: sortOption
-		});
+		const sortOptions = {
+			newest: {
+				createdAt: -1,
+			},
 
-		// =================================================
-		// ENRICH PAYMENTS WITH ACCOUNT DATA
-		// =================================================
-		const enriched = await Promise.all(
-			payments.map(async (payment) => {
-				const account = await this.accountRepository.findById(payment.accountId);
-				return {
-					...payment,
-					account: account
-						? {
-								_id: account._id,
-								wsnId: account.wsnId
-						  }
-						: null
-				};
-			})
-		);
+			oldest: {
+				createdAt: 1,
+			},
 
-		// =================================================
-		// TOTAL COUNT
-		// =================================================
-		const total = await this.paymentRepository.countPayments(query);
+			amount_desc: {
+				"amount.total":
+					-1,
+			},
+
+			amount_asc: {
+				"amount.total":
+					1,
+			},
+		};
+
+		const safeSort =
+			sortOptions[sort] ||
+			sortOptions.newest;
+
+		// =========================================
+		// PAGINATION
+		// =========================================
+
+		const safeLimit =
+			Math.min(
+				Number(limit) ||
+					50,
+				100
+			);
+
+		const safeSkip =
+			Math.max(
+				Number(skip) || 0,
+				0
+			);
+
+		// =========================================
+		// FETCH
+		// =========================================
+
+		const [
+			payments,
+			total,
+		] = await Promise.all([
+			this.paymentRepository.findPayments(
+				query,
+				{
+					skip: safeSkip,
+					limit: safeLimit,
+					sort: safeSort,
+				}
+			),
+
+			this.paymentRepository.countPayments(
+				query
+			),
+		]);
+
+		// =========================================
+		// RETURN
+		// =========================================
 
 		return {
-			data: enriched,
+			data: payments,
+
 			pagination: {
 				total,
-				page,
-				limit,
-				totalPages: Math.ceil(total / limit)
-			}
+
+				skip: safeSkip,
+
+				limit: safeLimit,
+
+				totalPages:
+					Math.max(
+						1,
+						Math.ceil(
+							total /
+								safeLimit
+						)
+					),
+			},
 		};
 	}
 }

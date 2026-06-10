@@ -1,127 +1,108 @@
-import crypto from "crypto";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
-import { Payment } from "../../domain/payment.entity.js";
 import {
-	PAYMENT_STATUSES,
-	PAYMENT_CHANNELS,
-	PAYMENT_ACTIONS,
-	PAYMENT_GATEWAYS
+	PAYMENT_ACTIONS
 } from "../../domain/payment.enum.js";
 
 export class CreatePaymentUseCase {
-	constructor({ paymentRepository, paystackPaymentService }) {
-		this.paymentRepository = paymentRepository;
-		this.paystackPaymentService = paystackPaymentService;
+
+	constructor({
+		paystackPaymentService,
+		planRepository
+	}) {
+
+		this.paystackPaymentService =
+			paystackPaymentService;
+
+		this.planRepository =
+			planRepository;
 	}
 
-	// ==============================
-	// CREATE PAYMENT
-	// ==============================
 	async execute({
 		userId,
-		accountId,
+		accountId = null,
 		planId,
+		subscriptionId = null,
 		cycles = 1,
-		actionType = "new_subscription", // "new_subscription" | "renewal" | "upgrade"
-		amount, // { total, base, discount }
+		actionType = "new_subscription",
 		paymentChannel = null,
-		currency = "NGN"
+		email,
+		metadata = {}
 	}) {
+
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
-		if (!userId) throw new ValidationError("User ID is required");
-		if (!accountId) throw new ValidationError("Account ID is required");
-		if (!planId) throw new ValidationError("Plan ID is required");
 
-		if (!amount || typeof amount.total !== "number" || amount.total <= 0) {
-			throw new ValidationError("Invalid amount");
+		if (!email) {
+
+			throw new ValidationError(
+				"Email is required"
+			);
 		}
 
-		if (cycles < 1) throw new ValidationError("Cycles must be >= 1");
+		if (
+			!PAYMENT_ACTIONS.includes(actionType)
+		) {
 
-		if (!PAYMENT_ACTIONS.includes(actionType)) {
-			throw new ValidationError(`Invalid action type: ${actionType}`);
+			throw new ValidationError(
+				`Invalid action type: ${actionType}`
+			);
 		}
 
-		if (paymentChannel && !PAYMENT_CHANNELS.includes(paymentChannel)) {
-			throw new ValidationError(`Invalid payment channel: ${paymentChannel}`);
+		if (!planId) {
+
+			throw new ValidationError(
+				"Plan ID is required"
+			);
 		}
 
 		// -----------------------------
-		// CREATE PAYMENT ENTITY
+		// FETCH PLAN
 		// -----------------------------
-		const gatewayReference = `PAY_${crypto.randomUUID()}`;
 
-		const payment = new Payment({
-			userId,
-			accountId,
-			planId,
-			actionType,
-			amount,
-			currency,
-			cycles,
-			paymentChannel,
-			status: "pending",
-			gateway: "paystack",
-			gatewayReference
-		});
+		const plan =
+			await this.planRepository.findById(
+				planId
+			);
+
+		if (!plan) {
+
+			throw new NotFoundError(
+				"Plan not found"
+			);
+		}
 
 		// -----------------------------
-		// SAVE PAYMENT
+		// CALCULATE AMOUNT
 		// -----------------------------
-		const savedPayment = await this.paymentRepository.create(payment);
 
-		return savedPayment;
-	}
+		const total =
+			plan.price * cycles;
 
-	// ==============================
-	// INITIATE PAYMENT VIA PAYSTACK
-	// ==============================
-	async initiate({
-		userId,
-		accountId,
-		planId,
-		cycles = 1,
-		actionType = "new_subscription",
-		amount,
-		paymentChannel = null,
-		email
-	}) {
-		if (!email) throw new ValidationError("Email is required");
+		const amount = {
+			total,
+			base: total,
+			discount: 0
+		};
 
-		// 1️⃣ Create internal payment
-		const payment = await this.execute({
-			userId,
-			accountId,
-			planId,
-			cycles,
-			actionType,
-			amount,
-			paymentChannel
-		});
+		// -----------------------------
+		// INITIATE PAYMENT
+		// -----------------------------
 
-		// 2️⃣ Initialize Paystack transaction
-		const paystackResponse = await this.paystackPaymentService.paystackGateway.initializeTransaction({
-			email,
-			amount: amount.total,
-			reference: payment.gatewayReference,
-			callbackUrl: `${process.env.FRONTEND_URL}/user/payment/callback`,
-			metadata: {
+		return await this.paystackPaymentService
+			.initiatePayment({
 				userId,
 				accountId,
 				planId,
+				subscriptionId,
+				amount,
 				cycles,
-				paymentId: payment.id,
-				actionType
-			}
-		});
-
-		return {
-			payment,
-			paystack: paystackResponse
-		};
+				actionType,
+				paymentChannel,
+				email,
+				metadata
+			});
 	}
 }

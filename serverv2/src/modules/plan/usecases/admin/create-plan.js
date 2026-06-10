@@ -2,7 +2,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { Plan } from "../../domain/plan.entity.js";
 
 export class CreatePlan {
-	constructor(planRepository) {
+	constructor({ planRepository }) {
 		this.planRepository = planRepository;
 	}
 

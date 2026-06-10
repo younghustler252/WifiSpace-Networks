@@ -2,7 +2,7 @@ import { Account } from "../../domain/account.entity.js";
 import { PROFILE_STATUSES, SERVICE_TYPES } from "../../domain/account.enum.js";
 
 export class ActivateHotspotAccount {
-    constructor(accountRepository, auditService) {
+    constructor({accountRepository, auditService}) {
         this.accountRepository = accountRepository;
         this.auditService = auditService;
     }

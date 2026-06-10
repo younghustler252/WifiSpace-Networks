@@ -22,31 +22,44 @@ export class Account {
         wsnId,
         routerPassword = null,
 
-        routerId,
+        routerId = null,
         routerProfile = "default",
-        macAddress = null,
+
+        // ✅ FIXED: matches schema devices[]
+        devices = [],
 
         serviceType = SERVICE_TYPES.PPPOE,
         profileStatus = PROFILE_STATUSES.PENDING,
 
         limitUptime = "0",
-        lastSeenAt = null,
-        mikrotikUserCreated = false,
+
+        routerProvision = {
+            status: "pending",
+            lastError: null,
+            lastAttemptAt: null
+        },
+
+        createdAt = null,
+        updatedAt = null
     }) {
 
         // ----------------------------
-        // Required Fields Validation
+        // Validation
         // ----------------------------
         if (!userId) throw new Error("User ID is required");
         // if (!wsnId) throw new Error("WSN ID is required");
-        // if (!routerId) throw new Error("Router ID is required");
 
-        // ----------------------------
-        // Enum Validation
-        // ----------------------------
-        if (!ACCOUNT_TYPE_LIST.includes(accountType)) throw new Error("Invalid account type");
-        if (!PROFILE_STATUS_LIST.includes(profileStatus)) throw new Error("Invalid profile status");
-        if (!SERVICE_TYPE_LIST.includes(serviceType)) throw new Error("Invalid service type");
+        if (!ACCOUNT_TYPE_LIST.includes(accountType)) {
+            throw new Error("Invalid account type");
+        }
+
+        if (!PROFILE_STATUS_LIST.includes(profileStatus)) {
+            throw new Error("Invalid profile status");
+        }
+
+        if (!SERVICE_TYPE_LIST.includes(serviceType)) {
+            throw new Error("Invalid service type");
+        }
 
         // ----------------------------
         // Identity
@@ -60,21 +73,29 @@ export class Account {
         // ----------------------------
         this.accountType = accountType;
 
-        this.businessName = accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
-        this.companyRegistrationNumber = accountType === ACCOUNT_TYPES.BUSINESS ? companyRegistrationNumber : null;
-        this.taxId = accountType === ACCOUNT_TYPES.BUSINESS ? taxId : null;
+        this.businessName =
+            accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
+
+        this.companyRegistrationNumber =
+            accountType === ACCOUNT_TYPES.BUSINESS ? companyRegistrationNumber : null;
+
+        this.taxId =
+            accountType === ACCOUNT_TYPES.BUSINESS ? taxId : null;
 
         // ----------------------------
         // Network Identity
         // ----------------------------
         this.wsnId = wsnId;
         this.routerPassword = routerPassword;
+
         this.routerId = routerId;
         this.routerProfile = routerProfile;
-        this.macAddress = macAddress;
+
+        // ✅ FIXED: schema uses devices[]
+        this.devices = devices;
 
         // ----------------------------
-        // Service Info
+        // Service
         // ----------------------------
         this.serviceType = serviceType;
         this.profileStatus = profileStatus;
@@ -83,14 +104,27 @@ export class Account {
         // Monitoring
         // ----------------------------
         this.limitUptime = limitUptime;
-        this.lastSeenAt = lastSeenAt;
-        this.mikrotikUserCreated = mikrotikUserCreated;
 
+        // ----------------------------
+        // Router Provisioning
+        // ----------------------------
+        this.routerProvision = {
+            status: routerProvision?.status || "pending",
+            lastError: routerProvision?.lastError || null,
+            lastAttemptAt: routerProvision?.lastAttemptAt || null
+        };
+
+        // ----------------------------
+        // Timestamps
+        // ----------------------------
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    // ----------------------------
-    // Account Type Helpers
-    // ----------------------------
+    // ==================================================
+    // Helpers
+    // ==================================================
+
     isBusinessAccount() {
         return this.accountType === ACCOUNT_TYPES.BUSINESS;
     }
@@ -99,28 +133,19 @@ export class Account {
         return this.accountType === ACCOUNT_TYPES.PERSONAL;
     }
 
-    // ----------------------------
-    // Business Validation
-    // ----------------------------
-    isBusinessComplete() {
-        if (!this.isBusinessAccount()) return true;
-        return Boolean(this.businessName && this.companyRegistrationNumber && this.taxId);
+    isActive() {
+        return this.profileStatus === PROFILE_STATUSES.ACTIVE;
     }
 
-    needsBusinessVerification() {
-        return this.isBusinessAccount() && !this.isBusinessComplete();
-    }
+    // ==================================================
+    // Profile State
+    // ==================================================
 
-    // ----------------------------
-    // Profile Status Management
-    // ----------------------------
     activateProfile() {
-        if (this.profileStatus === PROFILE_STATUSES.ACTIVE) throw new Error("Account already active");
         this.profileStatus = PROFILE_STATUSES.ACTIVE;
     }
 
     suspendProfile() {
-        if (this.profileStatus !== PROFILE_STATUSES.ACTIVE) throw new Error("Only active accounts can be suspended");
         this.profileStatus = PROFILE_STATUSES.SUSPENDED;
     }
 
@@ -128,13 +153,30 @@ export class Account {
         this.profileStatus = PROFILE_STATUSES.CANCELED;
     }
 
-    isActive() {
-        return this.profileStatus === PROFILE_STATUSES.ACTIVE;
+    // ==================================================
+    // Router Provisioning
+    // ==================================================
+
+    markProvisionSynced() {
+        this.routerProvision.status = "synced";
+        this.routerProvision.lastError = null;
+        this.routerProvision.lastAttemptAt = new Date();
     }
 
-    // ----------------------------
-    // Router / PPPoE Management
-    // ----------------------------
+    markProvisionFailed(error) {
+        this.routerProvision.status = "failed";
+        this.routerProvision.lastError = error;
+        this.routerProvision.lastAttemptAt = new Date();
+    }
+
+    markProvisionPending() {
+        this.routerProvision.status = "pending";
+    }
+
+    // ==================================================
+    // Router Updates
+    // ==================================================
+
     updateRouterPassword(newPassword) {
         if (!newPassword) throw new Error("Password cannot be empty");
         this.routerPassword = newPassword;
@@ -150,19 +192,43 @@ export class Account {
         this.routerId = newRouterId;
     }
 
-    // ----------------------------
-    // Monitoring
-    // ----------------------------
-    updateLastSeen(date = new Date()) {
-        this.lastSeenAt = date;
+    // ==================================================
+    // Device Tracking (FIXED for schema)
+    // ==================================================
+
+    addDevice({ macAddress, hostname = null }) {
+        if (!macAddress) throw new Error("MAC address required");
+
+        this.devices.push({
+            macAddress: macAddress.toUpperCase(),
+            hostname,
+            lastSeenAt: new Date()
+        });
     }
 
-    // ----------------------------
-    // JSON Transformation
-    // ----------------------------
+    updateDeviceLastSeen(macAddress, date = new Date()) {
+        const device = this.devices.find(
+            d => d.macAddress === macAddress.toUpperCase()
+        );
+
+        if (device) {
+            device.lastSeenAt = date;
+        }
+    }
+
+    removeDevice(macAddress) {
+        this.devices = this.devices.filter(
+            d => d.macAddress !== macAddress.toUpperCase()
+        );
+    }
+
+    // ==================================================
+    // Serialization
+    // ==================================================
+
     toJSON() {
         const obj = { ...this };
-        delete obj.routerPassword; // hide sensitive
+        delete obj.routerPassword;
         return obj;
     }
 }

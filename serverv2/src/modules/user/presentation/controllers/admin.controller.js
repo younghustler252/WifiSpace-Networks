@@ -1,16 +1,37 @@
 import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class AdminController {
-	constructor(usecases) {
-		this.usecases = usecases;
+
+	constructor({
+		createUser,
+		getAllUsers,
+		getUserById,
+		updateRole,
+		updateUserProfile,
+		deleteUser,
+		banUser
+	}) {
+
+		this.createUserUseCase = createUser;
+		this.getAllUsersUseCase = getAllUsers;
+		this.getUserByIdUseCase = getUserById;
+		this.updateRoleUseCase = updateRole;
+		this.updateUserProfileUseCase = updateUserProfile;
+		this.deleteUserUseCase = deleteUser;
+		this.banUserUseCase = banUser;
 	}
 
 	// Create User
 	createUser = async (req, res) => {
+
 		const actor = req.user;
 		const userData = req.body;
 
-		const user = await this.usecases.createUser.execute(actor, userData);
+		const user =
+			await this.createUserUseCase.execute(
+				actor,
+				userData
+			);
 
 		return successResponse({
 			res,
@@ -20,12 +41,14 @@ export class AdminController {
 	};
 
 	getAllUsers = async (req, res) => {
+
 		const actor = req.user;
 
-		const users = await this.usecases.getAllUsers.execute({
-			...req.query,
-			currentUser: actor
-		});
+		const users =
+			await this.getAllUsersUseCase.execute({
+				...req.query,
+				currentUser: actor
+			});
 
 		return successResponse({
 			res,
@@ -34,14 +57,16 @@ export class AdminController {
 		});
 	};
 
-	// ----------------------------
-	// Get User By ID
-	// ----------------------------
 	getUserById = async (req, res) => {
+
 		const actor = req.user;
 		const { id } = req.params;
 
-		const user = await this.usecases.getUserById.execute(actor, id);
+		const user =
+			await this.getUserByIdUseCase.execute(
+				actor,
+				id
+			);
 
 		return successResponse({
 			res,
@@ -50,13 +75,17 @@ export class AdminController {
 		});
 	};
 
-
-	// Update Role
 	updateRole = async (req, res) => {
+
 		const actor = req.user;
 		const { userId, role } = req.body;
 
-		const user = await this.usecases.updateRole.execute(actor, userId, role);
+		const user =
+			await this.updateRoleUseCase.execute(
+				actor,
+				userId,
+				role
+			);
 
 		return successResponse({
 			res,
@@ -66,16 +95,18 @@ export class AdminController {
 	};
 
 	updateUserProfile = async (req, res) => {
+
 		const actor = req.user;
 		const { userId } = req.params;
 		const profileData = req.body;
 
-		const user = await this.usecases.updateUserProfile.execute({
-			userId,
-			profileData,
-			actorId: actor.id,
-			ip: req.ip
-		});
+		const user =
+			await this.updateUserProfileUseCase.execute({
+				userId,
+				profileData,
+				actorId: actor.id,
+				ip: req.ip
+			});
 
 		return successResponse({
 			res,
@@ -84,12 +115,16 @@ export class AdminController {
 		});
 	};
 
-	// Delete User
 	deleteUser = async (req, res) => {
+
 		const actor = req.user;
 		const { userId } = req.params;
 
-		const message = await this.usecases.deleteUser.execute(actor, userId);
+		const message =
+			await this.deleteUserUseCase.execute(
+				actor,
+				userId
+			);
 
 		return successResponse({
 			res,
@@ -97,12 +132,16 @@ export class AdminController {
 		});
 	};
 
-	// Ban User
 	banUser = async (req, res) => {
+
 		const actor = req.user;
 		const { userId } = req.params;
 
-		const message = await this.usecases.banUser.execute(actor, userId);
+		const message =
+			await this.banUserUseCase.execute(
+				actor,
+				userId
+			);
 
 		return successResponse({
 			res,

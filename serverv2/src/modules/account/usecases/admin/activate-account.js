@@ -1,7 +1,7 @@
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 
 export class ActivateAccount {
-    constructor(accountRepository, routerRepository, mikrotikService, auditService) {
+    constructor({accountRepository, routerRepository, mikrotikService, auditService}) {
         this.accountRepository = accountRepository;
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService;

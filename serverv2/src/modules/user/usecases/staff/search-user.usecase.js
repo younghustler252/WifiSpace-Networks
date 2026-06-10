@@ -2,7 +2,7 @@
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 
 export class SearchUser {
-	constructor(userRepository) {
+	constructor({userRepository}) {
 		this.userRepository = userRepository;
 	}
 

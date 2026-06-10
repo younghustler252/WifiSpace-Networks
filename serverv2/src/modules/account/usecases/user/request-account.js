@@ -5,7 +5,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class RequestAccount {
 
-	constructor(accountRepository, auditService) {
+	constructor({accountRepository, auditService}) {
 		this.accountRepository = accountRepository;
 		this.auditService = auditService;
 	}

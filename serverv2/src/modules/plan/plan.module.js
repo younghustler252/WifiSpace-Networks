@@ -1,39 +1,21 @@
-import { PlanRepositoryMongo } from "./infrastructure/repositories/plan.repository.mongo.js";
-import { UserRepositoryMongo } from "../user/infrastructure/repositories/user.repository.mongo.js";
-
-import { CreatePlan } from "./usecases/admin/create-plan.js";
-import { UpdatePlan } from "./usecases/admin/update-plan.js";
-import { DeletePlan } from "./usecases/admin/delete-plan.js";
-
-import { GetAllPlans } from "./usecases/shared/get-all-plans.js";
-import { GetPlan } from "./usecases/shared/get-plan.js";
-
-import { PlanController } from "./presentation/controllers/plan.controller.js";
+// ======================================================
+// plan.module.js
+// FULL AWILIX CRADLE STYLE
+// ======================================================
 
 import planRoutes from "./presentation/routes/plan.routes.js";
 
-export function planModule({ permissionService }) {
-
-	const repository = new PlanRepositoryMongo();
-	const userRepository = new UserRepositoryMongo();
-
-	const usecases = {
-		createPlan: new CreatePlan(repository),
-		updatePlan: new UpdatePlan(repository),
-		deletePlan: new DeletePlan(repository),
-		getAllPlans: new GetAllPlans(repository),
-		getPlan: new GetPlan(repository)
-	};
-
-	const controller = new PlanController(usecases);
+export function planModule({
+	planController,
+	permissionService,
+	userRepository
+}) {
 
 	const routes = planRoutes({
-		planController: controller,
+		planController,
 		permissionService,
 		userRepository
 	});
 
-	return {
-		routes
-	};
+	return { routes };
 }

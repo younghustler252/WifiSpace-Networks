@@ -2,7 +2,7 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class CheckRouterStatus {
-    constructor(routerRepository, mikrotikService) {
+    constructor({routerRepository, mikrotikService}) {
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService; // Ensure this has health/resource methods
     }

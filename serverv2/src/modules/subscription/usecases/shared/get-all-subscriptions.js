@@ -1,7 +1,7 @@
 export class GetAllSubscriptionsUseCase {
 
-	constructor({ accountSubscriptionRepository }) {
-		this.accountSubscriptionRepository = accountSubscriptionRepository;
+	constructor({ subscriptionRepository }) {
+		this.subscriptionRepository = subscriptionRepository;
 	}
 
 	async execute({
@@ -14,13 +14,13 @@ export class GetAllSubscriptionsUseCase {
 		const skip = (page - 1) * limit;
 
 		const [subscriptions, total] = await Promise.all([
-			this.accountSubscriptionRepository.findMany({
+			this.subscriptionRepository.findMany({
 				filter,
 				limit,
 				skip,
 				sort
 			}),
-			this.accountSubscriptionRepository.count(filter)
+			this.subscriptionRepository.count(filter)
 		]);
 
 		return {

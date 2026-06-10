@@ -1,7 +1,7 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetAllPlans {
-	constructor(planRepository) {
+	constructor({planRepository}) {
 		this.planRepository = planRepository;
 	}
 

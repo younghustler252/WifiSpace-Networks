@@ -4,8 +4,44 @@ import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class SubscriptionAdminController {
 
-	constructor(usecases) {
-		this.usecases = usecases;
+	constructor({
+
+		getAllSubscriptions,
+
+		adminCreateSubscription,
+
+		suspendSubscription,
+
+		resumeSubscription,
+
+		cancelSubscription,
+
+		extendSubscription,
+
+		forceExpireSubscription
+
+	}) {
+
+		this.getAllSubscriptionsUseCase =
+			getAllSubscriptions;
+
+		this.adminCreateSubscriptionUseCase =
+			adminCreateSubscription;
+
+		this.suspendSubscriptionUseCase =
+			suspendSubscription;
+
+		this.resumeSubscriptionUseCase =
+			resumeSubscription;
+
+		this.cancelSubscriptionUseCase =
+			cancelSubscription;
+
+		this.extendSubscriptionUseCase =
+			extendSubscription;
+
+		this.forceExpireSubscriptionUseCase =
+			forceExpireSubscription;
 	}
 
 	// ------------------------------------------------

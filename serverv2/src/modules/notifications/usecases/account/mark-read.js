@@ -1,21 +1,73 @@
-export class MarkNotificationReadUseCase {
-    constructor({ notificationRepo }) {
-        this.notificationRepo = notificationRepo;
+
+import {
+    NOTIFICATION_RECIPIENT_STATUS
+} from "../../../domain/notification.enum.js";
+
+
+export class MarkNotificationAsReadUseCase {
+
+    constructor({
+        notificationRecipientRepository
+    }) {
+
+        this.notificationRecipientRepository =
+            notificationRecipientRepository;
     }
 
-    /**
-     * @param {Object} params
-     * @param {string} [params.notificationId] - mark single
-     * @param {string} [params.userId] - mark all for this user
-     */
-    async execute({ notificationId, userId }) {
-        if (notificationId) {
-            return this.notificationRepo.markAsRead(notificationId);
+
+    async execute({
+
+        recipientId,
+
+        userId
+
+    }) {
+
+        // ================= LOAD =================
+
+        const recipient =
+            await this.notificationRecipientRepository
+                .findById(recipientId);
+
+
+        if (!recipient) {
+            throw new Error("Notification recipient not found");
         }
-        if (userId) {
-            const count = await this.notificationRepo.markAllAsRead(userId);
-            return { markedCount: count };
+
+
+        // ================= SECURITY =================
+
+        if (
+            recipient.userId.toString() !==
+            userId.toString()
+        ) {
+            throw new Error(
+                "Unauthorized notification access"
+            );
         }
-        throw new Error("Either notificationId or userId must be provided");
+
+
+        // ================= ALREADY READ =================
+
+        if (
+            recipient.status ===
+            NOTIFICATION_RECIPIENT_STATUS.READ
+        ) {
+            return recipient;
+        }
+
+
+        // ================= MARK AS READ =================
+
+        recipient.markAsRead();
+
+
+        // ================= SAVE =================
+
+        return await this.notificationRecipientRepository
+            .update(
+                recipient.id,
+                recipient
+            );
     }
 }

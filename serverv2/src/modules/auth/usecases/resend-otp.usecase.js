@@ -3,7 +3,7 @@ import { NotFoundError } from "../../../shared/errors/not-found-error.js";
 
 
 export class ResendOtp {
-	constructor(userRepository, mailService, passwordService) {
+	constructor({userRepository, mailService, passwordService}) {
 		this.userRepository = userRepository;
 		this.mailService = mailService;
 		this.passwordService = passwordService;

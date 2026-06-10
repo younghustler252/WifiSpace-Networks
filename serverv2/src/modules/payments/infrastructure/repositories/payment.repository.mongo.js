@@ -1,109 +1,304 @@
 import PaymentModel from "../database/mongoose/payment.model.js";
-import { PaymentMapper } from "../mappers/payment.mapper.js";
+
+import {
+	PaymentMapper
+} from "../mappers/payment.mapper.js";
 
 export class PaymentRepositoryMongo {
 
-    // ---------------- CREATE ----------------
-    async create(payment) {
-        const doc = await PaymentModel.create(PaymentMapper.toPersistence(payment));
-        return PaymentMapper.toDomain(doc);
-    }
+	// =================================
+	// QUERY BUILDER
+	// =================================
 
-    // ---------------- UPDATE ----------------
-    async update(payment) {
-        const updated = await PaymentModel.findByIdAndUpdate(
-            payment.id,
-            PaymentMapper.toPersistence(payment),
-            { runValidators: true, returnDocument: 'after' } // ✅ updated
-        );
-        return PaymentMapper.toDomain(updated);
-    }
+	buildQuery(filters = {}) {
+		const query = {};
 
-    // ---------------- FIND ----------------
-    async findById(id) {
-        const doc = await PaymentModel.findById(id);
-        return PaymentMapper.toDomain(doc);
-    }
+		// PRIMARY OWNERSHIP
+		if (filters.accountId) {
+			query.accountId = filters.accountId;
+		}
 
-    async findByGatewayReference(gatewayReference) {
-        const doc = await PaymentModel.findOne({ gatewayReference });
-        return PaymentMapper.toDomain(doc);
-    }
+		// OPTIONAL (admin use only)
+		if (filters.accountIds) {
+			query.accountId = { $in: filters.accountIds };
+		}
 
-    async findByUser(userId) {
-        const docs = await PaymentModel.find({ userId }).sort({ paymentDate: -1 });
-        return docs.map(PaymentMapper.toDomain);
-    }
+		// BUSINESS FILTERS
+		if (filters.status) query.status = filters.status;
+		if (filters.gateway) query.gateway = filters.gateway;
+		if (filters.paymentChannel) query.paymentChannel = filters.paymentChannel;
+		if (filters.actionType) query.actionType = filters.actionType;
 
-    async findByAccount(accountId) {
-        const docs = await PaymentModel.find({ accountId }).sort({ paymentDate: -1 });
-        return docs.map(PaymentMapper.toDomain);
-    }
+		// BUSINESS FLAGS
+		if (filters.businessProcessed !== undefined)
+			query.businessProcessed = filters.businessProcessed;
 
-    async findPayments(filters = {}, { skip = 0, limit = 10 } = {}) {
-        const query = {};
+		if (filters.isWebhookProcessed !== undefined)
+			query.isWebhookProcessed = filters.isWebhookProcessed;
 
-        if (filters.userId) query.userId = filters.userId;
-        if (filters.accountId) query.accountId = filters.accountId;
-        if (filters.planId) query.planId = filters.planId;
-        if (filters.status) query.status = filters.status;
-        if (filters.paymentChannel) query.paymentChannel = filters.paymentChannel;
-        if (filters.renewalStrategy) query.renewalStrategy = filters.renewalStrategy;
+		// DATE RANGE (pick ONE standard field — choose createdAt OR paymentDate)
+		if (filters.startDate || filters.endDate) {
+			query.createdAt = {};
+			if (filters.startDate) query.createdAt.$gte = filters.startDate;
+			if (filters.endDate) query.createdAt.$lte = filters.endDate;
+		}
 
-        if (filters.startDate || filters.endDate) {
-            query.paymentDate = {};
-            if (filters.startDate) query.paymentDate.$gte = filters.startDate;
-            if (filters.endDate) query.paymentDate.$lte = filters.endDate;
-        }
+		return query;
+	}
 
-        const docs = await PaymentModel.find(query)
-            .sort({ paymentDate: -1 })
-            .skip(skip)
-            .limit(limit);
+	// =================================
+	// CREATE
+	// =================================
 
-        return docs.map(PaymentMapper.toDomain);
-    }
+	async create(payment) {
 
-    // ---------------- COUNT ----------------
-    async countPayments(filters = {}) {
-        const query = {};
-        if (filters.userId) query.userId = filters.userId;
-        if (filters.accountId) query.accountId = filters.accountId;
-        if (filters.planId) query.planId = filters.planId;
-        if (filters.status) query.status = filters.status;
+		const doc =
+			await PaymentModel.create(
+				PaymentMapper.toPersistence(
+					payment
+				)
+			);
 
-        if (filters.startDate || filters.endDate) {
-            query.paymentDate = {};
-            if (filters.startDate) query.paymentDate.$gte = filters.startDate;
-            if (filters.endDate) query.paymentDate.$lte = filters.endDate;
-        }
+		return PaymentMapper.toDomain(doc);
+	}
 
-        return PaymentModel.countDocuments(query);
-    }
+	// =================================
+	// UPDATE
+	// =================================
 
-    // ---------------- PENDING & AUTO-RENEW ----------------
-    async findPendingPayments() {
-        const docs = await PaymentModel.find({ status: "pending" }).sort({ paymentDate: 1 });
-        return docs.map(PaymentMapper.toDomain);
-    }
+	async update(payment) {
 
-    async findAutoRenewPaymentsDue() {
-        const now = new Date();
-        const docs = await PaymentModel.find({
-            autoRenewEnabled: true,
-            authorizationReusable: true,
-            nextBillingDate: { $lte: now },
-            status: "successful"
-        });
-        return docs.map(PaymentMapper.toDomain);
-    }
+		const updated =
+			await PaymentModel.findByIdAndUpdate(
+				payment.id,
 
-    // ---------------- STATS ----------------
-    async countAllPayments() {
-        return PaymentModel.countDocuments();
-    }
+				PaymentMapper.toPersistence(
+					payment
+				),
 
-    async countSuccessfulPayments() {
-        return PaymentModel.countDocuments({ status: "successful" });
-    }
+				{
+					runValidators: true,
+					new: true
+				}
+			)
+				.populate(
+					"accountId",
+					"wsnId"
+				)
+				.populate(
+					"planId",
+					"name price speedRate"
+				);
+
+		return PaymentMapper.toDomain(
+			updated
+		);
+	}
+
+	// =================================
+	// FIND BY ID
+	// =================================
+
+	async findById(id) {
+
+		const doc =
+			await PaymentModel.findById(id)
+				.populate(
+					"accountId",
+					"wsnId"
+				)
+				.populate(
+					"planId",
+					"name price speedRate"
+				);
+
+		return PaymentMapper.toDomain(
+			doc
+		);
+	}
+
+	// =================================
+	// FIND BY REFERENCE
+	// =================================
+
+	async findByGatewayReference(
+		gatewayReference
+	) {
+
+		const doc =
+			await PaymentModel.findOne({
+				gatewayReference
+			});
+
+		return PaymentMapper.toDomain(
+			doc
+		);
+	}
+
+	// =================================
+	// FIND BY USER
+	// =================================
+
+	async findByUser(userId) {
+
+		const docs =
+			await PaymentModel.find({
+				userId
+			})
+				.sort({
+					paymentDate: -1
+				})
+				.populate(
+					"accountId",
+					"wsnId"
+				)
+				.populate(
+					"planId",
+					"name price speedRate"
+				);
+
+		return docs.map(
+			PaymentMapper.toDomain
+		);
+	}
+
+	// =================================
+	// FIND BY ACCOUNT
+	// =================================
+
+	async findByAccount(accountId) {
+
+		const docs =
+			await PaymentModel.find({
+				accountId
+			})
+				.sort({
+					paymentDate: -1
+				})
+				.populate(
+					"accountId",
+					"wsnId"
+				)
+				.populate(
+					"planId",
+					"name price speedRate"
+				);
+
+		return docs.map(
+			PaymentMapper.toDomain
+		);
+	}
+
+	// =================================
+	// FIND PAYMENTS
+	// =================================
+
+	async findPayments(
+		filters = {},
+		{
+			skip = 0,
+			limit = 10,
+			sort = {
+				paymentDate: -1
+			}
+		} = {}
+	) {
+
+		const query =
+			this.buildQuery(filters);
+
+		const docs =
+			await PaymentModel.find(query)
+				.sort(sort)
+				.skip(skip)
+				.limit(limit)
+				.populate(
+					"accountId",
+					"wsnId"
+				)
+				.populate(
+					"planId",
+					"name price speedRate"
+				);
+
+		return docs.map(
+			PaymentMapper.toDomain
+		);
+	}
+
+	// =================================
+	// COUNT
+	// =================================
+
+	async countPayments(
+		filters = {}
+	) {
+
+		const query =
+			this.buildQuery(filters);
+
+		return PaymentModel.countDocuments(
+			query
+		);
+	}
+
+	// =================================
+	// PENDING
+	// =================================
+
+	async findPendingPayments() {
+
+		const docs =
+			await PaymentModel.find({
+				status: "pending"
+			})
+				.sort({
+					paymentDate: 1
+				});
+
+		return docs.map(
+			PaymentMapper.toDomain
+		);
+	}
+
+	// =================================
+	// AUTO RENEW
+	// =================================
+
+	async findAutoRenewPaymentsDue() {
+
+		const now = new Date();
+
+		const docs =
+			await PaymentModel.find({
+				"metadata.autoRenewEnabled": true,
+
+				"metadata.authorizationReusable": true,
+
+				status: "successful",
+
+				nextBillingDate: {
+					$lte: now
+				}
+			});
+
+		return docs.map(
+			PaymentMapper.toDomain
+		);
+	}
+
+	// =================================
+	// STATS
+	// =================================
+
+	async countAllPayments() {
+		return PaymentModel.countDocuments();
+	}
+
+	async countSuccessfulPayments() {
+
+		return PaymentModel.countDocuments({
+			status: "successful"
+		});
+	}
 }

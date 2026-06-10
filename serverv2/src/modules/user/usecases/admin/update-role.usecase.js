@@ -5,7 +5,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ROLE_PERMISSIONS } from "../../../../shared/constants/roles.js";
 
 export class UpdateRole {
-	constructor(userRepository, permissionService, auditService) {
+	constructor({userRepository, permissionService, auditService}) {
 		this.userRepository = userRepository;
 		this.auditService = auditService;
 	}

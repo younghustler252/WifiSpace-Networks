@@ -2,7 +2,7 @@
 
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 export class GetMyProfile {
-	constructor(userRepository, auditService) {
+	constructor({userRepository, auditService}) {
 		this.userRepository = userRepository;
 		this.auditService = auditService;
 	}

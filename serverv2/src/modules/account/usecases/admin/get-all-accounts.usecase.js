@@ -2,7 +2,7 @@ import { ACCOUNT_TYPE_LIST, PROFILE_STATUS_LIST, SERVICE_TYPE_LIST } from "../..
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetAllAccounts {
-    constructor(accountRepository, permissionService) {
+    constructor({accountRepository, permissionService}) {
         this.accountRepository = accountRepository;
         this.permissionService = permissionService;
     }

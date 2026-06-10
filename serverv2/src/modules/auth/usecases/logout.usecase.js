@@ -1,6 +1,6 @@
 // modules/auth/usecases/logout.usecase.js
 export class LogoutUser {
-	constructor(tokenService, auditService) {
+	constructor({tokenService, auditService}) {
 		this.tokenService = tokenService; // handles token revocation / blacklist
 		this.auditService = auditService; // optional audit logging
 	}

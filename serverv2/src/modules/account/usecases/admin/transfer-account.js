@@ -8,7 +8,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class TransferAccount {
 
-	constructor(accountRepository, permissionService, auditService) {
+	constructor({accountRepository, permissionService, auditService}) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;

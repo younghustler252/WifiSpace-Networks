@@ -1,5 +1,5 @@
 export class ListRouters {
-	constructor(routerRepository) {
+	constructor({routerRepository}) {
 		this.routerRepository = routerRepository;
 	}
 

@@ -3,9 +3,9 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
 export class ResumeSubscriptionUseCase {
-    constructor({ subscriptionRepository, resumeNetworkAccountUseCase, analyticsTracker }) {
+    constructor({ subscriptionRepository, resumeNetworkAccount, analyticsTracker }) {
         this.subscriptionRepository = subscriptionRepository;
-        this.resumeNetworkAccountUseCase = resumeNetworkAccountUseCase;
+        this.resumeNetworkAccount = resumeNetworkAccount;
         this.analyticsTracker = analyticsTracker;
     }
 
@@ -27,7 +27,7 @@ export class ResumeSubscriptionUseCase {
 
         // 3️⃣ Resume network account
         try {
-            await this.resumeNetworkAccountUseCase.execute(subscription.accountId, context);
+            await this.resumeNetworkAccount.execute(subscription.accountId, context);
         } catch (err) {
             console.error(`Failed to resume network account for subscription ${subscription.id}:`, err.message);
         }

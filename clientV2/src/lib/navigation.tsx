@@ -1,44 +1,57 @@
-// lib/navigation.ts
 import {
-	Home,
 	Users,
 	Settings,
 	Wifi,
-	Layers,
-	Receipt,
 	BadgeCheck,
+	Router,
+	CreditCard,
+	LayoutDashboard,
+	Package,
 } from "lucide-react";
 
 const roleBasePath = {
-	customer: "/user",
+	customer: "/customer",
 	staff: "/staff",
 	superadmin: "/admin",
 };
 
-// shared admin/staff style navigation
-const shared = (base: string) => [
-	{
-		label: "Overview",
-		icon: <Layers size={18} />,
-		href: `${base}/overview`,
-	},
+/* =========================
+   COMMON ITEMS
+========================= */
 
-	{
-		label: "Service Plans",
-		icon: <BadgeCheck size={18} />,
-		href: `${base}/plans`,
-	},
-];
+const dashboard = (base: string) => ({
+	label: "Dashboard",
+	icon: <LayoutDashboard size={18} />,
+	href: `${base}/dashboard`,
+});
+
+const payments = (base: string) => ({
+	label: "Payments",
+	icon: <CreditCard size={18} />,
+	href: `${base}/payments`,
+});
+
+/* =========================
+   NAVIGATION
+========================= */
 
 export const navigation = {
 	customer: [
+		dashboard(roleBasePath.customer),
+
 		{
-			label: "Dashboard",
-			icon: <Home size={18} />,
-			href: `${roleBasePath.customer}/dashboard`,
+			label: "My Account",
+			icon: <Wifi size={18} />,
+			href: `${roleBasePath.customer}/account`,
 		},
 
-		...shared(roleBasePath.customer),
+		payments(roleBasePath.customer),
+
+		{
+			label: "Plans",
+			icon: <Package size={18} />,
+			href: `${roleBasePath.customer}/plans`,
+		},
 
 		{
 			label: "My Subscription",
@@ -47,81 +60,85 @@ export const navigation = {
 		},
 
 		{
-			label: "Billing & Payments",
-			icon: <Receipt size={18} />,
-			href: `${roleBasePath.customer}/payment/all`,
-		},
-
-		{
-			label: "My Services",
-			icon: <Wifi size={18} />,
-			href: `${roleBasePath.customer}/accounts`,
-		},
-
-		{
-			label: "My Account",
+			label: "Profile",
 			icon: <Users size={18} />,
-			href: `${roleBasePath.customer}/account`,
+			href: `${roleBasePath.customer}/profile`,
 		},
 	],
 
 	staff: [
+		dashboard(roleBasePath.staff),
+
 		{
-			label: "Dashboard",
-			icon: <Home size={18} />,
-			href: `${roleBasePath.staff}/dashboard`,
+			label: "Accounts",
+			icon: <Wifi size={18} />,
+			href: `${roleBasePath.staff}/accounts`,
 		},
 
-		...shared(roleBasePath.staff),
+		payments(roleBasePath.staff),
 
 		{
-			label: "Manage Customers",
+			label: "Customers",
 			icon: <Users size={18} />,
 			href: `${roleBasePath.staff}/customers`,
 		},
 
 		{
-			label: "Manage Accounts",
-			icon: <Wifi size={18} />,
-			href: `${roleBasePath.staff}/accounts`,
+			label: "Plans",
+			icon: <Package size={18} />,
+			href: `${roleBasePath.staff}/plans`,
 		},
 
 		{
-			label: "Manage Payments",
-			icon: <Receipt size={18} />,
-			href: `${roleBasePath.staff}/payments`,
+			label: "Router Management",
+			icon: <Router size={18} />,
+			href: `${roleBasePath.staff}/router`,
+		},
+
+		{
+			label: "Profile",
+			icon: <Users size={18} />,
+			href: `${roleBasePath.staff}/profile`,
 		},
 	],
 
 	superadmin: [
+		dashboard(roleBasePath.superadmin),
+
 		{
-			label: "Dashboard",
-			icon: <Home size={18} />,
-			href: `${roleBasePath.superadmin}/dashboard`,
+			label: "Accounts",
+			icon: <Wifi size={18} />,
+			href: `${roleBasePath.superadmin}/accounts`,
 		},
 
-		...shared(roleBasePath.superadmin),
+		payments(roleBasePath.superadmin),
 
 		{
-			label: "Manage Users",
+			label: "Users",
 			icon: <Users size={18} />,
 			href: `${roleBasePath.superadmin}/users`,
 		},
 
 		{
-			label: "Manage Accounts",
-			icon: <Wifi size={18} />,
-			href: `${roleBasePath.superadmin}/accounts`,
+			label: "Plans",
+			icon: <Package size={18} />,
+			href: `${roleBasePath.superadmin}/plans`,
 		},
 
 		{
-			label: "Manage Payments",
-			icon: <Receipt size={18} />,
-			href: `${roleBasePath.superadmin}/payments`,
+			label: "Routers",
+			icon: <Router size={18} />,
+			href: `${roleBasePath.superadmin}/router`,
 		},
 
 		{
-			label: "System Settings",
+			label: "Subscriptions",
+			icon: <BadgeCheck size={18} />,
+			href: `${roleBasePath.superadmin}/subscriptions`,
+		},
+
+		{
+			label: "Settings",
 			icon: <Settings size={18} />,
 			href: `${roleBasePath.superadmin}/settings`,
 		},

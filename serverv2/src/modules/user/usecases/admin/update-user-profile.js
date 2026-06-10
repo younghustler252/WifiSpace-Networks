@@ -4,7 +4,7 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 
 export class UpdateUserProfile {
-	constructor(userRepository, auditService) {
+	constructor({userRepository, auditService}) {
 		this.userRepository = userRepository;
 		this.auditService = auditService;
 	}

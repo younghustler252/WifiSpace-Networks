@@ -4,13 +4,13 @@ import crypto from "crypto";
 import { AppError } from "../../../../shared/errors/app-error.js";
 
 export class PaystackGateway {
-	constructor({ secretKey }) {
-		this.secretKey = secretKey;
+	constructor({ paystackSecretKey }) {
+		this.secretKey = paystackSecretKey;
 
 		this.client = axios.create({
 			baseURL: "https://api.paystack.co",
 			headers: {
-				Authorization: `Bearer ${secretKey}`,
+				Authorization: `Bearer ${this.secretKey}`,
 				"Content-Type": "application/json"
 			},
 			timeout: 15000

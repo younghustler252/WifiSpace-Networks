@@ -39,7 +39,7 @@ export class MailService {
      */
     async sendNotification({ to, name, subject, message }) {
         const html = notificationTemplate({ name, subject, message });
-        await this.client.send({
+        return await this.client.send({
             to,
             subject,
             html

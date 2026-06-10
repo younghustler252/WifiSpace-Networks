@@ -1,7 +1,4 @@
-import {
-	ROUTER_TYPES,
-	ROUTER_STATUSES,
-} from "./router.enum.js";
+import { ROUTER_STATUSES } from "./router.enum.js";
 
 export class RouterEntity {
 	constructor({
@@ -18,7 +15,10 @@ export class RouterEntity {
 
 		ssl = false,
 
-		routerType = ROUTER_TYPES.PPPOE,
+		routerUid = null,
+
+		// FIX: matches schema
+		supportedServices = [],
 
 		location = null,
 		popName = null,
@@ -26,6 +26,7 @@ export class RouterEntity {
 		status = ROUTER_STATUSES.OFFLINE,
 
 		isEnabled = true,
+		apiEnabled = true,
 
 		lastSeenAt = null,
 		lastProvisionSyncAt = null,
@@ -40,107 +41,57 @@ export class RouterEntity {
 		priority = 1,
 		isDefaultRouter = false,
 
-		apiEnabled = true,
-
 		lastError = null,
 
 		createdAt = null,
 		updatedAt = null,
 	}) {
-		// ----------------------------
 		// Identity
-		// ----------------------------
-
 		this.id = id;
-
 		this.name = name;
 		this.code = code;
 
-		// ----------------------------
 		// Access
-		// ----------------------------
-
+		this.routerUid = routerUid;
 		this.host = host;
 		this.port = port;
-
 		this.username = username;
 		this.password = password;
-
 		this.ssl = ssl;
 
-		// ----------------------------
-		// Capability
-		// ----------------------------
+		// Capability (FIXED)
+		this.supportedServices = supportedServices;
 
-		this.routerType = routerType;
-
-		// ----------------------------
 		// Location
-		// ----------------------------
-
 		this.location = location;
 		this.popName = popName;
 
-		// ----------------------------
 		// Status
-		// ----------------------------
-
 		this.status = status;
-
 		this.isEnabled = isEnabled;
-
-		this.lastSeenAt = lastSeenAt;
-
-		this.lastProvisionSyncAt =
-			lastProvisionSyncAt;
-
-		// ----------------------------
-		// Capacity
-		// ----------------------------
-
-		this.maxSessions = maxSessions;
-
-		this.currentSessions = currentSessions;
-
-		// ----------------------------
-		// Router Metadata
-		// ----------------------------
-
-		this.routerOsVersion =
-			routerOsVersion;
-
-		this.routerBoard = routerBoard;
-
-		this.systemIdentity =
-			systemIdentity;
-
-		// ----------------------------
-		// Priority
-		// ----------------------------
-
-		this.priority = priority;
-
-		this.isDefaultRouter =
-			isDefaultRouter;
-
-		// ----------------------------
-		// API
-		// ----------------------------
-
 		this.apiEnabled = apiEnabled;
 
-		// ----------------------------
-		// Error Tracking
-		// ----------------------------
+		this.lastSeenAt = lastSeenAt;
+		this.lastProvisionSyncAt = lastProvisionSyncAt;
 
+		// Capacity
+		this.maxSessions = maxSessions;
+		this.currentSessions = currentSessions;
+
+		// Metadata
+		this.routerOsVersion = routerOsVersion;
+		this.routerBoard = routerBoard;
+		this.systemIdentity = systemIdentity;
+
+		// Priority
+		this.priority = priority;
+		this.isDefaultRouter = isDefaultRouter;
+
+		// Errors
 		this.lastError = lastError;
 
-		// ----------------------------
 		// Timestamps
-		// ----------------------------
-
 		this.createdAt = createdAt;
-
 		this.updatedAt = updatedAt;
 	}
 
@@ -149,69 +100,38 @@ export class RouterEntity {
 	// ==================================================
 
 	isOnline() {
-		return (
-			this.status ===
-			ROUTER_STATUSES.ONLINE
-		);
+		return this.status === ROUTER_STATUSES.ONLINE;
 	}
 
 	isOffline() {
-		return (
-			this.status ===
-			ROUTER_STATUSES.OFFLINE
-		);
+		return this.status === ROUTER_STATUSES.OFFLINE;
 	}
 
 	isHotspotRouter() {
-		return (
-			this.routerType ===
-				ROUTER_TYPES.HOTSPOT ||
-			this.routerType ===
-				ROUTER_TYPES.MIXED
-		);
+		return this.supportedServices.includes("hotspot");
 	}
 
 	isPPPoERouter() {
-		return (
-			this.routerType ===
-				ROUTER_TYPES.PPPOE ||
-			this.routerType ===
-				ROUTER_TYPES.MIXED
-		);
+		return this.supportedServices.includes("pppoe");
 	}
 
 	canProvision() {
-		return (
-			this.isEnabled &&
-			this.apiEnabled &&
-			this.isOnline()
-		);
+		return this.isEnabled && this.apiEnabled && this.isOnline();
 	}
 
 	hasCapacity() {
-		if (this.maxSessions === 0) {
-			return true;
-		}
-
-		return (
-			this.currentSessions <
-			this.maxSessions
-		);
+		if (this.maxSessions === 0) return true;
+		return this.currentSessions < this.maxSessions;
 	}
 
 	markOnline() {
-		this.status =
-			ROUTER_STATUSES.ONLINE;
-
+		this.status = ROUTER_STATUSES.ONLINE;
 		this.lastSeenAt = new Date();
-
 		this.lastError = null;
 	}
 
 	markOffline(error = null) {
-		this.status =
-			ROUTER_STATUSES.OFFLINE;
-
+		this.status = ROUTER_STATUSES.OFFLINE;
 		this.lastError = error;
 	}
 

@@ -1,163 +1,67 @@
 import mongoose from "mongoose";
 
-const ACCOUNT_TYPES = [
-	"personal",
-	"business"
-];
+const ACCOUNT_TYPES = ["personal", "business"];
+const PROFILE_STATUSES = ["pending", "active", "suspended", "canceled"];
+const SERVICE_TYPES = ["pppoe", "hotspot"];
 
-const PROFILE_STATUSES = [
-	"pending",
-	"active",
-	"suspended",
-	"canceled"
-];
+const accountSchema = new mongoose.Schema({
+    // Owner
+    userId: { 
+        type: mongoose.Schema.Types.ObjectId, 
+        ref: "User" 
+    },
 
-const SERVICE_TYPES = [
-	"pppoe",
-	"hotspot"
-];
+    // Account Type
+    accountType: { 
+        type: String, 
+        enum: ACCOUNT_TYPES, 
+        default: "personal" 
+    },
 
-const accountSchema = new mongoose.Schema(
-	{
-		// ----------------------------
-		// Owner
-		// ----------------------------
+    // Business Fields
+    businessName: { type: String, trim: true },
+    companyRegistrationNumber: { type: String, trim: true },
+    taxId: { type: String, trim: true },
 
-		userId: {
-			type: mongoose.Schema.Types.ObjectId,
-			ref: "User",
-			// required: true,
-		},
+    // Network Identity
+    wsnId: { type: String, required: true, unique: true, trim: true },
+    routerPassword: { type: String },
 
-		// ----------------------------
-		// Account Type
-		// ----------------------------
-
-		accountType: {
-			type: String,
-			enum: ACCOUNT_TYPES,
-			default: "personal"
-		},
-
-		// ----------------------------
-		// Business Fields
-		// ----------------------------
-
-		businessName: {
-			type: String,
-			trim: true
-		},
-
-		companyRegistrationNumber: {
-			type: String,
-			trim: true
-		},
-
-		taxId: {
-			type: String,
-			trim: true
-		},
-
-		// ----------------------------
-		// Network Identity
-		// ----------------------------
-
-		wsnId: {
-			type: String,
-			required: true,
-			unique: true,
-			trim: true
-		},
-
-		
-
-		routerPassword: {
-			type: String
-		},
-
-		// ----------------------------
-		// Router Info
-		// ----------------------------
-
-		routerId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "Router",
-            // required: true, 
+    // Router Info
+    routerId: { type: mongoose.Schema.Types.ObjectId, ref: "Router" },
+    routerProfile: { type: String, default: "default" },
+    devices: [
+        {
+        macAddress: {
+            type: String,
+            uppercase: true,
+            trim: true
         },
+        hostname: String,
+        lastSeenAt: Date
+    }
+    ],
+    // Service
+    serviceType: { type: String, enum: SERVICE_TYPES, default: "pppoe" },
+    profileStatus: { type: String, enum: PROFILE_STATUSES, default: "pending" },
 
-		routerProfile: {
-			type: String,
-			default: "default",
-		},
-		macAddress: {
-			type: String,
-			trim: true,
-		},
-		// ----------------------------
-		// Service
-		// ----------------------------
+    // Provisioning Status
+    routerProvision: {
+        status: { type: String, enum: ["pending", "synced", "failed"], default: "pending" },
+        lastError: { type: String, default: null },
+        lastAttemptAt: { type: Date }
+    },
 
-		serviceType: {
-			type: String,
-			enum: SERVICE_TYPES,
-			default: "pppoe"
-		},
+    // Monitoring
+    limitUptime: { type: String, default: "0" },
 
-		profileStatus: {
-			type: String,
-			enum: PROFILE_STATUSES,
-			default: "pending",
-		},
+}, { timestamps: true });
 
-		// ----------------------------
-		// Monitoring
-		// ----------------------------
-		limitUptime: {
-            type: String, // format "2h", "30m", or seconds
-            default: "0"
-        },
-
-		lastSeenAt: {
-			type: Date,
-		},
-
-		mikrotikUserCreated: {
-			type: Boolean,
-			default: false
-		}
-	},
-	{
-		timestamps: true
-	}
-);
-
-
-
-// ----------------------------
-// Performance Indexes
-// ----------------------------
-
-// find all accounts of a user
+// Indexes
 accountSchema.index({ userId: 1 });
-
-// multi-router support
 accountSchema.index({ routerId: 1 });
-
-// router profile filtering
 accountSchema.index({ routerProfile: 1 });
-
-// profile status filtering
 accountSchema.index({ profileStatus: 1 });
-
-// active sessions dashboard
-accountSchema.index({ lastSeenAt: -1 });
-
-
-
-// ----------------------------
-// Hide Sensitive Fieldsa
-// ----------------------------
-
-
+accountSchema.index({ "routerStatus.lastSeenAt": -1 });
 
 export default mongoose.model("Account", accountSchema);

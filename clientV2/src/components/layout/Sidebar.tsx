@@ -87,7 +87,7 @@ const Sidebar = ({
 
 						return (
 							<Link
-								key={item.href}
+								key={`${item.label}-${item.href}`}
 								href={item.href}
 								onClick={() => setMobileOpen?.(false)}
 								className={cn(

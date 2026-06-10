@@ -1,106 +1,155 @@
-import { NotificationMapper } from "../mapper/notification.mapper.js";
-import NotificationModel from "../database/mongoose/notification.model.js";
+// repositories/notification.repository.js
+
+import NotificationModel from "../models/notification.model.js";
+import { NotificationMapper } from "../mappers/notification.mapper.js";
 
 export class NotificationRepository {
-    /**
-     * Create a new notification (single user or broadcast)
-     * @param {Notification} entity 
-     * @returns {Promise<Notification>}
-     */
-    async create(entity) {
-        return NotificationMapper.save(entity);
+
+    // ================= CREATE =================
+
+    async create(notificationEntity) {
+
+        const persistence = NotificationMapper.toPersistence(notificationEntity);
+
+        const created = await NotificationModel.create(persistence);
+
+        return NotificationMapper.toDomain(created);
     }
 
-    /**
-     * Find notification by ID
-     * @param {string} id 
-     * @returns {Promise<Notification|null>}
-     */
+
+    // ================= FIND =================
+
     async findById(id) {
-        const doc = await NotificationModel.findById(id);
-        return NotificationMapper.toEntity(doc);
+
+        const notification = await NotificationModel.findById(id);
+
+        return NotificationMapper.toDomain(notification);
     }
 
-    /**
-     * Get notifications for a user
-     * @param {string} userId 
-     * @param {Object} options 
-     * @param {string} [options.status] - unread, read, sent, failed
-     * @param {string} [options.type] - notification type
-     * @param {number} [options.limit] 
-     * @param {number} [options.skip] 
-     * @returns {Promise<Notification[]>}
-     */
-    async getByUser(userId, { status, type, limit = 50, skip = 0 } = {}) {
+
+    async findAll({
+        type,
+        state,
+        channel,
+        createdByAdminId,
+        startDate,
+        endDate,
+        page = 1,
+        limit = 20,
+        sort = { createdAt: -1 }
+    }) {
+
         const query = {
-            $or: [
-                { userId },
-                { targetUsers: userId } // for broadcast notifications
-            ]
+            isArchived: false
         };
 
-        if (status) query.status = status;
         if (type) query.type = type;
+        if (state) query.state = state;
+        if (channel) query.channel = channel;
+        if (createdByAdminId) query.createdByAdminId = createdByAdminId;
 
-        const docs = await NotificationModel.find(query)
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(limit);
+        if (startDate || endDate) {
 
-        return docs.map(NotificationMapper.toEntity);
+            query.createdAt = {};
+
+            if (startDate) query.createdAt.$gte = startDate;
+            if (endDate) query.createdAt.$lte = endDate;
+        }
+
+        const skip = (page - 1) * limit;
+
+        const [data, total] = await Promise.all([
+
+            NotificationModel.find(query)
+                .sort(sort)
+                .skip(skip)
+                .limit(limit),
+
+            NotificationModel.countDocuments(query)
+        ]);
+
+        return {
+            data: data.map(NotificationMapper.toDomain),
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit)
+        };
     }
 
-    /**
-     * Mark a notification as read
-     * @param {string} id 
-     * @returns {Promise<Notification|null>}
-     */
-    async markAsRead(id) {
-        const doc = await NotificationModel.findByIdAndUpdate(
+
+    // ================= UPDATE =================
+
+    async update(id, notificationEntity) {
+
+        const persistence = NotificationMapper.toPersistence(notificationEntity);
+
+        const updated = await NotificationModel.findByIdAndUpdate(
             id,
-            { status: "read" },
+            persistence,
             { new: true }
         );
-        return NotificationMapper.toEntity(doc);
+
+        return NotificationMapper.toDomain(updated);
     }
 
-    /**
-     * Mark all notifications for a user as read
-     * @param {string} userId 
-     * @returns {Promise<number>} - number of notifications updated
-     */
-    async markAllAsRead(userId) {
-        const result = await NotificationModel.updateMany(
-            { 
-                $or: [
-                    { userId },
-                    { targetUsers: userId }
-                ],
-                status: "unread"
-            },
-            { status: "read" }
+
+    async updateState(id, state) {
+
+        const updated = await NotificationModel.findByIdAndUpdate(
+            id,
+            { state },
+            { new: true }
         );
-        return result.modifiedCount;
+
+        return NotificationMapper.toDomain(updated);
     }
 
-    /**
-     * Update notification (status, metadata, etc.)
-     * @param {Notification} entity 
-     * @returns {Promise<Notification|null>}
-     */
-    async update(entity) {
-        return NotificationMapper.update(entity);
+
+    // ================= ARCHIVE =================
+
+    async archive(id) {
+
+        const updated = await NotificationModel.findByIdAndUpdate(
+            id,
+            { isArchived: true },
+            { new: true }
+        );
+
+        return NotificationMapper.toDomain(updated);
     }
 
-    /**
-     * Find notifications by filter
-     * @param {Object} filter - MongoDB filter object
-     * @param {Object} options - {limit, skip, sort}
-     * @returns {Promise<Notification[]>}
-     */
-    async find(filter = {}, options = {}) {
-        const { limit = 50, skip = 0, sort = { createdAt: -1 } } = options;
-        const docs = await NotificationModel.find(filter).sort(sort).skip(skip).limit(limit);
-        return docs.map(NotificationMapper.toEntity);
+
+    // ================= DELETE =================
+
+    async delete(id) {
+        await NotificationModel.findByIdAndDelete(id);
+    }
+
+
+    // ================= ANALYTICS =================
+
+    async countByState() {
+
+        return NotificationModel.aggregate([
+            {
+                $group: {
+                    _id: "$state",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+    }
+
+    async countByType() {
+
+        return NotificationModel.aggregate([
+            {
+                $group: {
+                    _id: "$type",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
     }
 }

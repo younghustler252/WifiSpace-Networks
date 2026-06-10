@@ -65,15 +65,17 @@ export class SubscriptionRepositoryMongo extends SubscriptionRepository {
         return docs.map(SubscriptionMapper.toDomain);
     }
 
-    async update(id, updateData) {
+    async update(id, subscription) {
+        const data = SubscriptionMapper.toPersistence(subscription);
+
         const doc = await SubscriptionModel.findByIdAndUpdate(
             id,
-            updateData,
-            { returnDocument: 'after' }
+            data,
+            { new: true }
         );
+
         return doc ? SubscriptionMapper.toDomain(doc) : null;
     }
-
     async updateStatus(id, status) {
         const doc = await SubscriptionModel.findByIdAndUpdate(
             id,
@@ -123,5 +125,117 @@ export class SubscriptionRepositoryMongo extends SubscriptionRepository {
             status: { $in: ["active", "suspended"] }
         });
         return docs.map(SubscriptionMapper.toDomain).filter(sub => sub.hasAccess());
+    }
+    async getDashboardStats() {
+        const [stats] = await SubscriptionModel.aggregate([
+            {
+                $group: {
+                    _id: null,
+
+                    total: {
+                        $sum: 1
+                    },
+
+                    active: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "active"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    pending: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "pending"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    suspended: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "suspended"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    expired: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "expired"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    canceled: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$status", "canceled"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    autoRenewEnabled: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$autoRenewEnabled", true] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    mikrotikSynced: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$mikrotikStatus", "synced"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    mikrotikFailed: {
+                        $sum: {
+                            $cond: [
+                                { $eq: ["$mikrotikStatus", "failed"] },
+                                1,
+                                0
+                            ]
+                        }
+                    },
+
+                    totalRevenue: {
+                        $sum: "$totalAmount"
+                    }
+                }
+            }
+        ]);
+
+        return (
+            stats || {
+                total: 0,
+                active: 0,
+                pending: 0,
+                suspended: 0,
+                expired: 0,
+                canceled: 0,
+                autoRenewEnabled: 0,
+                mikrotikSynced: 0,
+                mikrotikFailed: 0,
+                totalRevenue: 0
+            }
+        );
     }
 }

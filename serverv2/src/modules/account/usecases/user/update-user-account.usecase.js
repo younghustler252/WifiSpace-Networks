@@ -1,11 +1,10 @@
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
-import {PERMISSION} from "../../../../shared/constants/permissions.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class UpdateUserAccount {
 
-	constructor(accountRepository, permissionService, auditService) {
+	constructor({accountRepository, permissionService, auditService}) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;

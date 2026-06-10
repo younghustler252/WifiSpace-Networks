@@ -12,8 +12,8 @@ import Button from "@/components/ui/Button";
 import Avatar from "@/components/ui/Avatar";
 
 import Modal, { ModalHeader, ModalBody } from "@/components/ui/Modal";
-import UserForm from "@/components/forms/UserForm";
-import UserDrawer from "@/components/user/UserDrawer";
+import UserForm from "@/features/user/UserForm";
+import UserDrawer from "@/features/user/UserDrawer";
 
 import Dropdown, {
 	DropdownItem,

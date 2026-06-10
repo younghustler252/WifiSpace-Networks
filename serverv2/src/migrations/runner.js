@@ -6,7 +6,7 @@ import { up as migration001 } from "./plan-service-type.js";
 dotenv.config({
 	path: ".env.development",
 });
-
+z
 const MONGO_URI = process.env.MONGO_URI;
 
 async function run() {

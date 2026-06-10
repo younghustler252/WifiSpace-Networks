@@ -38,7 +38,7 @@ export default function Home() {
 				router.replace("/staff/dashboard");
 				break;
 			default:
-				router.replace("/user/dashboard");
+				router.replace("/customer/dashboard");
 		}
 	}, [loading, isAuthenticated, user, router]);
 

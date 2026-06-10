@@ -2,7 +2,7 @@ import { UnauthorizedError } from "../../../shared/errors/unauthorized-error.js"
 import { ForbiddenError } from "../../../shared/errors/forbidden-error.js";
 
 export class LoginUser {
-	constructor(userRepository, passwordService, tokenService, auditService) {
+	constructor({userRepository, passwordService, tokenService, auditService}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.tokenService = tokenService;

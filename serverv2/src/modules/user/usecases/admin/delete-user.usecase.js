@@ -4,7 +4,7 @@ import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class DeleteUser {
-	constructor(userRepository, permissionService, auditService) {
+	constructor({userRepository, permissionService, auditService}) {
 		this.userRepository = userRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;

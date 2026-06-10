@@ -1,70 +1,135 @@
-import { Notification } from "../../domain/notification.entity.js";
-import { NOTIFICATION_STATUS } from "../../domain/notification.enum.js";
+
+import { Notification } from "../../domain/entities/notification.entity.js";
+
+import { NotificationRecipient } from "../../domain/entities/notificationRecipient.entity.js";
+
+import {
+    NOTIFICATION_STATE,
+    NOTIFICATION_RECIPIENT_STATUS,
+    NOTIFICATION_PRIORITY
+} from "../../../domain/notification.enum.js";
+
 
 export class CreateNotificationUseCase {
-    /**
-     * @param {Object} deps
-     * @param {NotificationRepository} deps.notificationRepo
-     * @param {NotificationSender} deps.notificationSender
-     */
-    constructor({ notificationRepo, notificationSender }) {
-        this.notificationRepo = notificationRepo;
-        this.notificationSender = notificationSender;
+
+    constructor({
+        notificationRepository,
+        notificationRecipientRepository
+    }) {
+
+        this.notificationRepository = notificationRepository;
+
+        this.notificationRecipientRepository = notificationRecipientRepository;
     }
 
+
     /**
-     * Create and optionally send a notification
-     * @param {Object} params
-     * @param {string} [params.userId] - single target
-     * @param {string[]} [params.targetUsers] - broadcast target
-     * @param {string} [params.createdByAdminId] - if admin created
-     * @param {string} params.type
-     * @param {string} params.title
-     * @param {string} params.message
-     * @param {string} params.channel
-     * @param {Object} [params.metadata]
-     * @param {boolean} [params.sendImmediately]
-     * @returns {Promise<Notification[]>}
+     * @param {Object} payload
      */
+
     async execute({
-        userId = null,
-        targetUsers = [],
+
+        accountId = null,
+
+        subscriptionId = null,
+
         createdByAdminId = null,
+
         type,
+
         title,
+
         message,
+
         channel,
+
         metadata = {},
-        sendImmediately = true
+
+        recipients = [],
+
+        priority = NOTIFICATION_PRIORITY.NORMAL
+
     }) {
-        const notifications = [];
 
-        // Determine recipients
-        const recipients = targetUsers.length > 0 ? targetUsers : [userId];
+        // ================= VALIDATIONS =================
 
-        for (const recipient of recipients) {
-            const notification = new Notification({
-                userId: recipient,
-                targetUsers: targetUsers.length > 0 ? targetUsers : [],
-                createdByAdminId,
-                type,
-                title,
-                message,
-                channel,
-                metadata,
-                status: NOTIFICATION_STATUS.UNREAD
-            });
-
-            // Save to DB
-            const savedNotification = await this.notificationRepo.create(notification);
-            notifications.push(savedNotification);
-
-            // Send if requested
-            if (sendImmediately) {
-                await this.notificationSender.send(savedNotification);
-            }
+        if (!Array.isArray(recipients) || recipients.length === 0) {
+            throw new Error("Recipients are required");
         }
 
-        return notifications;
+
+        // ================= CREATE NOTIFICATION ENTITY =================
+
+        const notificationEntity = new Notification({
+
+            accountId,
+
+            subscriptionId,
+
+            createdByAdminId,
+
+            type,
+
+            title,
+
+            message,
+
+            channel,
+
+            metadata,
+
+            state: NOTIFICATION_STATE.QUEUED
+        });
+
+
+        // ================= SAVE NOTIFICATION =================
+
+        const createdNotification =
+            await this.notificationRepository.create(
+                notificationEntity
+            );
+
+
+        // ================= CREATE RECIPIENT ENTITIES =================
+
+        const recipientEntities = recipients.map(userId => {
+
+            const recipient = new NotificationRecipient({
+
+                notificationId: createdNotification.id,
+
+                userId,
+
+                channel,
+
+                priority,
+
+                status: NOTIFICATION_RECIPIENT_STATUS.PENDING,
+
+                metadata
+            });
+
+            recipient.queue();
+
+            return recipient;
+        });
+
+
+        // ================= SAVE RECIPIENTS =================
+
+        const createdRecipients =
+            await this.notificationRecipientRepository.createMany(
+                recipientEntities
+            );
+
+
+        // ================= RETURN =================
+
+        return {
+
+            notification: createdNotification,
+
+            recipients: createdRecipients
+        };
     }
 }

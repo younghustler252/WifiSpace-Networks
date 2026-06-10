@@ -2,7 +2,7 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class SuspendNetworkAccount {
-    constructor(accountRepository, routerRepository, mikrotikService, auditService) {
+    constructor({ accountRepository, routerRepository, mikrotikService, auditService }) {
         this.accountRepository = accountRepository;
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService;
@@ -10,62 +10,86 @@ export class SuspendNetworkAccount {
     }
 
     async execute(accountId, reason = "Subscription Expired", context = {}) {
-        // 1. Fetch and validate the network account profile
+
+        // 1. Fetch account
         const account = await this.accountRepository.findById(accountId);
         if (!account) throw new ValidationError("Network account not found");
 
-        // If it's already suspended, no need to waste router API cycles
+        // 2. Idempotency check
         if (account.profileStatus === "suspended") {
-            return { success: true, message: "Account is already marked as suspended" };
+            return { success: true, message: "Account already suspended" };
         }
 
-        // 2. Fetch the target hardware router configuration
-        if (!account.routerId) throw new ValidationError("Account does not have an assigned router");
+        // 3. Fetch router
+        if (!account.routerId) {
+            throw new ValidationError("Account does not have an assigned router");
+        }
+
         const router = await this.routerRepository.findById(account.routerId);
-        if (!router) throw new ValidationError("Assigned hardware router could not be found");
-        
+        if (!router) throw new ValidationError("Router not found");
+
         if (!router.apiEnabled || !router.isEnabled) {
-            throw new ValidationError("Target router API interface is currently offline or disabled");
+            throw new ValidationError("Router is currently unavailable for provisioning");
         }
 
         try {
-            // 3. Disable the user configuration on the MikroTik router
+            // 4. Suspend user on MikroTik
             await this.mikrotikService.suspendAccount(account, router);
 
-            // 4. Force-disconnect the user's active session to kick them offline instantly
-            await this.mikrotikService.disconnectAccount(account, router);
+            // 5. Force disconnect active session (if supported)
+            try {
+                await this.mikrotikService.disconnectAccount(account, router);
+            } catch (_) {
+                // optional: ignore if router does not support force disconnect
+            }
 
-            // 5. Update state tracking flags inside your database
+            // 6. Update account state
             account.profileStatus = "suspended";
             account.suspensionReason = reason;
-            await this.accountRepository.update(account.id, account);
 
-            // 6. Decrement the router's active session counter safely
-            await this.routerRepository.decrementSessions(router.id);
+            account.routerProvision = account.routerProvision || {};
+            account.routerProvision.status = "synced";
+            account.routerProvision.lastAttemptAt = new Date();
+            account.routerProvision.lastError = null;
 
-            // 7. Log to the internal system audit trail
-            await this.auditService.log({
-                actorId: context.actorId || "SYSTEM_BILLING_ENGINE",
-                action: "MIKROTIK_SUSPENSION_SUCCESS",
-                targetId: account.id,
-                resource: "Account",
-                metadata: { 
-                    wsnId: account.wsnId, 
-                    routerCode: router.code,
-                    reason 
-                }
-            });
+            const updatedAccount = await this.accountRepository.update(account.id, account);
 
-            return { 
-                success: true, 
-                message: `Account ${account.wsnId} successfully suspended on network layer.` 
+            // 7. Session count adjustment (safe fallback)
+            if (router.currentSessions > 0) {
+                await this.routerRepository.decrementSessions(router.id);
+            }
+
+            // 8. Audit log
+            if (this.auditService) {
+                await this.auditService.log({
+                    actorId: context.actorId || "SYSTEM_BILLING_ENGINE",
+                    action: "NETWORK_ACCOUNT_SUSPENDED",
+                    targetId: updatedAccount.id,
+                    resource: "Account",
+                    metadata: {
+                        wsnId: updatedAccount.wsnId,
+                        routerCode: router.code,
+                        reason
+                    }
+                });
+            }
+
+            return {
+                success: true,
+                message: `Account ${updatedAccount.wsnId} successfully suspended`,
+                data: updatedAccount
             };
 
         } catch (error) {
-            // Update live operational error metrics on your updated router schema
-            await this.routerRepository.updateStatus(router.id, "online", error.message);
-            
-            throw new Error(`Network suspension execution failure: ${error.message}`);
+            // 9. Failure state tracking
+            account.routerProvision = account.routerProvision || {};
+            account.routerProvision.status = "failed";
+            account.routerProvision.lastError = error.message;
+            account.routerProvision.lastAttemptAt = new Date();
+
+            await this.accountRepository.update(account.id, account);
+
+            throw new Error(`Network suspension failed: ${error.message}`);
         }
     }
 }

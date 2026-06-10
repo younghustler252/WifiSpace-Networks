@@ -1,125 +1,122 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
-import { AppError } from "../../../../shared/errors/app-error.js";
 
 export class ConfirmPaymentUseCase {
+
 	constructor({
 		paymentRepository,
 		paystackPaymentService,
-		createSubscriptionUseCase,
-		renewSubscriptionUseCase,
-		upgradeSubscriptionUseCase
+		paymentProcessorResolver
 	}) {
-		this.paymentRepository = paymentRepository;
-		this.paystackPaymentService = paystackPaymentService;
-		this.createSubscriptionUseCase = createSubscriptionUseCase;
-		this.renewSubscriptionUseCase = renewSubscriptionUseCase;
-		this.upgradeSubscriptionUseCase = upgradeSubscriptionUseCase;
+
+		this.paymentRepository =
+			paymentRepository;
+
+		this.paystackPaymentService =
+			paystackPaymentService;
+
+		this.paymentProcessorResolver =
+			paymentProcessorResolver;
 	}
 
-	// ==============================
-	// CONFIRM PAYMENT
-	// ==============================
 	async execute({ reference }) {
+
+		// -----------------------------
+		// VALIDATION
+		// -----------------------------
 		if (!reference) {
-			throw new ValidationError("Payment reference is required");
+
+			throw new ValidationError(
+				"Payment reference is required"
+			);
 		}
 
 		// -----------------------------
 		// FETCH PAYMENT
 		// -----------------------------
-		const payment = await this.paymentRepository.findByGatewayReference(reference);
+		const existingPayment =
+			await this.paymentRepository
+				.findByGatewayReference(reference);
 
-		if (!payment) {
-			throw new NotFoundError("Payment not found");
+		if (!existingPayment) {
+
+			throw new NotFoundError(
+				"Payment not found"
+			);
 		}
 
 		// -----------------------------
-		// IDEMPOTENCY
+		// VERIFY PAYMENT WITH GATEWAY
 		// -----------------------------
-		if (payment.isSuccessful()) {
-			return { payment, alreadyProcessed: true };
+		const {
+			payment,
+			gatewayResponse,
+			alreadyProcessed
+		} =
+			await this.paystackPaymentService
+				.verifyPayment(reference);
+
+		// -----------------------------
+		// IDEMPOTENCY GUARD
+		// -----------------------------
+		if (alreadyProcessed) {
+
+			return {
+				payment,
+				gatewayResponse,
+				alreadyProcessed: true
+			};
 		}
 
 		// -----------------------------
-		// VERIFY WITH PAYSTACK
+		// ONLY PROCESS SUCCESSFUL
 		// -----------------------------
-		const result = await this.paystackPaymentService.paystackGateway.verifyTransaction(reference);
-		const paidAmount = result.raw.amount / 100;
+		if (!payment.isSuccessful()) {
 
-		// -----------------------------
-		// AMOUNT VALIDATION
-		// -----------------------------
-		if (result.status === "successful" && paidAmount !== payment.amount.total) {
-			throw new AppError("Amount mismatch", 400);
+			return {
+				payment,
+				gatewayResponse,
+				alreadyProcessed: false
+			};
 		}
 
 		// -----------------------------
-		// SAVE REAL PAYMENT CHANNEL
+		// BUSINESS ALREADY PROCESSED
 		// -----------------------------
-		payment.paymentChannel = result.raw.channel || null;
+		if (payment.businessProcessed) {
 
-		// -----------------------------
-		// AUTO-RENEW SUPPORT
-		// -----------------------------
-		const authorization = result.raw.authorization;
-		if (authorization?.reusable) {
-			payment.autoRenewEnabled = true;
-			payment.authorizationReusable = true;
-			payment.authorizationCode = authorization.authorization_code;
+			return {
+				payment,
+				gatewayResponse,
+				alreadyProcessed: true
+			};
 		}
 
 		// -----------------------------
-		// UPDATE PAYMENT STATUS
+		// PROCESS BUSINESS LOGIC
 		// -----------------------------
-		if (result.status === "successful") {
-			payment.markSuccessful();
-		} else if (result.status === "failed") {
-			payment.markFailed("Gateway verification failed");
-		} else {
-			// keep pending
-			payment.status = "pending";
-		}
+		const serviceType =
+			payment.metadata?.serviceType ?? "default";
 
+		const processor =
+			this.paymentProcessorResolver.resolve(
+				serviceType
+			);
+		await processor.process(payment);
 		// -----------------------------
-		// PROCESS SUBSCRIPTION BASED ON ACTION
+		// REFETCH UPDATED PAYMENT
 		// -----------------------------
-		switch (payment.actionType) {
-			case "new_subscription":
-				await this.createSubscriptionUseCase.execute({
-					accountId: payment.accountId,
-					userId: payment.userId,
-					planId: payment.planId,
-					paymentId: payment.id,
-					cycles: payment.cycles
-				});
-				break;
-
-			case "renewal":
-				await this.renewSubscriptionUseCase.execute({
-					accountId: payment.accountId,
-					paymentId: payment.id,
-					cycles: payment.cycles
-				});
-				break;
-
-			case "upgrade":
-				await this.upgradeSubscriptionUseCase.execute({
-					accountId: payment.accountId,
-					newPlanId: payment.planId, // assume planId is the new plan
-					paymentId: payment.id
-				});
-				break;
-
-			default:
-				throw new AppError(`Unsupported payment action: ${payment.actionType}`);
-		}
+		const updatedPayment =
+			await this.paymentRepository
+				.findById(payment.id);
 
 		// -----------------------------
-		// SAVE PAYMENT
+		// RESPONSE
 		// -----------------------------
-		const updatedPayment = await this.paymentRepository.update(payment);
-
-		return { payment: updatedPayment, alreadyProcessed: false, gatewayResponse: result };
+		return {
+			payment: updatedPayment,
+			gatewayResponse,
+			alreadyProcessed: false
+		};
 	}
 }

@@ -3,12 +3,12 @@ import { RouterEntity } from "./router.entity.js";
 export class RouterMapper {
 	/**
 	 * Convert mongoose document -> entity
-	 * 
 	 */
 	static toEntities(docs) {
-    if (!docs || !docs.length) return [];
-    return docs.map(doc => this.toEntity(doc));
-  }
+		if (!docs || !docs.length) return [];
+		return docs.map((doc) => this.toEntity(doc));
+	}
+
 	static toEntity(doc) {
 		if (!doc) return null;
 
@@ -20,13 +20,15 @@ export class RouterMapper {
 
 			host: doc.host,
 			port: doc.port,
+			routerUid: doc.routerUid,
 
 			username: doc.username,
 			password: doc.password,
 
 			ssl: doc.ssl,
 
-			routerType: doc.routerType,
+			// ✅ FIX: use schema field
+			supportedServices: doc.supportedServices || [],
 
 			location: doc.location,
 			popName: doc.popName,
@@ -34,29 +36,20 @@ export class RouterMapper {
 			status: doc.status,
 
 			isEnabled: doc.isEnabled,
+			apiEnabled: doc.apiEnabled,
 
 			lastSeenAt: doc.lastSeenAt,
-			lastProvisionSyncAt:
-				doc.lastProvisionSyncAt,
+			lastProvisionSyncAt: doc.lastProvisionSyncAt,
 
 			maxSessions: doc.maxSessions,
-			currentSessions:
-				doc.currentSessions,
+			currentSessions: doc.currentSessions,
 
-			routerOsVersion:
-				doc.routerOsVersion,
-
+			routerOsVersion: doc.routerOsVersion,
 			routerBoard: doc.routerBoard,
-
-			systemIdentity:
-				doc.systemIdentity,
+			systemIdentity: doc.systemIdentity,
 
 			priority: doc.priority,
-
-			isDefaultRouter:
-				doc.isDefaultRouter,
-
-			apiEnabled: doc.apiEnabled,
+			isDefaultRouter: doc.isDefaultRouter,
 
 			lastError: doc.lastError,
 
@@ -66,7 +59,7 @@ export class RouterMapper {
 	}
 
 	/**
-	 * Convert entity -> persistence object
+	 * Convert entity -> persistence object (MongoDB)
 	 */
 	static toPersistence(entity) {
 		return {
@@ -75,13 +68,15 @@ export class RouterMapper {
 
 			host: entity.host,
 			port: entity.port,
+			routerUid: entity.routerUid,
 
 			username: entity.username,
 			password: entity.password,
 
 			ssl: entity.ssl,
 
-			routerType: entity.routerType,
+			// ✅ FIX: persist array instead of routerType
+			supportedServices: entity.supportedServices,
 
 			location: entity.location,
 			popName: entity.popName,
@@ -89,34 +84,20 @@ export class RouterMapper {
 			status: entity.status,
 
 			isEnabled: entity.isEnabled,
+			apiEnabled: entity.apiEnabled,
 
 			lastSeenAt: entity.lastSeenAt,
+			lastProvisionSyncAt: entity.lastProvisionSyncAt,
 
-			lastProvisionSyncAt:
-				entity.lastProvisionSyncAt,
+			maxSessions: entity.maxSessions,
+			currentSessions: entity.currentSessions,
 
-			maxSessions:
-				entity.maxSessions,
-
-			currentSessions:
-				entity.currentSessions,
-
-			routerOsVersion:
-				entity.routerOsVersion,
-
-			routerBoard:
-				entity.routerBoard,
-
-			systemIdentity:
-				entity.systemIdentity,
+			routerOsVersion: entity.routerOsVersion,
+			routerBoard: entity.routerBoard,
+			systemIdentity: entity.systemIdentity,
 
 			priority: entity.priority,
-
-			isDefaultRouter:
-				entity.isDefaultRouter,
-
-			apiEnabled:
-				entity.apiEnabled,
+			isDefaultRouter: entity.isDefaultRouter,
 
 			lastError: entity.lastError,
 		};

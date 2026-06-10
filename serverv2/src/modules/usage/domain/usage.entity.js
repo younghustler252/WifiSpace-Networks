@@ -1,117 +1,145 @@
-export class Usage {
+// usage-snapshot.entity.js
 
-	constructor({
-		id,
-		accountId,
-		subscriptionId = null,
-		routerId,
-		username,
-		sessionId,
-		type,
-		ipAddress,
-		macAddress = null,
-		interfaceName = null,
+export class UsageSnapshot {
+    constructor({
+        id,
 
-		bytesIn = 0,
-		bytesOut = 0,
+        accountId,
+        routerId,
 
-		lastBytesIn = 0,
-		lastBytesOut = 0,
+        wsnId,
 
-		sessionTime = 0,
+        online = false,
 
-		startedAt,
-		endedAt = null
-	}) {
+        ipAddress = null,
+        macAddress = null,
 
-		if (!accountId) throw new Error("accountId required");
-		if (!routerId) throw new Error("routerId required");
-		if (!username) throw new Error("username required");
-		if (!sessionId) throw new Error("sessionId required");
-		if (!ipAddress) throw new Error("ipAddress required");
-		if (!startedAt) throw new Error("startedAt required");
-		if (!type) throw new Error("type required");
+        uptime = "0s",
 
-		Object.defineProperty(this, "id", { value: id, writable: false });
+        downloadBytes = 0,
+        uploadBytes = 0,
 
-		this.accountId = accountId;
-		this.subscriptionId = subscriptionId;
+        lastSeenAt = null,
 
-		this.routerId = routerId;
-		this.username = username;
+        createdAt = null,
+        updatedAt = null
+    }) {
 
-		this.sessionId = sessionId;
-		this.type = type;
+        if (!accountId) {
+            throw new Error("Account ID is required");
+        }
 
-		this.ipAddress = ipAddress;
-		this.macAddress = macAddress
-			? macAddress.toLowerCase().replace(/-/g, ":")
-			: null;
+        if (!routerId) {
+            throw new Error("Router ID is required");
+        }
 
-		this.interfaceName = interfaceName;
+        if (!wsnId) {
+            throw new Error("WSN ID is required");
+        }
 
-		this.bytesIn = bytesIn;
-		this.bytesOut = bytesOut;
+        this.id = id;
 
-		this.lastBytesIn = lastBytesIn;
-		this.lastBytesOut = lastBytesOut;
+        this.accountId = accountId;
+        this.routerId = routerId;
 
-		this.sessionTime = sessionTime;
+        this.wsnId = wsnId;
 
-		this.startedAt = new Date(startedAt);
-		this.endedAt = endedAt ? new Date(endedAt) : null;
-	}
+        this.online = online;
 
-	updateUsageFromRouter({ bytesIn, bytesOut, sessionTime }) {
+        this.ipAddress = ipAddress;
+        this.macAddress = macAddress;
 
-		if (bytesIn < this.lastBytesIn || bytesOut < this.lastBytesOut)
-			throw new Error("Router counters cannot decrease");
+        this.uptime = uptime;
 
-		const deltaIn = bytesIn - this.lastBytesIn;
-		const deltaOut = bytesOut - this.lastBytesOut;
+        this.downloadBytes = downloadBytes;
+        this.uploadBytes = uploadBytes;
 
-		this.bytesIn += deltaIn;
-		this.bytesOut += deltaOut;
+        this.lastSeenAt = lastSeenAt;
 
-		this.lastBytesIn = bytesIn;
-		this.lastBytesOut = bytesOut;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+    }
 
-		if (sessionTime !== undefined)
-			this.sessionTime = sessionTime;
+    // ============================================
+    // State
+    // ============================================
 
-		return {
-			deltaIn,
-			deltaOut
-		};
-	}
+    markOnline({
+        ipAddress = null,
+        macAddress = null,
+        uptime = "0s"
+    }) {
+        this.online = true;
 
-	markDisconnected(time = new Date()) {
+        this.ipAddress = ipAddress;
+        this.macAddress = macAddress;
 
-		if (time < this.startedAt)
-			throw new Error("Invalid disconnect time");
+        this.uptime = uptime;
+        this.lastSeenAt = new Date();
+    }
 
-		this.endedAt = new Date(time);
-	}
+    markOffline() {
+        this.online = false;
+        this.lastSeenAt = new Date();
+    }
 
-	isActive() {
-		return !this.endedAt;
-	}
+    // ============================================
+    // Traffic
+    // ============================================
 
-	getStatus() {
-		return this.isActive() ? "active" : "offline";
-	}
+    updateTraffic({
+        downloadBytes = 0,
+        uploadBytes = 0
+    }) {
+        this.downloadBytes = downloadBytes;
+        this.uploadBytes = uploadBytes;
+    }
 
-	getTotalData() {
-		return this.bytesIn + this.bytesOut;
-	}
+    // ============================================
+    // Helpers
+    // ============================================
 
-	getDuration() {
+    getTotalBytes() {
+        return this.downloadBytes + this.uploadBytes;
+    }
 
-		if (this.endedAt)
-			return (this.endedAt - this.startedAt) / 1000;
+    hasTraffic() {
+        return this.getTotalBytes() > 0;
+    }
 
-		return Math.floor(
-			(Date.now() - this.startedAt.getTime()) / 1000
-		);
-	}
+    isOnline() {
+        return this.online;
+    }
+
+    // ============================================
+    // Serialization
+    // ============================================
+
+    toJSON() {
+        return {
+            id: this.id,
+
+            accountId: this.accountId,
+            routerId: this.routerId,
+
+            wsnId: this.wsnId,
+
+            online: this.online,
+
+            ipAddress: this.ipAddress,
+            macAddress: this.macAddress,
+
+            uptime: this.uptime,
+
+            downloadBytes: this.downloadBytes,
+            uploadBytes: this.uploadBytes,
+
+            totalBytes: this.getTotalBytes(),
+
+            lastSeenAt: this.lastSeenAt,
+
+            createdAt: this.createdAt,
+            updatedAt: this.updatedAt
+        };
+    }
 }

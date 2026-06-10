@@ -5,12 +5,12 @@ import { ApiResponse } from "./types";
 // REQUEST TYPES
 // ================================
 
-interface CreatePlanDto {
+export interface CreatePlanDto {
 	name: string;
 
 	serviceType: "pppoe" | "hotspot";
 
-	accountType?: "personal" | "business" | null;
+	accountType: "personal" | "business" | null;
 
 	price: number;
 
@@ -19,8 +19,6 @@ interface CreatePlanDto {
 	durationValue: number;
 
 	durationUnit: "minutes" | "hours" | "days" | "months";
-
-	dataLimitBytes?: number;
 
 	devicesAllowed?: number;
 
@@ -29,9 +27,10 @@ interface CreatePlanDto {
 	mikrotikProfile: string;
 }
 
-interface UpdatePlanDto extends Partial<CreatePlanDto> {}
+export interface UpdatePlanDto extends Partial<CreatePlanDto> {}
+
 // ================================
-// RESPONSE TYPES (optional but recommended)
+// RESPONSE TYPES
 // ================================
 
 export interface Plan {
@@ -40,7 +39,7 @@ export interface Plan {
 
 	serviceType: "pppoe" | "hotspot";
 
-	accountType?: "personal" | "business" | null;
+	accountType: "personal" | "business" | null;
 
 	price: number;
 	speedRate: string;
@@ -49,11 +48,12 @@ export interface Plan {
 	durationUnit: "minutes" | "hours" | "days" | "months";
 
 	devicesAllowed: number;
+
 	features: string[];
 
 	mikrotikProfile: string;
 
-	status: string;
+	status: "active" | "inactive";
 
 	createdAt: string;
 	updatedAt: string;
@@ -61,6 +61,7 @@ export interface Plan {
 
 export interface PlanListData {
 	data: Plan[];
+
 	pagination: {
 		total: number;
 		page: number;
@@ -68,40 +69,33 @@ export interface PlanListData {
 		totalPages: number;
 	};
 }
+
 // ================================
 // PLAN API
 // ================================
 
 export const planApi = {
 	// -----------------------------
-	// AUTHENTICATED USERS
+	// PUBLIC / AUTH USERS
 	// -----------------------------
 
-	getAll: (
-		params?: {
-			serviceType?: "pppoe" | "hotspot";
-
-			accountType?: "personal" | "business";
-
-			sort?: string;
-
-			page?: number;
-
-			limit?: number;
-		}
-	): Promise<ApiResponse<PlanListData>> =>
+	getAll: (params?: {
+		serviceType?: "pppoe" | "hotspot";
+		accountType?: "personal" | "business";
+		sort?: string;
+		page?: number;
+		limit?: number;
+	}): Promise<ApiResponse<PlanListData>> =>
 		API.get("/plans", { params }),
 
 	getById: (id: string): Promise<ApiResponse<Plan>> =>
 		API.get(`/plans/${id}`),
 
 	// -----------------------------
-	// STAFF / SUPERADMIN
+	// ADMIN / STAFF
 	// -----------------------------
 
-	create: (
-		data: CreatePlanDto
-	): Promise<ApiResponse<Plan>> =>
+	create: (data: CreatePlanDto): Promise<ApiResponse<Plan>> =>
 		API.post("/plans/create", data),
 
 	update: (

@@ -1,56 +1,140 @@
 // subscription/presentation/controllers/subscription.controller.js
-import { successResponse } from "../../../../shared/utils/api-response.js";
+
+import { successResponse }
+	from "../../../../shared/utils/api-response.js";
 
 export class SubscriptionController {
-	constructor(usecases) {
-		this.usecases = usecases;
+
+	constructor({
+
+		createSubscription,
+		renewSubscription,
+		upgradeSubscription,
+
+		getSubscription,
+		getAccountSubscriptions,
+		getCurrentSubscription,
+
+	}) {
+
+		this.createSubscriptionUseCase =
+			createSubscription;
+
+		this.renewSubscriptionUseCase =
+			renewSubscription;
+
+		this.upgradeSubscriptionUseCase =
+			upgradeSubscription;
+
+		this.getSubscriptionUseCase =
+			getSubscription;
+
+		this.getAccountSubscriptionsUseCase =
+			getAccountSubscriptions;
+
+		this.getCurrentSubscriptionUseCase =
+			getCurrentSubscription;
 	}
 
-	// -----------------------------
-	// Account Usecases
-	// -----------------------------
+	// ==================================================
+	// ACCOUNT
+	// ==================================================
+
 	createSubscription = async (req, res) => {
-		const subscription = await this.usecases.createSubscription.execute(req.body);
-		return successResponse({ res, data: subscription, message: "Subscription created" });
+
+		const subscription =
+			await this.createSubscriptionUseCase.execute(req.body);
+
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription created"
+		});
 	};
 
 	renewSubscription = async (req, res) => {
-		const subscription = await this.usecases.renewSubscription.execute(req.params.subscriptionId);
-		return successResponse({ res, data: subscription, message: "Subscription renewed" });
+
+		const { subscriptionId } = req.params;
+
+		const subscription =
+			await this.renewSubscriptionUseCase.execute({
+
+				subscriptionId,
+
+				paymentId: req.body?.paymentId,
+
+				cycles: req.body?.cycles,
+
+				context: {
+					ip: req.ip,
+					userAgent: req.headers["user-agent"],
+					userId: req.user?.id
+				}
+			});
+
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription renewed"
+		});
 	};
 
 	upgradeSubscription = async (req, res) => {
-		const subscription = await this.usecases.upgradeSubscription.execute(
-			req.params.subscriptionId,
-			req.body
-		);
-		return successResponse({ res, data: subscription, message: "Subscription upgraded" });
+
+		const subscription =
+			await this.upgradeSubscriptionUseCase.execute(
+				req.params.subscriptionId,
+				req.body
+			);
+
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription upgraded"
+		});
 	};
 
-	// -----------------------------
-	// Shared Usecases
-	// -----------------------------
+	// ==================================================
+	// SHARED
+	// ==================================================
+
 	getSubscription = async (req, res) => {
-		const subscription = await this.usecases.getSubscription.execute(req.params.subscriptionId);
-		return successResponse({ res, data: subscription });
+
+		const subscription =
+			await this.getSubscriptionUseCase.execute(
+				req.params.subscriptionId
+			);
+
+		return successResponse({
+			res,
+			data: subscription
+		});
 	};
 
 	getAccountSubscriptions = async (req, res) => {
-		const subscriptions = await this.usecases.getAccountSubscriptions.execute(req.params.accountId);
-		return successResponse({ res, data: subscriptions });
+
+		const subscriptions =
+			await this.getAccountSubscriptionsUseCase.execute(
+				req.params.accountId
+			);
+
+		return successResponse({
+			res,
+			data: subscriptions
+		});
 	};
 
 	getCurrentSubscription = async (req, res) => {
+
 		const subscription =
-			await this.usecases.getCurrentSubscription.execute({
-				accountId: req.params.accountId,
+			await this.getCurrentSubscriptionUseCase.execute({
+				accountId: req.params.accountId
 			});
 
-		return successResponse({ res, data: subscription });
+		return successResponse({
+			res,
+			data: subscription
+		});
 	};
 
-	getUserSubscriptions = async (req, res) => {
-		const subscriptions = await this.usecases.getUserSubscriptions.execute(req.params.userId);
-		return successResponse({ res, data: subscriptions });
-	};
 }

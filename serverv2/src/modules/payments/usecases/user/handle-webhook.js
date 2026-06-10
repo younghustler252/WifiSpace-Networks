@@ -1,61 +1,55 @@
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { AppError } from "../../../../shared/errors/app-error.js";
 
 export class HandleWebhookUseCase {
-	constructor({ paystackPaymentService, confirmPaymentUseCase }) {
-		this.paystackPaymentService = paystackPaymentService;
-		this.confirmPaymentUseCase = confirmPaymentUseCase;
+	constructor({
+		paystackPaymentService,
+		confirmPayment
+	}) {
+		this.paystackPaymentService =
+			paystackPaymentService;
+
+		this.confirmPayment = confirmPayment;
 	}
 
-	// ==============================
-	// PROCESS PAYSTACK WEBHOOK
-	// ==============================
 	async execute({ payload, signature }) {
+
 		// -----------------------------
-		// VERIFY WEBHOOK SIGNATURE
+		// VERIFY SIGNATURE
 		// -----------------------------
-		const isValid = this.paystackPaymentService.verifyWebhookSignature(
-			payload,
-			signature
-		);
+		const isValid =
+			this.paystackPaymentService.verifyWebhookSignature(
+				payload,
+				signature
+			);
 
 		if (!isValid) {
-			throw new AppError("Invalid webhook signature", 401);
+			throw new AppError(
+				"Invalid webhook signature",
+				401
+			);
 		}
 
-		const event = payload.event;
-		const reference = payload.data?.reference;
+		// -----------------------------
+		// EXTRACT DATA
+		// -----------------------------
+		const reference =
+			payload.data?.reference;
 
 		if (!reference) {
-			// no reference, nothing to do
 			return null;
 		}
 
 		// -----------------------------
-		// Use ConfirmPaymentUseCase to handle payment logic
+		// DELEGATE TO DOMAIN FLOW
 		// -----------------------------
-		const { payment, alreadyProcessed } = await this.confirmPaymentUseCase.execute({ reference });
-
-		if (alreadyProcessed) {
-			// idempotent: already successful, no further action
-			return payment;
-		}
+		const result =
+			await this.confirmPayment.execute({
+				reference
+			});
 
 		// -----------------------------
-		// OPTIONAL: map webhook event to status
+		// RETURN RESULT
 		// -----------------------------
-		if (event === "charge.success") {
-			payment.markSuccessful();
-		} else if (event === "charge.failed") {
-			payment.markFailed("Charge failed via webhook");
-		} else {
-			// unknown event, just return
-			return payment;
-		}
-
-		// -----------------------------
-		// SAVE PAYMENT STATE
-		// -----------------------------
-		return await this.confirmPaymentUseCase.paymentRepository.update(payment);
+		return result.payment;
 	}
 }

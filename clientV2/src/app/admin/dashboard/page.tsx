@@ -3,92 +3,69 @@
 import { useAuth } from "@/context/AuthContext";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
+import { useAdminDashboard } from "@/features/dahboard/hooks/useDashboard";
 import {
 	Users,
 	Server,
 	CheckCircle,
 	XCircle,
-	Activity,
-	Wifi,
 } from "lucide-react";
 
 export default function AdminDashboardPage() {
+	const { user } = useAuth();
 
-	const { user, activeAccount } = useAuth();
+	const { data: stats } = useAdminDashboard();
 
-	// ================= DUMMY DATA =================
-	const stats = {
-		totalUsers: 1280,
-		totalAccounts: 860,
-		activeSubscriptions: 640,
-		suspendedAccounts: 42,
-		systemOnline: true,
-	};
+	// fallback (important for first render)
+	if (!stats) {
+		return (
+			<div className="p-6">
+				<p className="text-gray-500">Loading dashboard...</p>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6">
 
-			{/* ================= HEADER ================= */}
 			<PageHeader
 				title="Admin Dashboard"
-				subtitle="Monitor users, accounts, subscriptions, and system health"
+				subtitle={`Welcome back, ${user?.firstName || "Admin"}`}
 				actions={
-					<div className="flex items-center gap-2">
-
-						{stats.systemOnline ? (
-							<span className="ui-badge ui-badge-success flex items-center gap-2">
-								
-								<span className="relative flex h-2 w-2">
-									<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-									<span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-								</span>
-
-								System Online
-							</span>
-						) : (
-							<span className="ui-badge ui-badge-danger flex items-center gap-2">
-								<XCircle size={12} />
-								System Offline
-							</span>
-						)}
-
-					</div>
+					<span className="ui-badge ui-badge-success">
+						System Online
+					</span>
 				}
 			/>
 
-			{/* ================= STATS GRID ================= */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
 				<StatCard
 					title="Total Users"
-					value={stats.totalUsers}
+					value={stats.users.total}
 					icon={<Users size={20} />}
 					trend={12}
-					description="Registered platform users"
 				/>
 
 				<StatCard
 					title="Total Accounts"
-					value={stats.totalAccounts}
+					value={stats.accounts.total}
 					icon={<Server size={20} />}
 					trend={5}
-					description="All ISP accounts created"
 				/>
 
 				<StatCard
 					title="Active Subscriptions"
-					value={stats.activeSubscriptions}
+					value={stats.subscriptions.active}
 					icon={<CheckCircle size={20} />}
 					trend={8}
-					description="Currently active plans"
 				/>
 
 				<StatCard
-					title="Suspended Accounts"
-					value={stats.suspendedAccounts}
+					title="Expired Subscriptions"
+					value={stats.subscriptions.expired}
 					icon={<XCircle size={20} />}
-					trend={-3}
-					description="Blocked or inactive accounts"
+					trend={-20}
 				/>
 
 			</div>

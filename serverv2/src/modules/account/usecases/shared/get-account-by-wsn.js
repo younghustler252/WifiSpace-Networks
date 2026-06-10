@@ -1,7 +1,7 @@
 import { PERMISSION } from "../../../../shared/constants/permissions.js";
 
 export class GetAccountByWsnId {
-	constructor(accountRepository, permissionService) {
+	constructor({accountRepository, permissionService}) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 	}

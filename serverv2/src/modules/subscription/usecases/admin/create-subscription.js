@@ -7,13 +7,13 @@ export class AdminCreateSubscriptionUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,
-		adminRecordPaymentUseCase, // <-- injected
-		provisionNetworkAccountUseCase // <-- injected
+		adminRecordPayment, // <-- injected
+		provisionNetworkAccount // <-- injected
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
-		this.adminRecordPaymentUseCase = adminRecordPaymentUseCase;
-		this.provisionNetworkAccountUseCase = provisionNetworkAccountUseCase;
+		this.adminRecordPayment = adminRecordPayment;
+		this.provisionNetworkAccount = provisionNetworkAccount;
 	}
 
 	async execute({
@@ -63,7 +63,7 @@ export class AdminCreateSubscriptionUseCase {
 		// -----------------------------
 		let savedPayment = null;
 		if (paymentAmount) {
-			savedPayment = await this.adminRecordPaymentUseCase.execute({
+			savedPayment = await this.adminRecordPayment.execute({
 				userId,
 				accountId,
 				planId,
@@ -143,9 +143,9 @@ export class AdminCreateSubscriptionUseCase {
 		// -----------------------------
 		// OPTIONAL: PROVISION NETWORK ACCOUNT
 		// -----------------------------
-		if (status === "active" && this.provisionNetworkAccountUseCase) {
+		if (status === "active" && this.provisionNetworkAccount) {
 			try {
-				await this.provisionNetworkAccountUseCase.execute(savedSubscription.id, { actorId: adminId });
+				await this.provisionNetworkAccount.execute(savedSubscription.id, { actorId: adminId });
 			} catch (err) {
 				console.error("Provisioning failed:", err.message);
 			}

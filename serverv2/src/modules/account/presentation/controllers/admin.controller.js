@@ -3,7 +3,7 @@ import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class AdminAccountController {
 
-	constructor({ createAccount, updateAccount, deleteAccount, activateAccount, suspendAccount, transferAccount, getAllAccounts }) {
+	constructor({ createAccount, updateAccount, deleteAccount, activateAccount, suspendAccount, transferAccount, getAllAccounts, changeAccountPassword }) {
 		this.createAccountUseCase = createAccount;
 		this.updateAccountUseCase = updateAccount;
 		this.deleteAccountUseCase = deleteAccount;
@@ -11,19 +11,19 @@ export class AdminAccountController {
 		this.suspendAccountUseCase = suspendAccount;
 		this.transferAccountUseCase = transferAccount;
 		this.getAllAccountsUseCase = getAllAccounts;
+		this.changeAccountPasswordUseCase = changeAccountPassword;
 	}
 
 	createAccount = expressAsyncHandler(async (req, res) => {
 
 		const account = await this.createAccountUseCase.execute(
-			req.user,
 			req.body,
 			{
+				user: req.user,
 				ip: req.ip,
 				userAgent: req.get("User-Agent")
 			}
 		);
-
 		return successResponse({
 			res,
 			data: account,
@@ -133,7 +133,7 @@ export class AdminAccountController {
 				userAgent: req.get("User-Agent")
 			}
 		);
-		console.log("accounts", accounts);
+		// console.log("accounts", accounts);
 		
 
 		return successResponse({
@@ -141,6 +141,27 @@ export class AdminAccountController {
 			data: accounts,
 			message: "Accounts fetched",
 			code: "ACCOUNTS_FETCHED"
+		});
+	});
+
+	changeAccountPassword = expressAsyncHandler(async (req, res) => {
+
+		const result =
+			await this.changeAccountPasswordUseCase.execute(
+				req.params.accountId,
+				req.body.routerPassword,
+				{
+					user: req.user,
+					ip: req.ip,
+					userAgent: req.get("User-Agent")
+				}
+			);
+
+		return successResponse({
+			res,
+			data: result,
+			message: "Account password changed",
+			code: "ACCOUNT_PASSWORD_CHANGED"
 		});
 	});
 

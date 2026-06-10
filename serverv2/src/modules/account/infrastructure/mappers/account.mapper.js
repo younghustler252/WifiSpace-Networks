@@ -2,75 +2,126 @@ import { Account } from "../../domain/account.entity.js";
 
 export class AccountMapper {
 
-	static toDomain(raw) {
-		if (!raw) return null;
+    // ==================================================
+    // DOMAIN ← PERSISTENCE
+    // ==================================================
+    static toDomain(raw) {
+        if (!raw) return null;
 
-		const user = raw.userId; 
-		const isPopulated = user && typeof user === "object" && user._id;
+        const user = raw.userId;
+        const isPopulated = user && typeof user === "object" && user._id;
 
-		return new Account({
-			id: raw._id?.toString(),
+        return new Account({
+            id: raw._id?.toString(),
 
-			// raw reference ONLY (never mutate)
-			userId: isPopulated
-				? user._id.toString()
-				: user?.toString(),
+            // ----------------------------
+            // User
+            // ----------------------------
+            userId: isPopulated
+                ? user._id.toString()
+                : user?.toString(),
 
-			// UI object (optional, if user is populated)
-			user: isPopulated
-				? {
-						id: user._id.toString(),
-						firstName: user.firstName,
-						lastName: user.lastName,
-						email: user.email,
-						avatar: user.avatar,
-				  }
-				: null,
+            user: isPopulated
+                ? {
+                    id: user._id.toString(),
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    email: user.email,
+                    avatar: user.avatar,
+                }
+                : null,
 
-			accountType: raw.accountType,
-			businessName: raw.businessName,
-			companyRegistrationNumber: raw.companyRegistrationNumber,
-			taxId: raw.taxId,
+            // ----------------------------
+            // Account Type
+            // ----------------------------
+            accountType: raw.accountType,
 
-			wsnId: raw.wsnId,
-			routerPassword: raw.routerPassword, // UPDATED
+            businessName: raw.businessName ?? null,
+            companyRegistrationNumber: raw.companyRegistrationNumber ?? null,
+            taxId: raw.taxId ?? null,
 
-			routerId: raw.routerId,
-			routerProfile: raw.routerProfile,
-			macAddress: raw.macAddress, // ADD if present in raw
+            // ----------------------------
+            // Network
+            // ----------------------------
+            wsnId: raw.wsnId,
+            routerPassword: raw.routerPassword,
 
-			profileStatus: raw.profileStatus,
-			serviceType: raw.serviceType,
+            routerId: raw.routerId,
+            routerProfile: raw.routerProfile,
 
-			limitUptime: raw.limitUptime, // ADD monitoring fields
-			lastSeenAt: raw.lastSeenAt,
-			mikrotikUserCreated: raw.mikrotikUserCreated,
-		});
-	}
+            // ✅ FIXED
+            devices: Array.isArray(raw.devices)
+                ? raw.devices.map(d => ({
+                    macAddress: d.macAddress?.toUpperCase(),
+                    hostname: d.hostname ?? null,
+                    lastSeenAt: d.lastSeenAt ?? null
+                }))
+                : [],
 
-	static toPersistence(account) {
-		return {
-			userId: account.userId,
+            // ----------------------------
+            // Service
+            // ----------------------------
+            serviceType: raw.serviceType,
+            profileStatus: raw.profileStatus,
 
-			accountType: account.accountType,
+            // ----------------------------
+            // Monitoring
+            // ----------------------------
+            limitUptime: raw.limitUptime,
 
-			businessName: account.businessName,
-			companyRegistrationNumber: account.companyRegistrationNumber,
-			taxId: account.taxId,
+            // ----------------------------
+            // Provisioning (SAFE DEFAULT)
+            // ----------------------------
+            routerProvision: {
+                status: raw.routerProvision?.status ?? "pending",
+                lastError: raw.routerProvision?.lastError ?? null,
+                lastAttemptAt: raw.routerProvision?.lastAttemptAt ?? null
+            },
 
-			wsnId: account.wsnId,
-			routerPassword: account.routerPassword, // UPDATED
+            // ----------------------------
+            // timestamps
+            // ----------------------------
+            createdAt: raw.createdAt,
+            updatedAt: raw.updatedAt
+        });
+    }
 
-			routerId: account.routerId,
-			routerProfile: account.routerProfile,
-			macAddress: account.macAddress, // ADD
+    // ==================================================
+    // DOMAIN → PERSISTENCE
+    // ==================================================
+    static toPersistence(account) {
+        return {
+            userId: account.userId,
 
-			profileStatus: account.profileStatus,
-			serviceType: account.serviceType,
+            accountType: account.accountType,
 
-			limitUptime: account.limitUptime, // ADD
-			lastSeenAt: account.lastSeenAt,
-			mikrotikUserCreated: account.mikrotikUserCreated, // ADD
-		};
-	}
+            businessName: account.businessName ?? null,
+            companyRegistrationNumber: account.companyRegistrationNumber ?? null,
+            taxId: account.taxId ?? null,
+
+            wsnId: account.wsnId,
+            routerPassword: account.routerPassword,
+
+            routerId: account.routerId,
+            routerProfile: account.routerProfile,
+
+            // ----------------------------
+            // Devices (NORMALIZED)
+            // ----------------------------
+            devices: Array.isArray(account.devices)
+                ? account.devices.map(d => ({
+                    macAddress: d.macAddress?.toUpperCase(),
+                    hostname: d.hostname ?? null,
+                    lastSeenAt: d.lastSeenAt ?? null
+                }))
+                : [],
+
+            serviceType: account.serviceType,
+            profileStatus: account.profileStatus,
+
+            limitUptime: account.limitUptime,
+
+            routerProvision: account.routerProvision
+        };
+    }
 }

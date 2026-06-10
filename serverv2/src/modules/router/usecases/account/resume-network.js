@@ -1,8 +1,14 @@
 // src/application/use-cases/ResumeNetworkAccount.js
+
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class ResumeNetworkAccount {
-    constructor(accountRepository, routerRepository, mikrotikService, auditService) {
+    constructor({
+        accountRepository,
+        routerRepository,
+        mikrotikService,
+        auditService
+    }) {
         this.accountRepository = accountRepository;
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService;
@@ -10,59 +16,135 @@ export class ResumeNetworkAccount {
     }
 
     async execute(accountId, context = {}) {
-        // 1. Fetch and validate the network account profile
-        const account = await this.accountRepository.findById(accountId);
-        if (!account) throw new ValidationError("Network account not found");
 
-        // If it's already active, save router API cycles
-        if (account.profileStatus === "active") {
-            return { success: true, message: "Account is already active" };
+        // -----------------------------------
+        // Fetch account
+        // -----------------------------------
+        const account = await this.accountRepository.findById(accountId);
+
+        if (!account) {
+            throw new ValidationError("Account not found");
         }
 
-        // 2. Fetch the target hardware router configuration
-        if (!account.routerId) throw new ValidationError("Account does not have an assigned router");
+        // -----------------------------------
+        // Fetch router
+        // -----------------------------------
+        if (!account.routerId) {
+            throw new ValidationError("Account does not have an assigned router");
+        }
+
         const router = await this.routerRepository.findById(account.routerId);
-        if (!router) throw new ValidationError("Assigned hardware router could not be found");
-        
+
+        if (!router) {
+            throw new ValidationError("Assigned router not found");
+        }
+
         if (!router.apiEnabled || !router.isEnabled) {
-            throw new ValidationError("Target router API interface is currently offline or disabled");
+            throw new ValidationError("Router is currently unavailable");
         }
 
         try {
-            // 3. Re-enable the user configuration on the MikroTik router
-            await this.mikrotikService.resumeAccount(account, router);
 
-            // 4. Update state tracking flags inside your database
-            account.profileStatus = "active";
-            account.suspensionReason = null; // Clear out the previous suspension reason
-            await this.accountRepository.update(account.id, account);
+            // -----------------------------------
+            // Check if user exists on router
+            // -----------------------------------
+            const userExists = await this.mikrotikService.checkUserExists(
+                account,
+                router
+            );
 
-            // Note: We don't manually increment router sessions here. 
-            // The counter will increment naturally once their hardware physically logs back in 
-            // and your live accounting/polling script detects the active session.
+            // -----------------------------------
+            // Auto-create missing router account
+            // -----------------------------------
+            if (!userExists) {
 
-            // 5. Log to the internal system audit trail
-            await this.auditService.log({
-                actorId: context.actorId || "SYSTEM_BILLING_ENGINE",
-                action: "MIKROTIK_RESUMPTION_SUCCESS",
-                targetId: account.id,
-                resource: "Account",
-                metadata: { 
-                    wsnId: account.wsnId, 
-                    routerCode: router.code
+                await this.mikrotikService.createAccount(
+                    account,
+                    router
+                );
+
+                if (this.auditService) {
+                    await this.auditService.log({
+                        actorId: context.actorId || "SYSTEM",
+                        action: "ROUTER_ACCOUNT_AUTO_CREATED",
+                        targetId: account.id,
+                        resource: "Account",
+                        metadata: {
+                            wsnId: account.wsnId,
+                            routerCode: router.code
+                        }
+                    });
                 }
-            });
+            }
 
-            return { 
-                success: true, 
-                message: `Account ${account.wsnId} successfully restored on network layer.` 
+            // -----------------------------------
+            // Resume router account
+            // -----------------------------------
+            await this.mikrotikService.resumeAccount(
+                account,
+                router
+            );
+
+            // -----------------------------------
+            // Update account state
+            // -----------------------------------
+            account.profileStatus = "active";
+
+            account.routerProvision = {
+                status: "synced",
+                lastError: null,
+                lastAttemptAt: new Date()
+            };
+
+            const updatedAccount = await this.accountRepository.update(
+                account.id,
+                account
+            );
+
+            // -----------------------------------
+            // Audit log
+            // -----------------------------------
+            if (this.auditService) {
+                await this.auditService.log({
+                    actorId: context.actorId || "SYSTEM",
+                    action: "NETWORK_ACCOUNT_RESUMED",
+                    targetId: updatedAccount.id,
+                    resource: "Account",
+                    metadata: {
+                        wsnId: updatedAccount.wsnId,
+                        routerCode: router.code,
+                        autoCreated: !userExists
+                    }
+                });
+            }
+
+            return {
+                success: true,
+                message: userExists
+                    ? `Account ${updatedAccount.wsnId} resumed successfully`
+                    : `Account ${updatedAccount.wsnId} recreated and resumed successfully`,
+                data: updatedAccount
             };
 
         } catch (error) {
-            // Update live operational error metrics on your router schema
-            await this.routerRepository.updateStatus(router.id, "online", error.message);
-            
-            throw new Error(`Network resumption execution failure: ${error.message}`);
+
+            // -----------------------------------
+            // Update provisioning failure state
+            // -----------------------------------
+            account.routerProvision = {
+                status: "failed",
+                lastError: error.message,
+                lastAttemptAt: new Date()
+            };
+
+            await this.accountRepository.update(
+                account.id,
+                account
+            );
+
+            throw new Error(
+                `Network account resumption failed: ${error.message}`
+            );
         }
     }
 }

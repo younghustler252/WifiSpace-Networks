@@ -9,12 +9,12 @@ export class CreateSubscriptionUseCase {
 		subscriptionRepository,
 		planRepository,
 		analyticsTracker,
-		provisionNetworkAccountUseCase // <-- inject this
+		provisionNetworkAccount // <-- inject this
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.analyticsTracker = analyticsTracker;
-		this.provisionNetworkAccountUseCase = provisionNetworkAccountUseCase;
+		this.provisionNetworkAccount = provisionNetworkAccount;
 	}
 
 	async execute({
@@ -98,9 +98,9 @@ export class CreateSubscriptionUseCase {
 		// PROVISION NETWORK ACCOUNT
 		// ---------------------------------
 		try {
-			await this.provisionNetworkAccountUseCase.execute(savedSubscription.id, context);
+			await this.provisionNetworkAccount.execute(savedSubscription.id, context);
 		} catch (err) {
-			console.error("Provisioning failed:", err.message);
+			// console.error("Provisioning failed:", err.message);
 			// Decide: either fail the whole create, or continue and let admin retry
 		}
 
@@ -113,7 +113,7 @@ export class CreateSubscriptionUseCase {
 				{ plan: plan.name, price: plan.price, cycles, bonusDays: billing.bonusDays, graceEndsAt }
 			);
 		} catch (err) {
-			console.error("Analytics failed:", err.message);
+			// console.error("Analytics failed:", err.message);
 		}
 
 		return savedSubscription;

@@ -13,6 +13,7 @@ export class PppoeIntegration {
             `=service=pppoe`,
             `=profile=${account.routerProfile || "default"}`,
         ];
+        
 
         return mikrotikClient.execute(router, "/ppp/secret/add", params);
     }
@@ -54,4 +55,66 @@ export class PppoeIntegration {
     async getProfiles(router) {
         return mikrotikClient.execute(router, "/ppp/profile/print", []);
     }
+
+    async checkUserExists(router, wsnId) {
+        const users = await mikrotikClient.execute(
+            router,
+            "/ppp/secret/print",
+            [`?name=${wsnId}`]
+        );
+
+        return Array.isArray(users) && users.length > 0;
+    }
+
+    async removeUser(router, wsnId) {
+        return mikrotikClient.execute(router, "/ppp/secret/remove", [
+            `=numbers=${wsnId}`,
+        ]);
+    }
+
+    async changePassword(router, username, password) {
+        const secrets = await mikrotikClient.execute(
+            router,
+            "/ppp/secret/print",
+            [`?name=${username}`]
+        );
+
+        if (!Array.isArray(secrets) || secrets.length === 0) {
+            throw new Error(`PPP secret '${username}' not found`);
+        }
+
+        const secretId = secrets[0][".id"];
+
+        return mikrotikClient.execute(router, "/ppp/secret/set", [
+            `=.id=${secretId}`,
+            `=password=${password}`,
+        ]);
+    }
+
+    async getActiveUsers(router) {
+        return mikrotikClient.execute(
+            router,
+            "/ppp/active/print",
+            []
+        );
+    }
+
+    async getActiveUser(router, wsnId) {
+        const res = await mikrotikClient.execute(
+            router,
+            "/ppp/active/print",
+            [`?name=${wsnId}`]
+        );
+
+        return Array.isArray(res) ? res[0] : null;
+    }
+     
+
+    async getActiveSessions(router) {
+    return mikrotikClient.execute(
+        router,
+        "/ppp/active/print",
+        []
+    );
+}
 }

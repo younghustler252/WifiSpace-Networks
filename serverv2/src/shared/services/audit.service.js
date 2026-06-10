@@ -4,7 +4,7 @@ export class AuditService {
 	/**
 	 * @param {AuditRepository} auditRepository
 	 */
-	constructor(auditRepository) {
+	constructor({auditRepository}) {
 		this.auditRepository = auditRepository;
 	}
 

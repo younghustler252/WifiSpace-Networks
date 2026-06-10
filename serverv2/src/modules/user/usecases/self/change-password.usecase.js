@@ -3,7 +3,7 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
 
 export class ChangePassword {
-	constructor(userRepository, passwordService, auditService) {
+	constructor({userRepository, passwordService, auditService}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;

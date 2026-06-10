@@ -1,62 +1,66 @@
 // src/services/mikrotik.service.js
-import { PppoeIntegration } from "../infrastructure/integrations/pppoe.integration.js";
-import { HotspotIntegration } from "../infrastructure/integrations/hotspot.integration.js";
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 
 export class MikrotikService {
-    constructor({ pppoeIntegration = new PppoeIntegration(), hotspotIntegration = new HotspotIntegration() } = {}) {
+    constructor({
+        pppoeIntegration,
+        hotspotIntegration,
+        routerIntegration
+    } = {}) {
         this.pppoeIntegration = pppoeIntegration;
         this.hotspotIntegration = hotspotIntegration;
-    }
+        this.routerIntegration = routerIntegration; 
+    }   
 
-    _integrationFor(account) {
-        if (!account || !account.serviceType) throw new ValidationError("Account or serviceType is missing");
+    _integration(account) {
+        if (!account?.serviceType) {
+            throw new ValidationError("Account serviceType is required");
+        }
+
         if (account.serviceType === "pppoe") return this.pppoeIntegration;
         if (account.serviceType === "hotspot") return this.hotspotIntegration;
+
         throw new ValidationError(`Unsupported serviceType: ${account.serviceType}`);
     }
 
     // ==================================================
-    // Polmorphic Client Router Actions
+    // USER OPERATIONS (ISP CORE)
     // ==================================================
 
     async createAccount(account, router) {
-        const integration = this._integrationFor(account);
-        return integration.createUser(router, account);
+        return this._integration(account).createUser(router, account);
     }
 
     async suspendAccount(account, router) {
-        const integration = this._integrationFor(account);
-        return integration.suspendUser(router, account.wsnId);
+        return this._integration(account).suspendUser(router, account.wsnId);
     }
 
     async resumeAccount(account, router) {
-        const integration = this._integrationFor(account);
-        return integration.resumeUser(router, account.wsnId);
-    }
-
-    async removeAccount(account, router) {
-        const integration = this._integrationFor(account);
-        // Uses the lower-level target remove endpoints if required
-        const endpoint = account.serviceType === "pppoe" ? "/ppp/secret/remove" : "/ip/hotspot/user/remove";
-        return account.serviceType === "pppoe" 
-            ? this.pppoeIntegration.constructor.prototype.hasOwnProperty('removeUser') // customized route fallback
-                ? integration.removeUser(router, account.wsnId)
-                : import("../client/mikrotik.client.js").then(m => m.mikrotikClient.execute(router, endpoint, [`=numbers=${account.wsnId}`]))
-            : import("../client/mikrotik.client.js").then(m => m.mikrotikClient.execute(router, endpoint, [`=numbers=${account.wsnId}`]));
+        return this._integration(account).resumeUser(router, account.wsnId);
     }
 
     async disconnectAccount(account, router) {
-        const integration = this._integrationFor(account);
-        return integration.disconnectUser(router, account.wsnId);
+        return this._integration(account).disconnectUser(router, account.wsnId);
+    }
+
+    async updateAccount(account, router) {
+        return this._integration(account).updateUser?.(router, account);
+    }
+
+    async checkUserExists(account, router) {
+        return this._integration(account).checkUserExists(router, account.wsnId);
+    }
+
+    async removeAccount(account, router) {
+        return this._integration(account).removeUser(router, account.wsnId);
     }
 
     // ==================================================
-    // Administrative Infrastructure Actions
+    // ROUTER LEVEL ACTIONS (NOT ACCOUNT-SPECIFIC)
     // ==================================================
 
     async getSystemResources(router) {
-        // Core resource printing commands are independent of profile type
+        // system info is router-level, not PPPoE-specific
         return this.pppoeIntegration.getSystemResources(router);
     }
 
@@ -64,10 +68,66 @@ export class MikrotikService {
         return this.pppoeIntegration.reboot(router);
     }
 
-    async fetchRouterProfiles(router, serviceType) {
-        if (serviceType === "pppoe") {
-            return this.pppoeIntegration.getProfiles(router);
+    async fetchRouterProfiles(router, serviceType = "pppoe") {
+        if (serviceType === "hotspot") {
+            return this.hotspotIntegration.getProfiles(router);
         }
-        return this.hotspotIntegration.getProfiles(router);
+        return this.pppoeIntegration.getProfiles(router);
+    }
+    async provisionAccess(account, router, payload) {
+        return this._integration(account).provisionAccess?.(
+            router,
+            payload
+        );
+    }
+  
+    async getRouterInfo(router) {
+        return this.routerIntegration.getRouterInfo(router);
+    }
+
+    // src/services/mikrotik.service.js
+
+    async changePassword(account, router, password) {
+        return this._integration(account).changePassword(
+            router,
+            account.wsnId,
+            password
+        );
+    }
+    async getActiveSessions(router, serviceType = "pppoe") {
+        const integration =
+            serviceType === "hotspot"
+                ? this.hotspotIntegration
+                : this.pppoeIntegration;
+
+        return integration.getActiveSessions(router);
+    }
+
+    async getActiveUser(account, router) {
+        const integration = this._integration(account);
+        return integration.getActiveUser?.(router, account.wsnId);
+    }
+
+    async getUsageSource(account, router) {
+        const integration = this._integration(account);
+
+        const session = await integration.getActiveUser?.(
+            router,
+            account.wsnId
+        );
+
+        if (!session) return null;
+
+        return {
+            wsnId: account.wsnId,
+            downloadBytes: Number(session["bytes-in"] || 0),
+            uploadBytes: Number(session["bytes-out"] || 0),
+            uptime: session.uptime,
+            ipAddress: session.address,
+            macAddress:
+                session["caller-id"] ||
+                session["mac-address"] ||
+                null
+        };
     }
 }

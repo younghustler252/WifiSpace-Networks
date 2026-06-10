@@ -11,135 +11,74 @@ export class PaymentMapper {
 
 		return new Payment({
 
-			// ---------------------------------
+			// -------------------------
 			// Identity
-			// ---------------------------------
-
+			// -------------------------
 			id: doc._id?.toString(),
 
-			// ---------------------------------
+			// -------------------------
 			// Relationships
-			// ---------------------------------
-
+			// -------------------------
 			userId: doc.userId,
-
 			accountId: doc.accountId,
+			subscriptionId: doc.subscriptionId,
 
-			subscriptionId:
-				doc.subscriptionId,
-
-			// ---------------------------------
-			// Account Reference
-			// ---------------------------------
-
-			wsnId: doc.wsnId,
-
-			// ---------------------------------
+			// -------------------------
 			// Plan
-			// ---------------------------------
-
+			// -------------------------
 			planId: doc.planId,
 
-			planSnapshot:
-				doc.planSnapshot || {},
+			// -------------------------
+			// ACTION
+			// -------------------------
+			actionType: doc.actionType,
 
-			// ---------------------------------
-			// Payment Intent
-			// ---------------------------------
-
-			actionType:
-				doc.actionType,
-
-			// ---------------------------------
-			// Billing
-			// ---------------------------------
-
+			// -------------------------
+			// BILLING
+			// -------------------------
 			amount: doc.amount,
-
-			currency:
-				doc.currency,
-
+			currency: doc.currency,
 			cycles: doc.cycles,
 
-			bonusDays:
-				doc.bonusDays,
+			// -------------------------
+			// PAYMENT CHANNEL
+			// -------------------------
+			paymentChannel: doc.paymentChannel,
 
-			// ---------------------------------
-			// Payment Channel
-			// ---------------------------------
-
-			paymentChannel:
-				doc.paymentChannel,
-
-			// ---------------------------------
-			// Renewal Strategy
-			// ---------------------------------
-
-			renewalStrategy:
-				doc.renewalStrategy,
-
-			// ---------------------------------
-			// Auto Renew Metadata
-			// ---------------------------------
-
-			autoRenewEnabled:
-				doc.autoRenewEnabled,
-
-			authorizationCode:
-				doc.authorizationCode,
-
-			authorizationReusable:
-				doc.authorizationReusable,
-
-			nextBillingDate:
-				doc.nextBillingDate,
-
-			// ---------------------------------
-			// Gateway
-			// ---------------------------------
-
+			// -------------------------
+			// GATEWAY
+			// -------------------------
 			gateway: doc.gateway,
+			gatewayReference: doc.gatewayReference,
 
-			gatewayReference:
-				doc.gatewayReference,
-
-			// ---------------------------------
-			// Status
-			// ---------------------------------
-
+			// -------------------------
+			// STATUS
+			// -------------------------
 			status: doc.status,
+			processed: doc.processed,
+			businessProcessed: doc.businessProcessed,
+			isWebhookProcessed: doc.isWebhookProcessed,
 
-			processed:
-				doc.processed,
+			// -------------------------
+			// TIMING
+			// -------------------------
+			paymentDate: doc.paymentDate,
+			processedAt: doc.processedAt,
+			failedAt: doc.failedAt,
+			failureReason: doc.failureReason,
 
-			processedAt:
-				doc.processedAt,
+			// -------------------------
+			// SAFETY
+			// -------------------------
+			idempotencyKey: doc.idempotencyKey,
 
-			failedAt:
-				doc.failedAt,
+			// -------------------------
+			// METADATA
+			// -------------------------
+			metadata: doc.metadata || {},
 
-			failureReason:
-				doc.failureReason,
-
-			// ---------------------------------
-			// Dates
-			// ---------------------------------
-
-			paymentDate:
-				doc.paymentDate,
-
-			// ---------------------------------
-			// Metadata
-			// ---------------------------------
-
-			metadata:
-				doc.metadata || {},
-
-			createdAt:
-				doc.createdAt,
-
-			updatedAt:
-				doc.updatedAt
+			createdAt: doc.createdAt,
+			updatedAt: doc.updatedAt
 		});
 	}
 
@@ -150,125 +89,36 @@ export class PaymentMapper {
 	static toPersistence(payment) {
 		return {
 
-			// ---------------------------------
-			// Relationships
-			// ---------------------------------
-
 			userId: payment.userId,
-
-			accountId:
-				payment.accountId,
-
-			subscriptionId:
-				payment.subscriptionId,
-
-			// ---------------------------------
-			// Account Reference
-			// ---------------------------------
-
-			wsnId: payment.wsnId,
-
-			// ---------------------------------
-			// Plan
-			// ---------------------------------
+			accountId: payment.accountId,
+			subscriptionId: payment.subscriptionId,
 
 			planId: payment.planId,
 
-			planSnapshot:
-				payment.planSnapshot,
-
-			// ---------------------------------
-			// Payment Intent
-			// ---------------------------------
-
-			actionType:
-				payment.actionType,
-
-			// ---------------------------------
-			// Billing
-			// ---------------------------------
+			actionType: payment.actionType,
 
 			amount: payment.amount,
-
-			currency:
-				payment.currency,
-
+			currency: payment.currency,
 			cycles: payment.cycles,
 
-			bonusDays:
-				payment.bonusDays,
+			paymentChannel: payment.paymentChannel,
 
-			// ---------------------------------
-			// Payment Channel
-			// ---------------------------------
-
-			paymentChannel:
-				payment.paymentChannel,
-
-			// ---------------------------------
-			// Renewal Strategy
-			// ---------------------------------
-
-			renewalStrategy:
-				payment.renewalStrategy,
-
-			// ---------------------------------
-			// Auto Renew Metadata
-			// ---------------------------------
-
-			autoRenewEnabled:
-				payment.autoRenewEnabled,
-
-			authorizationCode:
-				payment.authorizationCode,
-
-			authorizationReusable:
-				payment.authorizationReusable,
-
-			nextBillingDate:
-				payment.nextBillingDate,
-
-			// ---------------------------------
-			// Gateway
-			// ---------------------------------
-
-			gateway:
-				payment.gateway,
-
-			gatewayReference:
-				payment.gatewayReference,
-
-			// ---------------------------------
-			// Status
-			// ---------------------------------
+			gateway: payment.gateway,
+			gatewayReference: payment.gatewayReference,
 
 			status: payment.status,
+			processed: payment.processed,
+			businessProcessed: payment.businessProcessed,
+			isWebhookProcessed: payment.isWebhookProcessed,
 
-			processed:
-				payment.processed,
+			paymentDate: payment.paymentDate,
+			processedAt: payment.processedAt,
+			failedAt: payment.failedAt,
+			failureReason: payment.failureReason,
 
-			processedAt:
-				payment.processedAt,
+			idempotencyKey: payment.idempotencyKey,
 
-			failedAt:
-				payment.failedAt,
-
-			failureReason:
-				payment.failureReason,
-
-			// ---------------------------------
-			// Dates
-			// ---------------------------------
-
-			paymentDate:
-				payment.paymentDate,
-
-			// ---------------------------------
-			// Metadata
-			// ---------------------------------
-
-			metadata:
-				payment.metadata
+			metadata: payment.metadata
 		};
 	}
 
@@ -281,123 +131,37 @@ export class PaymentMapper {
 
 		return {
 
-			id: doc._id,
-
-			// ---------------------------------
-			// Relationships
-			// ---------------------------------
+			id: doc._id?.toString(),
 
 			userId: doc.userId,
-
-			accountId:
-				doc.accountId,
-
-			subscriptionId:
-				doc.subscriptionId,
-
-			// ---------------------------------
-			// Account Reference
-			// ---------------------------------
-
-			wsnId: doc.wsnId,
-
-			// ---------------------------------
-			// Plan
-			// ---------------------------------
+			accountId: doc.accountId,
+			subscriptionId: doc.subscriptionId,
 
 			planId: doc.planId,
 
-			planSnapshot:
-				doc.planSnapshot,
-
-			// ---------------------------------
-			// Payment Intent
-			// ---------------------------------
-
-			actionType:
-				doc.actionType,
-
-			// ---------------------------------
-			// Billing
-			// ---------------------------------
+			actionType: doc.actionType,
 
 			amount: doc.amount,
-
-			currency:
-				doc.currency,
-
+			currency: doc.currency,
 			cycles: doc.cycles,
 
-			bonusDays:
-				doc.bonusDays,
+			paymentChannel: doc.paymentChannel,
 
-			// ---------------------------------
-			// Payment Channel
-			// ---------------------------------
-
-			paymentChannel:
-				doc.paymentChannel,
-
-			// ---------------------------------
-			// Renewal Strategy
-			// ---------------------------------
-
-			renewalStrategy:
-				doc.renewalStrategy,
-
-			// ---------------------------------
-			// Auto Renew Metadata
-			// ---------------------------------
-
-			autoRenewEnabled:
-				doc.autoRenewEnabled,
-
-			authorizationReusable:
-				doc.authorizationReusable,
-
-			nextBillingDate:
-				doc.nextBillingDate,
-
-			// ---------------------------------
-			// Gateway
-			// ---------------------------------
-
-			gateway:
-				doc.gateway,
-
-			gatewayReference:
-				doc.gatewayReference,
-
-			// ---------------------------------
-			// Status
-			// ---------------------------------
+			gateway: doc.gateway,
+			gatewayReference: doc.gatewayReference,
 
 			status: doc.status,
+			processed: doc.processed,
+			businessProcessed: doc.businessProcessed,
+			isWebhookProcessed: doc.isWebhookProcessed,
 
-			processed:
-				doc.processed,
+			paymentDate: doc.paymentDate,
+			processedAt: doc.processedAt,
+			failedAt: doc.failedAt,
+			failureReason: doc.failureReason,
 
-			processedAt:
-				doc.processedAt,
-
-			failedAt:
-				doc.failedAt,
-
-			failureReason:
-				doc.failureReason,
-
-			// ---------------------------------
-			// Dates
-			// ---------------------------------
-
-			paymentDate:
-				doc.paymentDate,
-
-			createdAt:
-				doc.createdAt,
-
-			updatedAt:
-				doc.updatedAt
+			createdAt: doc.createdAt,
+			updatedAt: doc.updatedAt
 		};
 	}
 }

@@ -1,11 +1,10 @@
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
-import {PERMISSION} from "../../../../shared/constants/permissions.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class UpdateAccount {
 
-	constructor(accountRepository, permissionService, auditService) {
+	constructor({accountRepository, permissionService, auditService}) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;
@@ -19,14 +18,6 @@ export class UpdateAccount {
 	 * @param {Object} context - { ip, userAgent } for audit logging
 	 */
 	async execute(currentUser, accountId, updateData, context = {}) {
-
-		// ----------------------------
-		// Permission Check
-		// ----------------------------
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.ACCOUNT.UPDATE_SELF
-		);
 
 		// ----------------------------
 		// Fetch Account
@@ -57,9 +48,9 @@ export class UpdateAccount {
 		Object.assign(account, updates);
 
 		// If business account and critical fields missing → PENDING
-		if (account.isBusinessAccount() && !account.isBusinessComplete()) {
-			account.profileStatus = PROFILE_STATUSES.PENDING;
-		}
+		// if (account.isBusinessAccount() && !account.isBusinessComplete()) {
+		// 	account.profileStatus = PROFILE_STATUSES.PENDING;
+		// }
 
 		const updatedAccount = await this.accountRepository.update(account.id, account);
 

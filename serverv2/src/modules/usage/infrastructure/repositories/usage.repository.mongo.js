@@ -1,113 +1,101 @@
-// modules/usage/infrastructure/repositories/usage.repository.mongo.js
 import { UsageRepository } from "../../domain/usage.repository.js";
-import { UsageModel } from "../database/mongoose/usage.model.js";
+import UsageSnapshotModel from "../database/mongoose/usage.model.js";
 import { UsageMapper } from "../mappers/usage.mapper.js";
 
-export class UsageRepositoryMongo extends UsageRepository {
+export class MongoUsageRepository extends UsageRepository {
 
-	/**
-	 * Save or upsert a usage record atomically.
-	 * @param {Usage} usage
-	 * @returns {Promise<Usage>}
-	 */
-	async save(usage) {
-		const query = { sessionId: usage.sessionId };
+    async findByAccountId(accountId) {
+        const doc = await UsageSnapshotModel.findOne({ accountId });
+        return UsageMapper.toDomain(doc);
+    }
 
-		// Atomic update to prevent race conditions
-		const update = {
-			$set: {
-				accountId: usage.accountId,
-				subscriptionId: usage.subscriptionId,
-				ipAddress: usage.ipAddress,
-				macAddress: usage.macAddress,
-				startedAt: usage.startedAt,
-				endedAt: usage.endedAt
-			},
-			$inc: {
-				bytesIn: usage.bytesIn,
-				bytesOut: usage.bytesOut,
-				sessionTime: usage.sessionTime
-			}
-		};
+    async findByWsnId(wsnId) {
+        const doc = await UsageSnapshotModel.findOne({ wsnId });
+        return UsageMapper.toDomain(doc);
+    }
 
-		const doc = await UsageModel.findOneAndUpdate(
-			query,
-			update,
-			{ upsert: true, new: true, setDefaultsOnInsert: true }
-		);
+    async upsert(snapshot) {
+        const data = UsageMapper.toPersistence(snapshot);
 
-		return UsageMapper.toEntity(doc);
-	}
+        const doc = await UsageSnapshotModel.findOneAndUpdate(
+            { accountId: snapshot.accountId },
+            {
+                $set: {
+                    ...data,
+                    lastSeenAt: new Date()
+                }
+            },
+            {
+                new: true,
+                upsert: true
+            }
+        );
 
-	/**
-	 * Mark a session as ended.
-	 */
-	async markSessionEnded(sessionId, endedAt = new Date()) {
-		const doc = await UsageModel.findOneAndUpdate(
-			{ sessionId },
-			{ $set: { endedAt } },
-			{ new: true }
-		);
-		return UsageMapper.toEntity(doc);
-	}
+        return UsageMapper.toDomain(doc);
+    }
 
-	async findBySessionId(sessionId) {
-		const doc = await UsageModel.findOne({ sessionId });
-		return UsageMapper.toEntity(doc);
-	}
+    async markOffline(accountId) {
+        const doc = await UsageSnapshotModel.findOneAndUpdate(
+            { accountId },
+            {
+                $set: {
+                    online: false,
+                    lastSeenAt: new Date()
+                }
+            },
+            { new: true }
+        );
 
-	async findByAccountId(accountId, filters = {}) {
-		const query = { accountId };
+        return UsageMapper.toDomain(doc);
+    }
 
-		if (filters.status === "active") query.endedAt = null;
-		if (filters.status === "ended") query.endedAt = { $ne: null };
-		if (filters.start) query.startedAt = { $gte: filters.start };
-		if (filters.end) query.endedAt = { $lte: filters.end };
+    async bulkUpsert(snapshots = []) {
+        if (!snapshots.length) return;
 
-		const docs = await UsageModel.find(query).sort({ startedAt: -1 });
-		return docs.map(UsageMapper.toEntity);
-	}
+        const ops = snapshots.map(snapshot => {
+            const data = UsageMapper.toPersistence(snapshot);
 
-	async deleteBySessionId(sessionId) {
-		await UsageModel.deleteOne({ sessionId });
-	}
+            return {
+                updateOne: {
+                    filter: { accountId: snapshot.accountId },
+                    update: {
+                        $set: {
+                            ...data,
+                            lastSeenAt: new Date()
+                        }
+                    },
+                    upsert: true
+                }
+            };
+        });
 
-	/**
-	 * Optional batch save for multiple usage updates
-	 * @param {Usage[]} usages
-	 * @returns {Promise<Usage[]>}
-	 */
-	async batchSave(usages) {
-		const operations = usages.map(usage => {
-			const query = { sessionId: usage.sessionId };
-			const update = {
-				$set: {
-					accountId: usage.accountId,
-					subscriptionId: usage.subscriptionId,
-					ipAddress: usage.ipAddress,
-					macAddress: usage.macAddress,
-					startedAt: usage.startedAt,
-					endedAt: usage.endedAt
-				},
-				$inc: {
-					bytesIn: usage.bytesIn,
-					bytesOut: usage.bytesOut,
-					sessionTime: usage.sessionTime
-				}
-			};
-			return {
-				updateOne: {
-					filter: query,
-					update,
-					upsert: true
-				}
-			};
-		});
+        return UsageSnapshotModel.bulkWrite(ops);
+    }
 
-		const result = await UsageModel.bulkWrite(operations, { ordered: false });
-		// Fetch updated docs
-		const sessionIds = usages.map(u => u.sessionId);
-		const docs = await UsageModel.find({ sessionId: { $in: sessionIds } });
-		return docs.map(UsageMapper.toEntity);
-	}
+    async findAll(filters = {}, { skip = 0, limit = 20 } = {}) {
+        const query = {};
+
+        if (filters.routerId) query.routerId = filters.routerId;
+        if (filters.online !== undefined) query.online = filters.online;
+        if (filters.wsnId) query.wsnId = filters.wsnId;
+        if (filters.accountId) query.accountId = filters.accountId;
+
+        const docs = await UsageSnapshotModel.find(query)
+            .sort({ lastSeenAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        return docs.map(doc => UsageMapper.toDomain(doc));
+    }
+
+    async count(filters = {}) {
+    const query = {};
+
+    if (filters.routerId) query.routerId = filters.routerId;
+    if (filters.online !== undefined) query.online = filters.online;
+    if (filters.wsnId) query.wsnId = filters.wsnId;
+    if (filters.accountId) query.accountId = filters.accountId;
+
+    return UsageSnapshotModel.countDocuments(query);
+}
 }

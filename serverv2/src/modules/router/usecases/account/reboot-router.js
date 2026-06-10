@@ -2,7 +2,7 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class RebootRouter {
-    constructor(routerRepository, mikrotikService, auditService) {
+    constructor({routerRepository, mikrotikService, auditService}) {
         this.routerRepository = routerRepository;
         this.mikrotikService = mikrotikService;
         this.auditService = auditService;

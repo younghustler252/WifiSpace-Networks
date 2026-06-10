@@ -41,7 +41,9 @@ export class Subscription {
 		this.accountId = accountId;
 		this.planId = planId;
 		this.userId = userId;
+
 		this.planSnapshot = planSnapshot;
+
 		this.status = status;
 		this.cycles = cycles;
 		this.totalAmount = totalAmount;
@@ -80,72 +82,211 @@ export class Subscription {
 		this.currentPeriodEnd = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
 
 		this.mikrotikStatus = mikrotikStatus;
-		this.mikrotikLastSyncAt = mikrotikLastSyncAt ? new Date(mikrotikLastSyncAt) : null;
+		this.mikrotikLastSyncAt = mikrotikLastSyncAt
+			? new Date(mikrotikLastSyncAt)
+			: null;
+
 		this.mikrotikError = mikrotikError;
 
-		this.events = events;
+		// prevent external array mutation
+		this.events = [...events];
 	}
 
 	// STATUS METHODS
+
 	isActive() {
-		return this.status === "active" && !this.isSuspended() && (!this.expiresAt || new Date() <= this.expiresAt);
+		return (
+			this.status === "active" &&
+			!this.isSuspended() &&
+			(!this.expiresAt || new Date() <= this.expiresAt)
+		);
 	}
 
-	isSuspended() { return this.status === "suspended"; }
-	isExpired() { return this.expiresAt && new Date() > this.expiresAt; }
+	isSuspended() {
+		return this.status === "suspended";
+	}
+
+	isExpired() {
+		return this.expiresAt && new Date() > this.expiresAt;
+	}
 
 	isInGracePeriod() {
 		if (!this.expiresAt) return false;
+
 		const graceDays = this.planSnapshot?.gracePeriodDays || 0;
-		const graceEnd = new Date(this.expiresAt.getTime() + graceDays * 86400000);
-		return new Date() > this.expiresAt && new Date() <= graceEnd;
+
+		const graceEnd = new Date(
+			this.expiresAt.getTime() + graceDays * 86400000
+		);
+
+		return (
+			new Date() > this.expiresAt &&
+			new Date() <= graceEnd
+		);
 	}
 
-	hasAccess() { return this.isActive() || this.isInGracePeriod(); }
+	hasAccess() {
+		return this.isActive() || this.isInGracePeriod();
+	}
 
 	// LIFECYCLE METHODS
-	activate() { this.status = "active"; this.activatedAt ||= new Date(); this.addEvent("activated"); }
+
+	activate() {
+		this.status = "active";
+
+		if (!this.activatedAt) {
+			this.activatedAt = new Date();
+		}
+
+		this.addEvent("activated");
+	}
 
 	suspend(reason) {
 		if (this.isSuspended()) return;
+
 		this.status = "suspended";
 		this.suspendedAt = new Date();
 		this.suspensionReason = reason;
+
 		this.addEvent("suspended", { reason });
 	}
 
 	resume() {
 		if (!this.suspendedAt) return;
+
 		const duration = Date.now() - this.suspendedAt.getTime();
+
 		this.totalSuspendedDuration += duration;
+
 		this.suspendedAt = null;
 		this.suspensionReason = null;
-		if (!this.isExpired()) this.expiresAt = new Date(this.expiresAt.getTime() + duration);
+
+		if (this.expiresAt && !this.isExpired()) {
+			this.expiresAt = new Date(
+				this.expiresAt.getTime() + duration
+			);
+		}
+
 		this.status = "active";
+
 		this.addEvent("resumed", { duration });
 	}
 
-	cancel(reason) { this.status = "canceled"; this.canceledAt = new Date(); this.cancellationReason = reason; this.addEvent("canceled", { reason }); }
-	expire() { this.status = "expired"; this.expiredAt = new Date(); this.addEvent("expired"); }
+	cancel(reason) {
+		this.status = "canceled";
+		this.canceledAt = new Date();
+		this.cancellationReason = reason;
 
-	renew({ newExpiresAt, paymentId = null, amount = 0 }) {
+		this.addEvent("canceled", { reason });
+	}
+
+	expire() {
+		this.status = "expired";
+		this.expiredAt = new Date();
+
+		this.addEvent("expired");
+	}
+
+	renew({
+		newExpiresAt,
+		paymentId = null,
+		amount = 0,
+		cycles = 1,
+		metadata = {}
+	}) {
 		const now = new Date();
-		if (!this.startsAt) this.startsAt = now;
+
+		if (!this.startsAt) {
+			this.startsAt = now;
+		}
+
 		this.expiresAt = new Date(newExpiresAt);
+
 		this.status = "active";
 		this.expiredAt = null;
+
+		// clear cancellation state
+		this.canceledAt = null;
+		this.cancellationReason = null;
+
 		this.lastRenewedAt = now;
-		this.cycles += 1;
+
+		// support multi-cycle renewals
+		this.cycles += cycles;
+
 		this.lastPaymentId = paymentId;
 		this.lastPaymentDate = now;
 		this.lastPaymentAmount = amount;
-		this.addEvent("renewed", { newExpiresAt, amount });
+
+		this.addEvent("renewed", {
+			newExpiresAt,
+			amount,
+			cycles,
+			...metadata
+		});
 	}
 
-	// MICROTIK SYNC
-	markSynced() { this.mikrotikStatus = "synced"; this.mikrotikLastSyncAt = new Date(); this.mikrotikError = null; }
-	markSyncFailed(error) { this.mikrotikStatus = "failed"; this.mikrotikError = error; this.mikrotikLastSyncAt = new Date(); }
+	// MIKROTIK SYNC
+	upgrade({
+		newPlan,
+		newExpiresAt,
+		paymentId,
+		remainingDays
+	}) {
+		const previousPlan = this.planSnapshot?.name;
+
+		this.planId = newPlan.id;
+
+		this.planSnapshot = {
+			name: newPlan.name,
+			serviceType: newPlan.serviceType,
+			price: newPlan.price,
+			durationValue: newPlan.durationValue,
+			durationUnit: newPlan.durationUnit,
+			speedRate: newPlan.speedRate,
+			mikrotikProfile: newPlan.mikrotikProfile,
+			devicesAllowed: newPlan.devicesAllowed,
+			gracePeriodDays: newPlan.gracePeriodDays
+		};
+
+		this.expiresAt = new Date(newExpiresAt);
+
+		this.status = "active";
+		this.expiredAt = null;
+
+		this.lastRenewedAt = new Date();
+
+		if (paymentId) {
+			this.lastPaymentId = paymentId;
+		}
+
+		this.addEvent("upgraded", {
+			from: previousPlan,
+			to: newPlan.name,
+			remainingDays,
+			newExpiresAt
+		});
+	}
+
+	markSynced() {
+		this.mikrotikStatus = "synced";
+		this.mikrotikLastSyncAt = new Date();
+		this.mikrotikError = null;
+	}
+
+	markSyncFailed(error) {
+		this.mikrotikStatus = "failed";
+		this.mikrotikError = error;
+		this.mikrotikLastSyncAt = new Date();
+	}
 
 	// EVENTS
-	addEvent(type, metadata = {}) { this.events.push({ type, date: new Date(), metadata }); }
+
+	addEvent(type, metadata = {}) {
+		this.events.push({
+			type,
+			date: new Date(),
+			metadata
+		});
+	}
 }
