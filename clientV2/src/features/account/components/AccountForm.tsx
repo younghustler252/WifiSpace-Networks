@@ -82,7 +82,7 @@ export default function AccountForm({
 		},
 	});
 
-	const routers = routerResponse?.data.data ?? [];
+	const routers = routerResponse?.data ?? [];
 
 	// ================= WATCHERS =================
 	const serviceType = watch("serviceType");

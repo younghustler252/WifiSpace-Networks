@@ -96,9 +96,7 @@ export const routerApi = {
 		API.delete(`/admin/${id}`),
 
 	// LIST ALL ROUTERS
-	getAll: (): Promise<
-		ApiResponse<RouterListResponse>
-	> => API.get("routers/admin"),
+	getAll: (): Promise<ApiResponse<Router[]>> => API.get("routers/admin"),
 
 	// ============================
 	// ROUTER DEVICE ACTIONS
