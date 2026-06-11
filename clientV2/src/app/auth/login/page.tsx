@@ -36,10 +36,9 @@ export default function Login() {
 
 		try {
 			const response = await login(data);
+			console.log("Login response:", response);
 
-			if (response?.message) {
-				setSuccessMessage(response.message);
-			}
+			
 
 			const isVerified = response?.user?.isVerified === true;
 

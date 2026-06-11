@@ -41,9 +41,14 @@ export class VerifyOtp {
 			otpExpiresAt: null
 		});
 
-		const accessToken = this.tokenService.generateAccessToken(user);
-		const refreshToken = this.tokenService.generateRefreshToken(user);
+		const payload = {
+  sub: user.id,
+  email: user.email,
+  role: user.role
+};
 
+const accessToken = this.tokenService.generateAccessToken(payload);
+const refreshToken = this.tokenService.generateRefreshToken(payload);
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId: user.id,

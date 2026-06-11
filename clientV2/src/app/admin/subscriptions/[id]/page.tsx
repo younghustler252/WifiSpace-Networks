@@ -9,6 +9,8 @@ import PageHeader from "@/components/ui/PageHeader";
 export default function Page() {
 	const params = useParams();
 	const id = params.id as string;
+	type Role = "customer" | "staff" | "superadmin";
+
 
 	const { user } = useAuth(); // 👈 get logged-in user
 
@@ -27,7 +29,7 @@ export default function Page() {
 			<div className="p-6">
 				<SubscriptionPanel
 					accountId={id}
-					role={user.role} // 👈 dynamic role
+					role={(user?.role as Role) ?? "customer"} 
 				/>
 			</div>
 		</>

@@ -45,9 +45,9 @@ export default function Register() {
 				email: data.email.toLowerCase().trim(),
 			});
 
-			if (response?.message) {
-				setSuccessMessage(response.message);
-			}
+			// if (response?.message) {
+			// 	setSuccessMessage(response.message);
+			// }
 
 			// Redirect to verification page
 			router.push("/auth/verify");
