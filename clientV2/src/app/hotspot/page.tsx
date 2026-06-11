@@ -235,7 +235,7 @@ export default function HotspotPage() {
                             label="First name"
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
-                            error={errors.firstName}
+                            errorMessage={errors.firstName}
                         />
 
                         <InputField
@@ -243,7 +243,7 @@ export default function HotspotPage() {
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            error={errors.email}
+                            errorMessage={errors.email}
                         />
 
                         <InputField
@@ -251,7 +251,7 @@ export default function HotspotPage() {
                             type="tel"
                             value={phone}
                             onChange={(e) => setPhone(e.target.value)}
-                            error={errors.phone}
+                            errorMessage={errors.phone}
                         />
 
                         <Button
