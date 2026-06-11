@@ -55,8 +55,8 @@ app.use("/api/payments", payment.routes);
 app.use("/api/plans", plan.routes);
 app.use("/api/subscriptions", subscription.routes);
 app.use("/api/users", user.routes);
-app.use("/routers/admin", router.routes.admin);
-app.use("/routers", router.routes.provisioning);
+app.use("/api/routers/admin", router.routes.admin);
+app.use("/api/routers", router.routes.provisioning);
 app.use("/api/usage", usage.routes);
 app.use("/api/dashboard", dashboard.routes)
 // ----------------------------

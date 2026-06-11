@@ -88,20 +88,20 @@ export default function SubscriptionPanel({
 	};
 	const confirmRenew = async () => {
 		if (!subscription) return;
-
+		
 		try {
 			setCreatingPayment(true);
 
 			const res = await paymentApi.create({
 				accountId,
 				subscriptionId: subscription.id,
-				planId: subscription.planId,
+				planId: subscription.planId?._id,// 🔥 handle both cases
 				cycles: renewCycles, // 🔥 KEY CHANGE
 			});
 
-			const url = res.data.paystack?.data.authorization_url;
+			// const url = res.data.paystack?.data.authorization_url;	
 
-			if (url) window.location.href = url;
+			// if (url) window.location.href = url;
 
 		} catch (err) {
 			console.error(err);

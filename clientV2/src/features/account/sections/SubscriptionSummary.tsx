@@ -1,5 +1,5 @@
 "use client";
-
+import { WifiOff, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 
@@ -45,10 +45,57 @@ export default function SubscriptionSummary({
 	if (error || !subscription) {
 		return (
 			<Card>
-				<CardContent className="p-4 text-sm text-muted-foreground">
-					No subscription found
-				</CardContent>
-			</Card>
+	<CardContent className="p-5">
+		<div className="
+			rounded-2xl
+			border border-dashed
+			border-border
+			p-6
+		">
+			<div className="flex items-start justify-between">
+				<div>
+					<p className="text-xs uppercase tracking-wide text-muted-foreground">
+						Subscription
+					</p>
+
+					<h3 className="font-semibold mt-1">
+						No Active Subscription
+					</h3>
+
+					<p className="text-sm text-muted-foreground mt-2">
+						Assign a plan to enable internet access,
+						billing, renewals, and MikroTik provisioning.
+					</p>
+				</div>
+
+				<div className="
+					h-12 w-12
+					rounded-xl
+					bg-primary/10
+					flex items-center justify-center
+				">
+					<WifiOff className="text-primary" />
+				</div>
+			</div>
+
+			<div className="mt-5 flex gap-2">
+				<Link
+					href={`/admin/subscriptions/create?accountId=${accountId}`}
+				>
+					<Button>
+						Assign Subscription
+					</Button>
+				</Link>
+
+				<Link href="/admin/plans">
+					<Button variant="outline">
+						View Plans
+					</Button>
+				</Link>
+			</div>
+		</div>
+	</CardContent>
+</Card>
 		);
 	}
 

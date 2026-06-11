@@ -26,6 +26,37 @@ export type MikrotikSyncStatus =
 // SUBSCRIPTION
 // ======================================
 
+export interface Plan {
+	_id: string;
+
+	name: string;
+	price: number;
+
+	durationValue: number;
+
+	durationUnit:
+		| "minutes"
+		| "hours"
+		| "days"
+		| "months";
+
+	speedRate?: string;
+	mikrotikProfile?: string;
+	devicesAllowed?: number;
+	gracePeriodDays?: number;
+
+	dataLimitBytes?: number;
+
+	features?: string[];
+
+	status?: string;
+
+	accountType?: string;
+
+	createdAt?: string;
+	updatedAt?: string;
+}
+
 export interface Subscription {
 	id: string;
 
@@ -33,7 +64,7 @@ export interface Subscription {
 
 	userId: string;
 
-	planId: string;
+	planId: Plan;
 
 	// ----------------------------------
 	// STATUS

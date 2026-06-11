@@ -98,7 +98,7 @@ export const routerApi = {
 	// LIST ALL ROUTERS
 	getAll: (): Promise<
 		ApiResponse<RouterListResponse>
-	> => API.get("router/admin"),
+	> => API.get("routers/admin"),
 
 	// ============================
 	// ROUTER DEVICE ACTIONS
@@ -108,13 +108,13 @@ export const routerApi = {
 	checkStatus: (
 		id: string
 	): Promise<ApiResponse<any>> =>
-		API.get(`router/${id}/status`),
+		API.get(`routers/${id}/status`),
 
 	// REBOOT ROUTER
 	reboot: (
 		id: string
 	): Promise<ApiResponse<any>> =>
-		API.post(`router/${id}/reboot`),
+		API.post(`routers/${id}/reboot`),
 
 		// ============================
 	// ROUTER PROFILES
@@ -124,7 +124,7 @@ export const routerApi = {
 		id: string,
 		serviceType: "pppoe" | "hotspot"
 	): Promise<ApiResponse<any>> =>
-		API.get(`router/${id}/profiles`, {
+		API.get(`routers/${id}/profiles`, {
 			params: { serviceType },
 		}),
 
@@ -136,7 +136,7 @@ export const routerApi = {
 	createAccount: (
 		accountId: string
 	): Promise<ApiResponse<any>> =>
-		API.post("/router/account/create", {
+		API.post("/routers/account/create", {
 			accountId
 		}),
 
@@ -153,7 +153,7 @@ export const routerApi = {
 		accountId: string,
 		reason?: string
 	): Promise<ApiResponse<any>> =>
-		API.post("/router/account/suspend", {
+		API.post("/routers/account/suspend", {
 			accountId,
 			reason
 		}),
@@ -162,7 +162,7 @@ export const routerApi = {
 	resumeAccount: (
 		accountId: string
 	): Promise<ApiResponse<any>> =>
-		API.post("router/account/resume", {
+		API.post("routers/account/resume", {
 			accountId
 		})
 };

@@ -6,6 +6,8 @@ import PageHeader from "@/components/ui/PageHeader";
 
 export default function Page() {
 	const { activeAccount, user } = useAuth();
+	type Role = "customer" | "staff" | "superadmin";
+
 
 	if (!activeAccount) {
 		return (
@@ -22,7 +24,7 @@ export default function Page() {
 			<div className="p-6">
 				<SubscriptionPanel
 					accountId={activeAccount.id}
-					role={user?.role ?? "customer"} // 👈 fallback safe
+					role={(user?.role as Role) ?? "customer"}
 				/>
 			</div>
 		</>

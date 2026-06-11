@@ -41,7 +41,7 @@ export default function SubscriptionOverview({
 
 					<SubscriptionInfo
 						label="Duration"
-						value={`${subscription.planSnapshot?.durationValue} ${subscription.planSnapshot?.durationUnit}`}
+						value={`${subscription.planId?.durationValue} ${subscription.planId?.durationUnit}`}
 					/>
 
 					<SubscriptionInfo

@@ -232,7 +232,7 @@ export class HotspotIntegration {
     // ==================================================
 
     async provisionAccess(router, { username, password, macAddress, ipAddress }) {
-
+        console.log("provisionAccess received:", { username, macAddress, ipAddress });
         // 1. Set MAC on hotspot user entry
         if (macAddress) {
             await this.setMacOnUser(router, { username, macAddress });
@@ -251,7 +251,8 @@ export class HotspotIntegration {
 
         // 3. Try RouterOS API login — no ip argument
         try {
-            await this.apiLogin(router, { username, password, macAddress });
+            console.log("Calling apiLogin with:", { username, macAddress, ipAddress });
+            await this.apiLogin(router, { username, password, macAddress, ipAddress });
             return {
                 success:       true,
                 method:        "api-login",
