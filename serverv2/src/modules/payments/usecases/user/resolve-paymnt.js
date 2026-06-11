@@ -50,7 +50,7 @@ export class ResolvePaymentUseCase {
 			redirectTo:
 				serviceType === "hotspot"
 					? "/hotspot/success"
-					: "/customer/payment/success"
+					: "/customer/payments/success"
 		};
 	}
 }

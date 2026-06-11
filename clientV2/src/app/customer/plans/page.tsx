@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
 
 import { planApi } from "@/lib/api/plan";
 import { paymentApi } from "@/lib/api/payment";
@@ -22,6 +23,12 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function PlansPage() {
 	const { activeAccount } = useAuth();
+	const searchParams = useSearchParams();
+
+	const mode = searchParams.get("mode");
+	const currentPlanId = searchParams.get("currentPlan");
+
+	const isUpgrade = mode === "upgrade";
 
 	const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
 	const [cycles, setCycles] = useState(1);
@@ -109,7 +116,9 @@ export default function PlansPage() {
 
 	return (
 		<>
-			<PageHeader title="Plans" />
+			<PageHeader
+				title={isUpgrade ? "Upgrade Plan" : "Plans"}
+			/>
 
 			<main className="p-4 md:p-8">
 				<div className="max-w-6xl mx-auto ui-stack-lg pb-12">
@@ -119,11 +128,13 @@ export default function PlansPage() {
 					<div className="ui-card flex flex-col md:flex-row items-center justify-between gap-4">
 						<div>
 							<h2 className="text-xl font-semibold">
-								Available Plans
+								{isUpgrade ? "Choose a New Plan" : "Available Plans"}
 							</h2>
 
 							<p className="text-sm text-muted-foreground">
-								Choose a plan that fits your needs
+								{isUpgrade
+									? "Select a new plan to upgrade your subscription"
+									: "Choose a plan that fits your needs"}
 							</p>
 						</div>
 
@@ -151,16 +162,26 @@ export default function PlansPage() {
 					{/* GRID */}
 
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-						{plans.map((plan: any) => (
-							<PlanCard
-								key={plan.id}
-								plan={plan}
-								onSelect={(p) => {
-									setSelectedPlan(p);
-									setCycles(1);
-								}}
-							/>
-						))}
+						{plans.map((plan: any) => {
+							const isCurrent =
+								isUpgrade &&
+								(plan.id === currentPlanId ||
+								plan._id === currentPlanId);
+
+							return (
+								<PlanCard
+									key={plan.id}
+									plan={plan}
+									isCurrent={isCurrent}
+									onSelect={(p) => {
+										if (isCurrent) return;
+
+										setSelectedPlan(p);
+										setCycles(1);
+									}}
+								/>
+							);
+						})}
 					</div>
 				</div>
 			</main>
@@ -173,7 +194,9 @@ export default function PlansPage() {
 			>
 				<ModalHeader>
 					<span className="text-lg font-semibold">
-						Confirm Subscription
+						{isUpgrade
+							? "Confirm Upgrade"
+							: "Confirm Subscription"}
 					</span>
 				</ModalHeader>
 
@@ -207,9 +230,10 @@ export default function PlansPage() {
 										<div className="absolute -top-10 -right-10 w-40 h-40 bg-accent/20 blur-3xl rounded-full" />
 
 										<p className="text-sm text-muted-foreground">
-											You're subscribing to
+											{isUpgrade
+												? "You're upgrading to"
+												: "You're subscribing to"}
 										</p>
-
 										<h2 className="text-xl font-bold mt-1">
 											{selectedPlan.name}
 										</h2>
@@ -318,13 +342,13 @@ export default function PlansPage() {
 						size="lg"
 						onClick={handlePay}
 					>
-						Pay ₦
-						{selectedPlan
-							? (
-									selectedPlan.price *
-									cycles
-							  ).toLocaleString()
-							: 0}
+						{isUpgrade
+							? `Upgrade for ₦${(
+									selectedPlan?.price * cycles || 0
+							).toLocaleString()}`
+							: `Pay ₦${(
+									selectedPlan?.price * cycles || 0
+							).toLocaleString()}`}
 					</Button>
 				</ModalFooter>
 			</Modal>

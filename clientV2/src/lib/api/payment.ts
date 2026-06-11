@@ -47,7 +47,7 @@ export interface Payment {
 
 	// relationships
 	userId: string;
-	accountId: string;
+	accountId: Account;
 	subscriptionId?: string | null;
 	planId?: PlanRef;
 	account?: Account;

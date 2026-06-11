@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
 	const [debouncedSearch, setDebouncedSearch] = useState("");
 	const [roleFilter, setRoleFilter] = useState("");
 	const [statusFilter, setStatusFilter] = useState("");
-	const [sort, setSort] = useState("az");
+	const [sort, setSort] = useState<"az" | "za" | "newest" | "oldest">("az");
 
 	const [page, setPage] = useState(1);
 	const [limit, setLimit] = useState(10);
@@ -79,7 +79,9 @@ export default function AdminUsersPage() {
 				skip: (page - 1) * limit,
 				limit,
 			}),
-		keepPreviousData: true,
+		placeholderData: (previousData) => previousData,
+		staleTime: 30 * 1000, // 30s cache
+		refetchInterval: 10 * 1000 // live-ish updates
 	});
 
 	const users = data?.data?.data || [];
@@ -101,9 +103,8 @@ export default function AdminUsersPage() {
 		onSuccess: () =>
 			queryClient.invalidateQueries({ queryKey: ["admin-users"] }),
 	});
-
 	const deleteMutation = useMutation({
-		mutationFn: (id: string) => userApi.deleteUser,
+		mutationFn: (id: string) => userApi.deleteUser(id),
 		onSuccess: () => {
 			setSelectedUser(null);
 			queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -176,7 +177,7 @@ export default function AdminUsersPage() {
 				className="ui-input"
 				value={sort}
 				onChange={(e) => {
-					setSort(e.target.value);
+					setSort(e.target.value as "az" | "za" | "newest" | "oldest");
 					setPage(1);
 				}}
 			>
@@ -310,7 +311,7 @@ export default function AdminUsersPage() {
 												<DropdownDivider />
 												<DropdownItem
 													danger
-													disabled={deleteMutation.isPending}
+													aria-disabled={deleteMutation.isPending}
 													onClick={() => deleteMutation.mutate(u.id)}
 												>
 													Delete

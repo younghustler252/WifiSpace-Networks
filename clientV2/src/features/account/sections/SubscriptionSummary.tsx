@@ -42,62 +42,63 @@ export default function SubscriptionSummary({
 		);
 	}
 
-	if (error || !subscription) {
-		return (
-			<Card>
-	<CardContent className="p-5">
-		<div className="
-			rounded-2xl
-			border border-dashed
-			border-border
-			p-6
-		">
-			<div className="flex items-start justify-between">
-				<div>
-					<p className="text-xs uppercase tracking-wide text-muted-foreground">
-						Subscription
-					</p>
+	
+if (error || !subscription) {
+	return (
+		<Card>
+			<CardContent className="p-6">
+				<div className="flex flex-col items-center text-center">
+					
+					<div className="
+						h-14 w-14
+						rounded-2xl
+						bg-muted
+						flex items-center justify-center
+						mb-4
+					">
+						<WifiOff
+							size={26}
+							className="text-muted-foreground"
+						/>
+					</div>
 
-					<h3 className="font-semibold mt-1">
-						No Active Subscription
+					<h3 className="font-semibold text-base">
+						No Subscription Assigned
 					</h3>
 
-					<p className="text-sm text-muted-foreground mt-2">
-						Assign a plan to enable internet access,
-						billing, renewals, and MikroTik provisioning.
+					<p className="
+						text-sm text-muted-foreground
+						mt-2 max-w-sm
+					">
+						This account does not currently have an
+						active subscription plan.
 					</p>
+
+					{role !== "customer" ? (
+						<Link
+							href={`/admin/subscriptions/create?accountId=${accountId}`}
+							className="mt-5"
+						>
+							<Button className="gap-2">
+								<PlusCircle size={16} />
+								Assign Subscription
+							</Button>
+						</Link>
+					) : (
+						<Link
+							href="/plans"
+							className="mt-5"
+						>
+							<Button>
+								View Available Plans
+							</Button>
+						</Link>
+					)}
 				</div>
-
-				<div className="
-					h-12 w-12
-					rounded-xl
-					bg-primary/10
-					flex items-center justify-center
-				">
-					<WifiOff className="text-primary" />
-				</div>
-			</div>
-
-			<div className="mt-5 flex gap-2">
-				<Link
-					href={`/admin/subscriptions/create?accountId=${accountId}`}
-				>
-					<Button>
-						Assign Subscription
-					</Button>
-				</Link>
-
-				<Link href="/admin/plans">
-					<Button variant="outline">
-						View Plans
-					</Button>
-				</Link>
-			</div>
-		</div>
-	</CardContent>
-</Card>
-		);
-	}
+			</CardContent>
+		</Card>
+	);
+}
 
 	const plan = subscription.planSnapshot;
 

@@ -9,6 +9,7 @@ import {
 	Wifi,
 	Zap,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Subscription } from "@/lib/api/subscription";
 
@@ -64,6 +65,7 @@ export default function SubscriptionHero({
 	onAssign,
 	renewing,
 }: Props) {
+	const router = useRouter();
 	return (
 		<Card className="overflow-hidden">
 

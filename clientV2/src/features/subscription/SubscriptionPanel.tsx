@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 
 import { useSubscription } from "./hooks/useSubscription";
 import { useSubscriptionActions } from "./hooks/useSubscriptionActions";
@@ -37,6 +39,8 @@ export default function SubscriptionPanel({
 	accountId,
 	role,
 }: Props) {
+	const router = useRouter();
+
 	/* ================= DATA ================= */
 
 	const {
@@ -99,15 +103,21 @@ export default function SubscriptionPanel({
 				cycles: renewCycles, // 🔥 KEY CHANGE
 			});
 
-			// const url = res.data.paystack?.data.authorization_url;	
+			const url = res.data.paystack?.data.authorization_url;	
 
-			// if (url) window.location.href = url;
+			if (url) window.location.href = url;
 
 		} catch (err) {
 			console.error(err);
 		} finally {
 			setCreatingPayment(false);
 		}
+	};
+
+	const upgradeSubscription = () => {
+		router.push(
+			`/customer/plans?mode=upgrade&currentPlan=${subscription?.planId?._id}`
+		);
 	};
 
 	/* ================= LOADING ================= */
@@ -165,6 +175,7 @@ export default function SubscriptionPanel({
 					canRenew={canRenew}
 					canManage={canManage}
 					onRenew={openRenewModal}
+					onUpgrade={upgradeSubscription}
 					renewing={creatingPayment}
 				/>
 

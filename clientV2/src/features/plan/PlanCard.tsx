@@ -4,39 +4,42 @@ import Card, { CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import { Zap, Clock, Smartphone } from "lucide-react";
 
+interface PlanCardProps {
+	plan: any;
+	onSelect: (plan: any) => void;
+	isCurrent?: boolean;
+}
+
 export default function PlanCard({
 	plan,
 	onSelect,
-}: {
-	plan: any;
-	onSelect: (plan: any) => void;
-}) {
+	isCurrent = false,
+}: PlanCardProps) {
 	// Format duration properly
-	const getDurationLabel = () => {
-		return `${plan.durationValue} ${plan.durationUnit}`;
-	};
+	const getDurationLabel = () => `${plan.durationValue} ${plan.durationUnit}`;
 
 	return (
 		<Card
-			onClick={() => onSelect(plan)}
-			className="h-full border-2 hover:border-accent transition-all relative cursor-pointer"
+			onClick={() => {
+				if (!isCurrent) onSelect(plan);
+			}}
+			className={`h-full border-2 transition-all relative cursor-pointer hover:border-accent ${
+				isCurrent ? "opacity-80" : ""
+			}`}
 		>
 			<CardContent>
 				<div className="flex flex-col h-full ui-stack">
-
+					
 					{/* POPULAR BADGE */}
-					{plan.price >= 20000 && (
+					{isCurrent && (
 						<div className="absolute top-0 right-0 bg-accent text-white text-xs px-3 py-1 rounded-bl-xl">
-							Popular
+							current plan
 						</div>
 					)}
 
 					{/* TOP SECTION */}
 					<div className="flex items-center justify-between">
-						<h3 className="text-lg font-semibold">
-							{plan.name}
-						</h3>
-
+						<h3 className="text-lg font-semibold">{plan.name}</h3>
 						<span className="ui-badge ui-badge-success capitalize">
 							{plan.serviceType}
 						</span>
@@ -52,7 +55,6 @@ export default function PlanCard({
 
 					{/* DETAILS */}
 					<div className="ui-stack text-sm text-muted-foreground">
-
 						<div className="flex items-center gap-2">
 							<Zap size={14} />
 							{plan.speedRate}
@@ -89,14 +91,15 @@ export default function PlanCard({
 					{/* ACTION */}
 					<div className="pt-4">
 						<Button
-							variant="accent"
+							variant={isCurrent ? "outline" : "accent"}
 							fullWidth
+							disabled={isCurrent}
 							onClick={(e) => {
 								e.stopPropagation();
-								onSelect(plan);
+								if (!isCurrent) onSelect(plan);
 							}}
 						>
-							Select Plan
+							{isCurrent ? "Current Plan" : "Select Plan"}
 						</Button>
 					</div>
 
