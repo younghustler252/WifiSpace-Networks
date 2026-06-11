@@ -77,6 +77,10 @@ export interface ConfirmHotspotResponse {
     autoConnected: boolean;   // true = HTTP login worked, false = needs reconnect
 }
 
+export interface HotspotPlanResponse {
+    data: HotspotPlan[];
+}
+
 // ================================
 // API
 // ================================
@@ -84,7 +88,7 @@ export interface ConfirmHotspotResponse {
 export const hotspotApi = {
 
     // GET /hotspot/plans
-    getPlans: (): Promise<ApiResponse<HotspotPlan[]>> =>
+    getPlans: (): Promise<ApiResponse<HotspotPlanResponse>> =>
         API.get("/hotspot/plans"),
 
     // GET /hotspot/session?macAddress=XX:XX:XX

@@ -73,8 +73,9 @@ export default function HotspotPage() {
         queryKey: ["hotspot-plans"],
         queryFn:  () => hotspotApi.getPlans(),
     });
-
+   
     const plans = plansData?.data?.data || [];
+    
 
     // -------------------------------------------------------
     // State
