@@ -78,11 +78,11 @@ export default function AccountForm({
 		queryKey: ["routers"],
 		queryFn: async () => {
 			const response = await routerApi.getAll();
-			return response.data;
+			return response;
 		},
 	});
 
-	const routers = routerResponse || [];
+	const routers = routerResponse?.data.data ?? [];
 
 	// ================= WATCHERS =================
 	const serviceType = watch("serviceType");
