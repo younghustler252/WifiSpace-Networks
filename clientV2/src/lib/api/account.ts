@@ -109,7 +109,7 @@ export const accountApi = {
 	// USER (SELF SERVICE)
 	// -----------------------------
 
-	getMyAccounts: (): Promise<ApiResponse<Account[]>> =>
+	getMyAccounts: (): Promise<ApiResponse<AccountListResponse>> =>
 		API.get("/accounts/self"),
 
 	requestAccount: (

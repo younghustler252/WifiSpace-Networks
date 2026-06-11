@@ -1,9 +1,15 @@
 import { API } from "./client";
-import { ApiResponse, LoginResponse, User } from "./types";
+import { ApiResponse, User } from "./types";
 
 // ================================
-// REQUEST TYPES
+// TYPES
 // ================================
+
+export interface AuthResponse {
+	user: User;
+	accessToken: string;
+	refreshToken: string;
+}
 
 interface LoginDto {
 	email: string;
@@ -11,6 +17,8 @@ interface LoginDto {
 }
 
 interface RegisterDto {
+	firstName: string;
+	lastName: string;
 	email: string;
 	password: string;
 }
@@ -33,33 +41,25 @@ interface ResendOtpDto {
 // ================================
 
 export const authApi = {
-	login: (
-		data: LoginDto
-	): Promise<ApiResponse<LoginResponse>> =>
+	login: (data: LoginDto): Promise<ApiResponse<AuthResponse>> =>
 		API.post("/auth/login", data),
 
-	register: (
-		data: RegisterDto
-	): Promise<ApiResponse<User>> =>
+	register: (data: RegisterDto): Promise<ApiResponse<User>> =>
 		API.post("/auth/register", data),
 
 	logout: (): Promise<ApiResponse<null>> =>
 		API.post("/auth/logout"),
 
-	refresh: (
-		refreshToken: string
-	): Promise<ApiResponse<{ accessToken: string }>> =>
+	refresh: (refreshToken: string): Promise<ApiResponse<{ accessToken: string }>> =>
 		API.post("/auth/refresh", { refreshToken }),
 
-	// OTP Verification
 	verifyOtp: (
 		data: VerifyOtpDto
-	): Promise<ApiResponse<{ user: User; accessToken: string; refreshToken: string }>> =>
+	): Promise<ApiResponse<AuthResponse>> =>
 		API.post("/auth/verify-otp", data),
 
-	// Resend OTP
 	resendOtp: (
 		data: ResendOtpDto
 	): Promise<ApiResponse<{ message: string }>> =>
 		API.post("/auth/resend-otp", data),
-};														
+};

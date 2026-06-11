@@ -11,7 +11,7 @@ interface StaffLayoutProps {
 const StaffLayout = ({ children }: StaffLayoutProps) => {
 	return (
 		<ProtectedRoute allowedRoles={["staff"]}>
-			<AppShell role="staff">
+			<AppShell >
 				{children}
 			</AppShell>
 		</ProtectedRoute>

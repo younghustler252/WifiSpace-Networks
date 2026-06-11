@@ -1,59 +1,70 @@
 "use client";
 
 import {
-    createContext,
-    useContext,
-    useState,
-    useEffect,
-    ReactNode,
+	createContext,
+	useContext,
+	useState,
+	useEffect,
+	ReactNode,
 } from "react";
 
 import { authApi } from "@/lib/api/auth";
 import { accountApi } from "@/lib/api/account";
 
-import { User, Account } from "@/lib/api/types";
+import { User } from "@/lib/api/types";
+import { Account } from "@/lib/api/account";
+import { AuthResponse } from "@/lib/api/auth";
 
 interface AuthContextType {
-    user: User | null;
-    accounts: Account[];
-    activeAccount: Account | null;
+	user: User | null;
+	accounts: Account[];
+	activeAccount: Account | null;
 
-    accessToken: string | null;
-    refreshToken: string | null;
+	accessToken: string | null;
+	refreshToken: string | null;
 
-    loading: boolean;
-    isAuthenticated: boolean;
+	loading: boolean;
+	isAuthenticated: boolean;
 
-    register: (data: {
-        firstName: string;
-        lastName: string;
-        email: string;
-        password: string;
-    }) => Promise<void>;
+	register: (data: {
+		firstName: string;
+		lastName: string;
+		email: string;
+		password: string;
+	}) => Promise<void>;
 
-    verifyOtp: (data: { email: string; otp: string }) => Promise<void>;
-    resendOtp: (email: string) => Promise<void>;
+	verifyOtp: (data: { email: string; otp: string }) => Promise<AuthResponse>;
+	resendOtp: (email: string) => Promise<void>;
 
-    login: (data: { email: string; password: string }) => Promise<{ user: User }>;
+	login: (data: {
+		email: string;
+		password: string;
+	}) => Promise<{ user: User }>;
 
-    logout: () => void;
-    switchAccount: (accountId: string) => void;
-    fetchAccounts: () => Promise<void>;
+	logout: () => void;
+	switchAccount: (accountId: string) => void;
+	fetchAccounts: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-    const [user, setUser] = useState<User | null>(null);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [activeAccount, setActiveAccount] = useState<Account | null>(null);
-    const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [refreshToken, setRefreshToken] = useState<string | null>(null);
-    const [pendingEmail, setPendingEmail] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+	const [user, setUser] = useState<User | null>(null);
+	const [accounts, setAccounts] = useState<Account[]>([]);
+	const [activeAccount, setActiveAccount] = useState<Account | null>(null);
 
-    // Load auth state from localStorage
-   	useEffect(() => {
+	const [accessToken, setAccessToken] = useState<string | null>(null);
+	const [refreshToken, setRefreshToken] = useState<string | null>(null);
+
+	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+	const [loading, setLoading] = useState<boolean>(true);
+
+	const isAuthenticated = !!accessToken;
+
+	// ================================
+	// INIT AUTH
+	// ================================
+	useEffect(() => {
 		if (typeof window === "undefined") return;
 
 		const initAuth = async () => {
@@ -67,147 +78,169 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setUser(JSON.parse(storedUser));
 
 				try {
-					await fetchAccounts(); // <-- wait for accounts to load
+					await fetchAccounts();
 				} catch (err) {
 					console.error("Failed to fetch accounts:", err);
 				}
 			}
 
-			setLoading(false); // <-- now loading only becomes false AFTER accounts fetch
+			setLoading(false);
 		};
 
 		initAuth();
 	}, []);
-    const login = async (data: { email: string; password: string }) => {
-        const res = await authApi.login(data);
-        const { accessToken, refreshToken, user } = res.data;
 
-        setUser(user);
+	// ================================
+	// LOGIN
+	// ================================
+	const login = async (data: { email: string; password: string }) => {
+		const res = await authApi.login(data);
+		const { accessToken, refreshToken, user } = res.data;
 
-        if (user.isVerified && accessToken && refreshToken) {
-            setAccessToken(accessToken);
-            setRefreshToken(refreshToken);
+		setUser(user);
 
-            localStorage.setItem("accessToken", accessToken);
-            localStorage.setItem("refreshToken", refreshToken);
-        }
+		if (user.isVerified && accessToken && refreshToken) {
+			setAccessToken(accessToken);
+			setRefreshToken(refreshToken);
 
-        localStorage.setItem("user", JSON.stringify(user));
+			localStorage.setItem("accessToken", accessToken);
+			localStorage.setItem("refreshToken", refreshToken);
+		}
 
-        if (user.isVerified) {
-            await fetchAccounts();
-        }
+		localStorage.setItem("user", JSON.stringify(user));
 
-        return { user };
-    };
+		if (user.isVerified) {
+			await fetchAccounts();
+		}
 
-    const register = async (data: {
-        firstName: string;
-        lastName: string;
-        email: string;
-        password: string;
-    }) => {
-        await authApi.register(data);
-        setPendingEmail(data.email);
-    };
+		return { user };
+	};
 
-    const verifyOtp = async (data: { email: string; otp: string }) => {
-        const res = await authApi.verifyOtp(data);
-        const { accessToken, refreshToken, user } = res.data;
+	// ================================
+	// REGISTER
+	// ================================
+	const register = async (data: {
+		firstName: string;
+		lastName: string;
+		email: string;
+		password: string;
+	}) => {
+		await authApi.register(data);
+		setPendingEmail(data.email);
+	};
 
-        setUser(user);
-        setAccessToken(accessToken);
-        setRefreshToken(refreshToken);
+	// ================================
+	// VERIFY OTP
+	// ================================
+	const verifyOtp = async (data: { email: string; otp: string }) => {
+		const res = await authApi.verifyOtp(data);
+		const { accessToken, refreshToken, user } = res.data;
 
-        localStorage.setItem("accessToken", accessToken);
-        localStorage.setItem("refreshToken", refreshToken);
-        localStorage.setItem("user", JSON.stringify(user));
+		setUser(user);
+		setAccessToken(accessToken);
+		setRefreshToken(refreshToken);
 
-        setPendingEmail(null);
+		localStorage.setItem("accessToken", accessToken);
+		localStorage.setItem("refreshToken", refreshToken);
+		localStorage.setItem("user", JSON.stringify(user));
 
-        await fetchAccounts();
-        return res;
-    };
+		setPendingEmail(null);
 
-    const resendOtp = async (email: string) => {
-        await authApi.resendOtp({ email });
-    };
+		await fetchAccounts();
 
-    const fetchAccounts = async () => {
-        try {
-            setLoading(true);
+		return res.data;
+	};
 
-            const res = await accountApi.getMyAccounts();
-            const accountsData: Account[] = res.data.data || [];
+	// ================================
+	// RESEND OTP
+	// ================================
+	const resendOtp = async (email: string) => {
+		await authApi.resendOtp({ email });
+	};
 
-			
-            setAccounts(accountsData);
-            // console.log("Fetched accounts:", accountsData);
+	// ================================
+	// FETCH ACCOUNTS
+	// ================================
+	const fetchAccounts = async () => {
+		try {
+			setLoading(true);
 
-            if (accountsData.length > 0) {
-                const storedId = localStorage.getItem("activeAccountId");
-                const selected =
-                    accountsData.find((acc) => acc.id === storedId) || accountsData[0];
-                setActiveAccount(selected);
-            } else {
-                setActiveAccount(null);
-            }
-        } catch (err) {
-            console.error("Failed to fetch accounts", err);
-            setAccounts([]);
-            setActiveAccount(null);
-        } finally {
-            setLoading(false);
-        }
-    };
+			const res = await accountApi.getMyAccounts();
+			const accountsData = res.data.data;
 
-    const switchAccount = (accountId: string) => {
-        const selected = accounts.find((acc) => acc.id === accountId);
+			setAccounts(accountsData);
 
-        if (selected) {
-            setActiveAccount(selected);
-            localStorage.setItem("activeAccountId", accountId);
-        }
-    };
+			if (accountsData.length > 0) {
+				const storedId = localStorage.getItem("activeAccountId");
+				const selected =
+					accountsData.find((acc) => acc.id === storedId) ||
+					accountsData[0];
 
-    const logout = () => {
-        setUser(null);
-        setAccounts([]);
-        setActiveAccount(null);
-        setAccessToken(null);
-        setRefreshToken(null);
-        setPendingEmail(null);
+				setActiveAccount(selected);
+			} else {
+				setActiveAccount(null);
+			}
+		} catch (err) {
+			console.error("Failed to fetch accounts", err);
+			setAccounts([]);
+			setActiveAccount(null);
+		} finally {
+			setLoading(false);
+		}
+	};
 
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        localStorage.removeItem("activeAccountId");
-    };
+	// ================================
+	// SWITCH ACCOUNT
+	// ================================
+	const switchAccount = (accountId: string) => {
+		const selected = accounts.find((acc) => acc.id === accountId);
 
-    const isAuthenticated = !!accessToken;
+		if (selected) {
+			setActiveAccount(selected);
+			localStorage.setItem("activeAccountId", accountId);
+		}
+	};
 
-    const value: AuthContextType = {
-        user,
-        accounts,
-        activeAccount,
-        accessToken,
-        refreshToken,
-        loading,
-        isAuthenticated,
-        register,
-        verifyOtp,
-        resendOtp,
-        login,
-        logout,
-        switchAccount,
-        fetchAccounts,
-    };
+	// ================================
+	// LOGOUT
+	// ================================
+	const logout = () => {
+		setUser(null);
+		setAccounts([]);
+		setActiveAccount(null);
+		setAccessToken(null);
+		setRefreshToken(null);
+		setPendingEmail(null);
 
-    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+		localStorage.clear();
+	};
+
+	return (
+		<AuthContext.Provider
+			value={{
+				user,
+				accounts,
+				activeAccount,
+				accessToken,
+				refreshToken,
+				loading,
+				isAuthenticated,
+				register,
+				verifyOtp,
+				resendOtp,
+				login,
+				logout,
+				switchAccount,
+				fetchAccounts,
+			}}
+		>
+			{children}
+		</AuthContext.Provider>
+	);
 };
 
-export const useAuth = (): AuthContextType => {
-    const context = useContext(AuthContext);
-    if (!context) throw new Error("useAuth must be used within AuthProvider");
-    return context;
+export const useAuth = () => {
+	const context = useContext(AuthContext);
+	if (!context) throw new Error("useAuth must be used within AuthProvider");
+	return context;
 };
