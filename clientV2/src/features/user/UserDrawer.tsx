@@ -37,7 +37,7 @@ interface Props {
 	user: any;
 	currentUser: any;
 
-	onUpdateProfile: (data: any) => void;
+	onUpdateProfile: (data: any) => Promise<void>;
 	onUpdateRole: (role: string) => void;
 
 	onDelete?: () => void;

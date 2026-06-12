@@ -344,7 +344,7 @@ export default function AdminUsersPage() {
 				currentUser={currentUser}
 				open={!!selectedUser}
 				onClose={() => setSelectedUser(null)}
-				onUpdateProfile={() => {}}
+				onUpdateProfile={async () => {}}
 				onUpdateRole={() => {}}
 				onBan={() => {}}
 				onDelete={() => {}}
