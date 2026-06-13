@@ -39,7 +39,7 @@ export class RegisterUser {
 			phone,
 			permissions: [],
 			verificationOTP: otp,
-			otpExpiresAt
+			otpExpiresAt: Date.now() + 10 * 60 * 1000 // OTP valid for 10 minutes
 		});
 
 		// 6️⃣ Persist user
@@ -86,6 +86,7 @@ export class RegisterUser {
 			role: createdUser.role,
 			isVerified: createdUser.isVerified,
 			verificationSent,
+			otpExpiresAt: createdUser.otpExpiresAt,
 			mailError // null if sent successfully
 		};
 	}

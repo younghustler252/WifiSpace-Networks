@@ -54,7 +54,8 @@ export class LoginUser {
 					firstName: user.firstName,
 					lastName: user.lastName,
 					role: user.role,
-					isVerified: false
+					isVerified: false,
+					otpExpiresAt: user.otpExpiresAt 
 				},
 				accessToken: null,
 				refreshToken: null,

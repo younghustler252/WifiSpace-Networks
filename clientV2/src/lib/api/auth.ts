@@ -60,6 +60,6 @@ export const authApi = {
 
 	resendOtp: (
 		data: ResendOtpDto
-	): Promise<ApiResponse<{ message: string }>> =>
+	): Promise<ApiResponse<{ message: string, otpExpiresAt: number; }>> =>
 		API.post("/auth/resend-otp", data),
 };

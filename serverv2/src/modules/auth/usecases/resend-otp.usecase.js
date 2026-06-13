@@ -36,6 +36,9 @@ export class ResendOtp {
 			expiresIn: 10
 		});
 
-		return { message: "OTP resent successfully" };
+		return { 
+			message: "OTP resent successfully",
+			otpExpiresAt
+		};
 	}
 }

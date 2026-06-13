@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint"
   },
-    "dependencies": {
+  "dependencies": {
     "@tanstack/react-query": "^5.96.2",
     "axios": "^1.13.6",
     "clsx": "^2.1.1",

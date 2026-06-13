@@ -95,8 +95,7 @@ export default function VerifyOtp() {
 			const res = await resendOtp(user.email);
 			console.log("Resend OTP response:", res);
 
-			// IMPORTANT:
-			// expect backend to return new otpExpiresAt
+			
 			if (res?.otpExpiresAt) {
 				user.otpExpiresAt = res.otpExpiresAt;
 			}

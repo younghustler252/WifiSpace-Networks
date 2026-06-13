@@ -42,10 +42,10 @@ export class VerifyOtp {
 		});
 
 		const payload = {
-  sub: user.id,
-  email: user.email,
-  role: user.role
-};
+			sub: user.id,
+			email: user.email,
+			role: user.role
+		};
 
 const accessToken = this.tokenService.generateAccessToken(payload);
 const refreshToken = this.tokenService.generateRefreshToken(payload);

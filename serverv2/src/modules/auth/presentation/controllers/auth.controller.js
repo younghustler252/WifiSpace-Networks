@@ -122,7 +122,10 @@ export class AuthController {
 
 		return successResponse({
 			res,
-			message: result.message
+			message: result.message,
+			data: {
+				otpExpiresAt: result.otpExpiresAt
+			}
 		});
 	};
 }

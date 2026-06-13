@@ -34,7 +34,7 @@ interface AuthContextType {
 	}) => Promise<void>;
 
 	verifyOtp: (data: { email: string; otp: string }) => Promise<AuthResponse>;
-	resendOtp: (email: string) => Promise<void>;
+	resendOtp: (email: string) => Promise<{ message: string; otpExpiresAt: number }>;
 
 	login: (data: {
 		email: string;
@@ -155,7 +155,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// RESEND OTP
 	// ================================
 	const resendOtp = async (email: string) => {
-		await authApi.resendOtp({ email });
+		const res = await authApi.resendOtp({ email });
+		return res.data;
 	};
 
 	// ================================
