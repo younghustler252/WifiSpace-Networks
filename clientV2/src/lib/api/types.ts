@@ -48,7 +48,7 @@ export interface User {
 	// permissions / settings
 	permissions?: string[];
 	theme?: string;
-
+	otpExpiresAt?: number; 
 	// timestamps
 	lastLoginAt?: string;
 	createdAt?: string;

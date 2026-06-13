@@ -15,13 +15,15 @@ interface VerifyOtpFormInputs {
 }
 
 export default function VerifyOtp() {
-	const { user, accessToken, verifyOtp, resendOtp } = useAuth();
+	const { user, verifyOtp, resendOtp } = useAuth();
 	const router = useRouter();
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState("");
 	const [successMessage, setSuccessMessage] = useState("");
-	const [timer, setTimer] = useState(60);
+
+	// derived from backend expiry
+	const [timeLeft, setTimeLeft] = useState<number>(0);
 
 	const {
 		register,
@@ -36,13 +38,27 @@ export default function VerifyOtp() {
 		}
 	}, [user, resendOtp]);
 
-	// Countdown timer for OTP resend
+	// derive countdown from otpExpiresAt (refresh-safe)
 	useEffect(() => {
-		if (timer === 0) return;
+		if (!user?.otpExpiresAt) return;
 
-		const interval = setInterval(() => setTimer((prev) => prev - 1), 1000);
+		const updateTimer = () => {
+			// otpExpiresAt may be undefined at type level; guard defensively
+			const expiresAt = user.otpExpiresAt ?? 0;
+			if (!expiresAt) {
+				setTimeLeft(0);
+				return;
+			}
+
+			const diff = Math.floor((expiresAt - Date.now()) / 1000);
+			setTimeLeft(diff > 0 ? diff : 0);
+		};
+
+		updateTimer();
+
+		const interval = setInterval(updateTimer, 1000);
 		return () => clearInterval(interval);
-	}, [timer]);
+	}, [user?.otpExpiresAt]);
 
 	// Handle OTP submission
 	const onSubmit = async (data: VerifyOtpFormInputs) => {
@@ -53,13 +69,13 @@ export default function VerifyOtp() {
 		try {
 			if (!user) throw new Error("User not found");
 
-			const response = await verifyOtp({
+			await verifyOtp({
 				email: user.email,
 				otp: data.otp,
 			});
 
 			setSuccessMessage("OTP verified successfully");
-			// Redirect to dashboard after success
+
 			router.push("/dashboard");
 		} catch (err: any) {
 			setError(err?.message || "OTP verification failed");
@@ -76,21 +92,44 @@ export default function VerifyOtp() {
 		try {
 			if (!user) throw new Error("User not found");
 
-			await resendOtp(user.email);
-			setTimer(60);
+			const res = await resendOtp(user.email);
+			console.log("Resend OTP response:", res);
+
+			// IMPORTANT:
+			// expect backend to return new otpExpiresAt
+			if (res?.otpExpiresAt) {
+				user.otpExpiresAt = res.otpExpiresAt;
+			}
+
 			setSuccessMessage("OTP has been resent to your email.");
 		} catch (err: any) {
 			setError("Failed to resend OTP. Please try again.");
 		}
 	};
 
+	const formatTime = (seconds: number) => {
+		const m = Math.floor(seconds / 60);
+		const s = seconds % 60;
+		return `${m}:${s.toString().padStart(2, "0")}`;
+	};
+
 	return (
 		<div className="w-full max-w-md ui-stack-lg mx-auto mt-16">
 			<h1 className="text-2xl font-bold text-center">Verify Your Email</h1>
 
-			<p className="text-center text-sm text-muted-foreground mb-4">
+			<p className="text-center text-sm text-muted-foreground mb-2">
 				We sent an OTP to your email. Enter it below to verify your account.
 			</p>
+
+			{/* expiry info */}
+			{user?.otpExpiresAt && (
+				<p className="text-center text-sm text-muted-foreground mb-4">
+					OTP expires in:{" "}
+					<span className={timeLeft === 0 ? "text-red-500" : ""}>
+						{formatTime(timeLeft)}
+					</span>
+				</p>
+			)}
 
 			{successMessage && (
 				<StatusBadge
@@ -133,14 +172,15 @@ export default function VerifyOtp() {
 					rightIcon={!loading && <ArrowRight size={18} />}
 					variant="accent"
 					isLoading={loading}
+					disabled={timeLeft === 0}
 				>
 					Verify OTP
 				</Button>
 			</form>
 
 			<div className="text-center mt-4 text-sm text-muted-foreground">
-				{timer > 0 ? (
-					<p>You can resend OTP in {timer} seconds</p>
+				{timeLeft > 0 ? (
+					<p>You can resend OTP after expiry</p>
 				) : (
 					<button
 						onClick={handleResendOtp}
