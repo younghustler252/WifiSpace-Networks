@@ -1,48 +1,48 @@
-import "dotenv/config";
-import * as Brevo from "@getbrevo/brevo";
+import axios from "axios";
 
 export class BrevoService {
     constructor() {
-        const client = new Brevo.TransactionalEmailsApi();
+        if (!process.env.BREVO_API_KEY) {
+            throw new Error("Missing BREVO_API_KEY");
+        }
 
-        client.setApiKey(
-            Brevo.TransactionalEmailsApiApiKeys.apiKey,
-            process.env.BREVO_API_KEY
-        );
+        if (!process.env.BREVO_SENDER_EMAIL || !process.env.BREVO_SENDER_NAME) {
+            throw new Error("Missing sender env vars");
+        }
 
-        this.client = client;
+        this.apiKey = process.env.BREVO_API_KEY;
 
-        // Load sender from env
         this.sender = {
             email: process.env.BREVO_SENDER_EMAIL,
-            name: process.env.BREVO_SENDER_NAME
+            name: process.env.BREVO_SENDER_NAME,
         };
-
-        if (!process.env.BREVO_API_KEY) {
-            throw new Error("Missing BREVO_API_KEY in .env");
-        }
-
-        if (!this.sender.email || !this.sender.name) {
-            throw new Error("Missing BREVO_SENDER_EMAIL or BREVO_SENDER_NAME in .env");
-        }
     }
 
-    async send({ to, subject, html, sender = null }) {
+    async send({ to, subject, html }) {
         try {
-            const response = await this.client.sendTransacEmail({
-                sender: sender || this.sender,
-                to: Array.isArray(to)
-                    ? to.map(email => ({ email }))
-                    : [{ email: to }],
-                subject,
-                htmlContent: html
-            });
+            const response = await axios.post(
+                "https://api.brevo.com/v3/smtp/email",
+                {
+                    sender: this.sender,
+                    to: Array.isArray(to)
+                        ? to.map(email => ({ email }))
+                        : [{ email: to }],
+                    subject,
+                    htmlContent: html,
+                },
+                {
+                    headers: {
+                        "api-key": this.apiKey,
+                        "Content-Type": "application/json",
+                    },
+                }
+            );
 
-            return response;
+            return response.data;
         } catch (err) {
             console.error(
                 "Brevo email error:",
-                err?.response?.body || err.message || err
+                err?.response?.data || err.message
             );
             throw err;
         }

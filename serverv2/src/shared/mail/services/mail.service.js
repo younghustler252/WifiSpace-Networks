@@ -8,8 +8,8 @@ export class MailService {
         // Use Brevo in production, Nodemailer in dev
         this.client =
             process.env.NODE_ENV === "production"
-                ? new BrevoService()
-                : new NodemailerService();
+                ? new NodemailerService()
+                : new BrevoService();
     }
 
     /**

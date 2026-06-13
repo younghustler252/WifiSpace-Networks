@@ -17,7 +17,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@getbrevo/brevo": "^5.0.3",
+    "@getbrevo/brevo": "^5.0.4",
     "awilix": "^13.0.3",
     "axios": "^1.16.0",
     "bcrypt": "^6.0.0",
@@ -38,8 +38,7 @@
     "node-cron": "^4.2.1",
     "node-routeros": "^1.6.8",
     "nodemailer": "^8.0.4",
-    "p-queue": "^9.1.0",
-    "uuid": "^14.0.0"
+    "p-queue": "^9.1.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
