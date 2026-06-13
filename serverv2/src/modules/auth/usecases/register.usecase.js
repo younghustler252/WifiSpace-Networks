@@ -38,7 +38,7 @@ export class RegisterUser {
 			isVerified: false,
 			phone,
 			permissions: [],
-			verificationOTP: otp,
+			verificationOTP: hashedOtp,
 			otpExpiresAt: Date.now() + 10 * 60 * 1000 // OTP valid for 10 minutes
 		});
 

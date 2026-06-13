@@ -13,17 +13,9 @@ export class LoginUser {
 		const user = await this.userRepository.findAuthByEmail(email);
 		
 		if (!user) {
-			// if (this.auditService) {
-			// 	await this.auditService.log({
-			// 		actorId: null,
-			// 		action: "LOGIN_FAILED",
-			// 		resource: "User",
-			// 		metadata: { email, reason: "USER_NOT_FOUND", ip, userAgent }
-			// 	});
-			// }
 			throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
 		}
-		console.log("user id", user.id)
+		// console.log("user id", user.id)
 		
 		if (!user.isActive()) throw new ForbiddenError("Account is not active", "ACCOUNT_INACTIVE");
 		if (user.isLocked()) throw new ForbiddenError("Account temporarily locked", "ACCOUNT_LOCKED");
@@ -62,7 +54,15 @@ export class LoginUser {
 				error: "ACCOUNT_NOT_VERIFIED"
 			};
 		}
-
+		
+		// if (this.auditService) {
+		// 	await this.auditService.log({
+		// 		actorId: null,
+		// 		action: "LOGIN_FAILED",
+		// 		resource: "User",
+		// 		metadata: { email, reason: "USER_NOT_FOUND", ip, userAgent }
+		// 	});
+		// }
 		// ✅ Reset failed attempts + last login
 		user.resetLoginAttempts();
 		await this.userRepository.updateSecurityState(user.id, {
