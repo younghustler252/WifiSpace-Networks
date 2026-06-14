@@ -97,16 +97,27 @@ const userSchema = new mongoose.Schema(
 
 	address: { type: String, trim: true },
 
-	dateOfBirth: { type: Date },
+	dateOfBirth: { 
+		type: Date 
+	},
 
 	gender: {
 		type: String,
 		enum: ["male", "female", "other"]
 	},
 
-	verificationOTP: { type: String },
-	otpExpiresAt: { type: Number },
-	
+	verificationOTP: { 
+		type: String 
+	},
+	otpExpiresAt: { 
+		type: Number 
+	},
+	otpAttempts: {
+		type: Number,
+		default: 0
+	},
+	otpLockedUntil: Number,
+	lastOtpSentAt: Number,
 
 	googleId: { type: String },
 

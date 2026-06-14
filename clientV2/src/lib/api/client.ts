@@ -107,21 +107,40 @@ API.interceptors.request.use(
 // ================================
 // RESPONSE INTERCEPTOR
 // ================================
+const isAuthRoute = (url?: string) => {
+	if (!url) return false;
+
+	return (
+		url.includes("/auth/")
+	);
+};
 
 API.interceptors.response.use(
 	(response) => {
-		// return backend structured response
 		return response.data;
 	},
 
 	async (error: AxiosError): Promise<unknown> => {
 		const originalRequest = error.config as CustomAxiosRequestConfig;
 		const status = error.response?.status;
+		const requestUrl = originalRequest?.url;
 
 		// ================================
-		// HANDLE TOKEN EXPIRY (401)
+		// ❌ DO NOT AUTO-REFRESH AUTH ROUTES
 		// ================================
+		if (isAuthRoute(requestUrl)) {
+			const data = error.response?.data as any;
 
+			return Promise.reject({
+				message: data?.message || "Auth error",
+				code: data?.code || "AUTH_ERROR",
+				status,
+			});
+		}
+
+		// ================================
+		// HANDLE TOKEN EXPIRY ONLY
+		// ================================
 		if (status === 401 && originalRequest && !originalRequest._retry) {
 			originalRequest._retry = true;
 
@@ -129,64 +148,59 @@ API.interceptors.response.use(
 				const refreshToken = getRefreshToken();
 
 				if (!refreshToken) {
-					throw new Error("No refresh token");
+					clearAuthStorage();
+					return Promise.reject({
+						message: "No refresh token. Please login again.",
+						code: "NO_REFRESH_TOKEN",
+					});
 				}
 
-						// Call refresh endpoint with proper payload
-				const resData = await authApi.refresh(refreshToken) as ApiResponse<{
-					accessToken: string;
-					refreshToken?: string;
-				}>;
-				
+				const resData = await authApi.refresh(refreshToken);
+
 				const newAccessToken = resData.data.accessToken;
 
 				if (!newAccessToken) {
-					throw new Error("Invalid refresh response");
+					clearAuthStorage();
+					return Promise.reject({
+						message: "Invalid refresh response",
+						code: "INVALID_REFRESH",
+					});
 				}
 
-				// save new tokens
 				setAccessToken(newAccessToken);
 
-				if (resData.data.refreshToken) {
+			
+
+				if (resData?.data?.refreshToken) {
 					setRefreshToken(resData.data.refreshToken);
 				}
 
-				// retry original request
 				if (originalRequest.headers) {
-					originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+					originalRequest.headers.Authorization =
+						`Bearer ${newAccessToken}`;
 				}
 
 				return API(originalRequest);
 			} catch (refreshError) {
-				// clear auth (AuthContext will handle redirect)
 				clearAuthStorage();
-				return Promise.reject(refreshError);
+
+				return Promise.reject({
+					message: "Session expired. Please login again.",
+					code: "SESSION_EXPIRED",
+				});
 			}
 		}
 
 		// ================================
-		// HANDLE BACKEND ERRORS
+		// NORMAL BACKEND ERRORS
 		// ================================
+		const data = error.response?.data as any;
 
-		if (error.response?.data) {
-			const data = error.response.data as Partial<ApiResponse>;
-
-			return Promise.reject<ApiError>({
-				message: data.message || "Something went wrong",
-				code: data.code || "UNKNOWN_ERROR",
-				details: data.data || null,
-				status,
-			});
-		}
-
-		// ================================
-		// NETWORK ERROR
-		// ================================
-
-		return Promise.reject<ApiError>({
-			message: error.message || "Network error",
-			code: "NETWORK_ERROR",
+		return Promise.reject({
+			message: data?.message || error.message || "Something went wrong",
+			code: data?.code || "UNKNOWN_ERROR",
 			status,
+			details: data,
 		});
 	}
 );

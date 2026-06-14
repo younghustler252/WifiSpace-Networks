@@ -41,5 +41,7 @@ export class UserRepository {
 		throw new Error("Method 'delete()' must be implemented.");
 	}
 
-	
+	async findVerificationByEmail(email) {
+		throw new Error("Method 'findVerificationByEmail()' must be implemented.");
+	}
 }

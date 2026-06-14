@@ -105,7 +105,7 @@ export class PaystackPaymentService {
 			}
 		});
 		console.log("Paystack initialization response:", payment, paystackResponse);
-
+		console.log("Callback URL:", process.env.FRONTEND_URL);
 		return {
 			payment,
 			paystack: paystackResponse

@@ -24,9 +24,12 @@ export class User {
 		lastLoginAt = null,
 		verificationOTP = null,
 		otpExpiresAt = null,
+		otpAttempts = 0,
+		otpLockedUntil = null,
+		lastOtpSentAt = null,
 		createdAt = null,
 		updatedAt = null,
-		theme = "system" // 🔥 New theme field
+		theme = "system"
 	}) {
 		if (!email) throw new ValidationError("Email is required");
 		if (!firstName) throw new ValidationError("First name is required");
@@ -37,13 +40,21 @@ export class User {
 		this.lastName = lastName;
 		this.email = email;
 
-		this.avatar = avatar ?? { url: "https://default-avatar.png", publicId: null };
+		this.avatar = avatar ?? {
+			url: "https://default-avatar.png",
+			publicId: null
+		};
+
 		this.hashedPassword = hashedPassword;
+
 		this.role = role;
 		this.status = status;
 		this.isVerified = isVerified;
 
-		this.permissions = permissions && permissions.length ? permissions : ROLE_PERMISSIONS[role] || [];
+		this.permissions =
+			permissions?.length > 0
+				? permissions
+				: ROLE_PERMISSIONS[role] || [];
 
 		this.phone = phone;
 		this.nin = nin;
@@ -55,19 +66,21 @@ export class User {
 		this.lockUntil = lockUntil;
 		this.passwordChangedAt = passwordChangedAt;
 		this.lastLoginAt = lastLoginAt;
+
 		this.verificationOTP = verificationOTP;
 		this.otpExpiresAt = otpExpiresAt;
+		this.otpAttempts = otpAttempts;
+		this.otpLockedUntil = otpLockedUntil;
+		this.lastOtpSentAt = lastOtpSentAt;
 
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 
-		this.theme = theme; // save user preference
+		this.theme = theme;
 	}
 
 	// ----------------------------
 	// Safe Output (DTO)
-	// Include all safe fields like nin, theme, etc.
-	// Exclude sensitive fields like hashedPassword, OTPs
 	// ----------------------------
 	toJSON() {
 		return {
@@ -81,40 +94,63 @@ export class User {
 			isVerified: this.isVerified,
 			permissions: this.permissions,
 			phone: this.phone,
-			nin: this.nin, // include NIN
+			nin: this.nin,
 			address: this.address,
 			dateOfBirth: this.dateOfBirth,
 			gender: this.gender,
 			lastLoginAt: this.lastLoginAt,
 			createdAt: this.createdAt,
 			updatedAt: this.updatedAt,
-			theme: this.theme // include theme
+			theme: this.theme
 		};
 	}
 
 	// ----------------------------
 	// Status Management
 	// ----------------------------
-	isActive() { return this.status === "active"; }
-	suspend() { this.status = "suspended"; }
-	ban() { this.status = "banned"; }
-	activate() { this.status = "active"; }
+	isActive() {
+		return this.status === "active";
+	}
+
+	suspend() {
+		this.status = "suspended";
+	}
+
+	ban() {
+		this.status = "banned";
+	}
+
+	activate() {
+		this.status = "active";
+	}
 
 	// ----------------------------
 	// Verification
 	// ----------------------------
-	verify() { this.isVerified = true; }
+	verify() {
+		this.isVerified = true;
+		this.clearVerificationOTP();
+		this.lastOtpSentAt = null;
+	}
 
 	// ----------------------------
 	// Login Security
 	// ----------------------------
-	isLocked() { return this.lockUntil && this.lockUntil > new Date(); }
+	isLocked() {
+		return Boolean(
+			this.lockUntil && this.lockUntil > new Date()
+		);
+	}
 
 	recordFailedLogin(maxAttempts = 5, lockMinutes = 15) {
 		this.failedLoginAttempts += 1;
+
 		if (this.failedLoginAttempts >= maxAttempts) {
 			const lockTime = new Date();
-			lockTime.setMinutes(lockTime.getMinutes() + lockMinutes);
+			lockTime.setMinutes(
+				lockTime.getMinutes() + lockMinutes
+			);
+
 			this.lockUntil = lockTime;
 		}
 	}
@@ -125,14 +161,26 @@ export class User {
 		this.lastLoginAt = new Date();
 	}
 
-	markPasswordChanged() { this.passwordChangedAt = new Date(); }
+	markPasswordChanged() {
+		this.passwordChangedAt = new Date();
+	}
 
 	// ----------------------------
 	// Profile Updates
 	// ----------------------------
-	updatePermissions(newPermissions = []) { this.permissions = newPermissions; }
+	updatePermissions(newPermissions = []) {
+		this.permissions = newPermissions;
+	}
 
-	updateProfile({ firstName, lastName, phone, address, gender, dateOfBirth,nin } = {}) {
+	updateProfile({
+		firstName,
+		lastName,
+		phone,
+		address,
+		gender,
+		dateOfBirth,
+		nin
+	} = {}) {
 		if (firstName) this.firstName = firstName;
 		if (lastName) this.lastName = lastName;
 		if (phone) this.phone = phone;
@@ -140,18 +188,109 @@ export class User {
 		if (address) this.address = address;
 		if (gender) this.gender = gender;
 		if (dateOfBirth) this.dateOfBirth = dateOfBirth;
-
 	}
 
+	// ----------------------------
+	// OTP Management
+	// ----------------------------
+	setVerificationOTP(otp, expiresAt) {
+		this.verificationOTP = otp;
+		this.otpExpiresAt = expiresAt;
+
+		// fresh OTP = fresh attempt counter
+		this.otpAttempts = 0;
+
+		// clear any existing OTP lock
+		this.otpLockedUntil = null;
+	}
+
+	incrementOTPAttempts(
+		maxAttempts = 5,
+		lockMinutes = 15
+	) {
+		this.otpAttempts += 1;
+
+		if (this.otpAttempts >= maxAttempts) {
+			this.otpLockedUntil =
+				Date.now() + lockMinutes * 60 * 1000;
+		}
+	}
+
+	canAttemptOTP(maxAttempts = 5) {
+		return this.otpAttempts < maxAttempts;
+	}
+
+	isOTPLocked() {
+		return Boolean(
+			this.otpLockedUntil &&
+			Date.now() < this.otpLockedUntil
+		);
+	}
+
+	unlockOTPIfExpired() {
+		if (
+			this.otpLockedUntil &&
+			Date.now() >= this.otpLockedUntil
+		) {
+			this.otpAttempts = 0;
+			this.otpLockedUntil = null;
+		}
+	}
+
+	markOtpSent() {
+		this.lastOtpSentAt = Date.now();
+	}
+
+	canResendOTP(cooldownSeconds = 60) {
+		if (!this.lastOtpSentAt) return true;
+
+		return (
+			Date.now() - this.lastOtpSentAt >=
+			cooldownSeconds * 1000
+		);
+	}
+
+	clearVerificationOTP() {
+		this.verificationOTP = null;
+		this.otpExpiresAt = null;
+		this.otpAttempts = 0;
+		this.otpLockedUntil = null;
+	}
+
+	isOTPExpired() {
+		return (
+			!this.otpExpiresAt ||
+			Date.now() > this.otpExpiresAt
+		);
+	}
+
+	// ----------------------------
+	// Avatar
+	// ----------------------------
 	updateAvatar({ url, publicId }) {
-		if (!url) throw new ValidationError("Avatar URL is required");
-		this.avatar = { url, publicId: publicId || null };
+		if (!url) {
+			throw new ValidationError(
+				"Avatar URL is required"
+			);
+		}
+
+		this.avatar = {
+			url,
+			publicId: publicId || null
+		};
 	}
 
-	removeAvatar() { this.avatar = { url: null, publicId: null }; }
+	removeAvatar() {
+		this.avatar = {
+			url: "https://default-avatar.png",
+			publicId: null
+		};
+	}
 
 	// ----------------------------
 	// Helpers
 	// ----------------------------
-	getFullName() { return `${this.firstName} ${this.lastName}`; }
+	getFullName() {
+		return `${this.firstName} ${this.lastName}`;
+	}
 }

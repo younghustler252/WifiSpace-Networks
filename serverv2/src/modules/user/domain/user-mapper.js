@@ -35,6 +35,9 @@ export class UserMapper {
 			lastLoginAt: raw.lastLoginAt,
 			verificationOTP: raw.verificationOTP,
 			otpExpiresAt: raw.otpExpiresAt,
+			otpAttempts: raw.otpAttempts,
+			otpLockedUntil: raw.otpLockedUntil,
+			lastOtpSentAt: raw.lastOtpSentAt,
 
 			createdAt: raw.createdAt,
 			updatedAt: raw.updatedAt,
@@ -72,9 +75,11 @@ export class UserMapper {
 			lastLoginAt: user.lastLoginAt,
 			verificationOTP: user.verificationOTP,
 			otpExpiresAt: user.otpExpiresAt,
+			otpAttempts: user.otpAttempts,
+			otpLockedUntil: user.otpLockedUntil,
+			lastOtpSentAt: user.lastOtpSentAt,
 
-			// Save the theme as well
-			theme: user.theme || 'system'  // Ensure theme is saved to DB (default to 'system')
+			theme: user.theme || 'system' 
 		};
 	}
 }

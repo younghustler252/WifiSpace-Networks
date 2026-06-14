@@ -26,20 +26,31 @@ interface AuthContextType {
 	loading: boolean;
 	isAuthenticated: boolean;
 
+	pendingEmail: string | null;
+
 	register: (data: {
 		firstName: string;
 		lastName: string;
 		email: string;
 		password: string;
-	}) => Promise<void>;
+	}) => Promise<{ message: string }>;
 
 	verifyOtp: (data: { email: string; otp: string }) => Promise<AuthResponse>;
-	resendOtp: (email: string) => Promise<{ message: string; otpExpiresAt: number }>;
+
+	resendOtp: (
+		email: string
+	) => Promise<{
+		message: string;
+		otpExpiresAt: number;
+		nextResendAt: number;
+		canResend: boolean;
+		resendCooldownSeconds: number;
+	}>;
 
 	login: (data: {
 		email: string;
 		password: string;
-	}) => Promise<{ user: User }>;
+	}) => Promise<{ user: User; message: string }>;
 
 	logout: () => void;
 	switchAccount: (accountId: string) => void;
@@ -47,6 +58,15 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+// helper: normalize API errors
+const getErrorMessage = (err: any) => {
+	return (
+		err?.response?.data?.message ||
+		err?.message ||
+		"Something went wrong"
+	);
+};
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [user, setUser] = useState<User | null>(null);
@@ -57,6 +77,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
 	const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+
 	const [loading, setLoading] = useState<boolean>(true);
 
 	const isAuthenticated = !!accessToken;
@@ -68,23 +89,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		if (typeof window === "undefined") return;
 
 		const initAuth = async () => {
-			const storedAccess = localStorage.getItem("accessToken");
-			const storedRefresh = localStorage.getItem("refreshToken");
-			const storedUser = localStorage.getItem("user");
+			try {
+				const storedAccess = localStorage.getItem("accessToken");
+				const storedRefresh = localStorage.getItem("refreshToken");
+				const storedUser = localStorage.getItem("user");
 
-			if (storedAccess && storedUser) {
-				setAccessToken(storedAccess);
-				setRefreshToken(storedRefresh);
-				setUser(JSON.parse(storedUser));
+				if (storedAccess && storedUser) {
+					setAccessToken(storedAccess);
+					setRefreshToken(storedRefresh);
+					setUser(JSON.parse(storedUser));
 
-				try {
 					await fetchAccounts();
-				} catch (err) {
-					console.error("Failed to fetch accounts:", err);
 				}
+			} catch (err) {
+				console.error("Auth init failed:", err);
+			} finally {
+				setLoading(false);
 			}
-
-			setLoading(false);
 		};
 
 		initAuth();
@@ -94,26 +115,39 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 	// LOGIN
 	// ================================
 	const login = async (data: { email: string; password: string }) => {
-		const res = await authApi.login(data);
-		const { accessToken, refreshToken, user } = res.data;
+		try {
+			const res = await authApi.login(data);
+			
 
-		setUser(user);
+			const { accessToken, refreshToken, user } = res.data;
 
-		if (user.isVerified && accessToken && refreshToken) {
+			// ❗ handle OTP / unverified state if backend returns user but no tokens
+			if (!user.isVerified) {
+				setUser(user);
+				setPendingEmail(user.email);
+				return {
+					user,
+					message: "ACCOUNT_NOT_VERIFIED",
+				};
+			}
+
+			setUser(user);
 			setAccessToken(accessToken);
 			setRefreshToken(refreshToken);
 
 			localStorage.setItem("accessToken", accessToken);
 			localStorage.setItem("refreshToken", refreshToken);
-		}
+			localStorage.setItem("user", JSON.stringify(user));
 
-		localStorage.setItem("user", JSON.stringify(user));
-
-		if (user.isVerified) {
 			await fetchAccounts();
-		}
 
-		return { user };
+			return {
+				user,
+				message: res.message,
+			};
+		} catch (err) {
+			throw new Error(getErrorMessage(err));
+		}
 	};
 
 	// ================================
@@ -125,38 +159,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 		email: string;
 		password: string;
 	}) => {
-		await authApi.register(data);
-		setPendingEmail(data.email);
+		try {
+			const res = await authApi.register(data);
+
+			setPendingEmail(data.email);
+
+			return { message: res.message };
+		} catch (err) {
+			throw new Error(getErrorMessage(err));
+		}
 	};
 
 	// ================================
 	// VERIFY OTP
 	// ================================
 	const verifyOtp = async (data: { email: string; otp: string }) => {
-		const res = await authApi.verifyOtp(data);
-		const { accessToken, refreshToken, user } = res.data;
+		try {
+			const res = await authApi.verifyOtp(data);
 
-		setUser(user);
-		setAccessToken(accessToken);
-		setRefreshToken(refreshToken);
+			const { accessToken, refreshToken, user } = res.data;
 
-		localStorage.setItem("accessToken", accessToken);
-		localStorage.setItem("refreshToken", refreshToken);
-		localStorage.setItem("user", JSON.stringify(user));
+			setUser(user);
+			setAccessToken(accessToken);
+			setRefreshToken(refreshToken);
 
-		setPendingEmail(null);
+			localStorage.setItem("accessToken", accessToken);
+			localStorage.setItem("refreshToken", refreshToken);
+			localStorage.setItem("user", JSON.stringify(user));
 
-		await fetchAccounts();
+			setPendingEmail(null);
 
-		return res.data;
+			await fetchAccounts();
+
+			return res.data;
+		} catch (err) {
+			throw new Error(getErrorMessage(err));
+		}
 	};
 
 	// ================================
 	// RESEND OTP
 	// ================================
 	const resendOtp = async (email: string) => {
-		const res = await authApi.resendOtp({ email });
-		return res.data;
+		try {
+			const res = await authApi.resendOtp({ email });
+			return res.data;
+		} catch (err) {
+			throw new Error(getErrorMessage(err));
+		}
 	};
 
 	// ================================
@@ -173,6 +223,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 			if (accountsData.length > 0) {
 				const storedId = localStorage.getItem("activeAccountId");
+
 				const selected =
 					accountsData.find((acc) => acc.id === storedId) ||
 					accountsData[0];
@@ -182,7 +233,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				setActiveAccount(null);
 			}
 		} catch (err) {
-			console.error("Failed to fetch accounts", err);
+			console.error("Failed to fetch accounts:", err);
 			setAccounts([]);
 			setActiveAccount(null);
 		} finally {
@@ -226,6 +277,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 				refreshToken,
 				loading,
 				isAuthenticated,
+				pendingEmail,
 				register,
 				verifyOtp,
 				resendOtp,
@@ -242,6 +294,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 export const useAuth = () => {
 	const context = useContext(AuthContext);
-	if (!context) throw new Error("useAuth must be used within AuthProvider");
+	if (!context)
+		throw new Error("useAuth must be used within AuthProvider");
 	return context;
 };

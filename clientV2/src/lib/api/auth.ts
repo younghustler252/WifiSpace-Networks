@@ -36,6 +36,14 @@ interface ResendOtpDto {
 	email: string;
 }
 
+interface ResendOtpResponse {
+	message: string;
+	otpExpiresAt: number;
+	nextResendAt: number;
+	canResend: boolean;
+	resendCooldownSeconds: number;
+}
+
 // ================================
 // AUTH API
 // ================================
@@ -50,8 +58,12 @@ export const authApi = {
 	logout: (): Promise<ApiResponse<null>> =>
 		API.post("/auth/logout"),
 
-	refresh: (refreshToken: string): Promise<ApiResponse<{ accessToken: string }>> =>
-		API.post("/auth/refresh", { refreshToken }),
+	refresh: (
+		refreshToken: string
+	): Promise<ApiResponse<{
+			accessToken: string;
+			refreshToken?: string;
+		}>> => API.post("/auth/refresh", { refreshToken }),
 
 	verifyOtp: (
 		data: VerifyOtpDto
@@ -60,6 +72,6 @@ export const authApi = {
 
 	resendOtp: (
 		data: ResendOtpDto
-	): Promise<ApiResponse<{ message: string, otpExpiresAt: number; }>> =>
+	): Promise<ApiResponse<ResendOtpResponse>> =>
 		API.post("/auth/resend-otp", data),
 };

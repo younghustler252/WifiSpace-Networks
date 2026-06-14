@@ -73,7 +73,6 @@ export default function PlansPage() {
 		onSuccess: (res) => {
 			const url =
 				res?.data?.paystack?.data?.authorization_url;
-
 			if (url) {
 				window.open(url, "_blank");
 			} else {

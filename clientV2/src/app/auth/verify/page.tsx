@@ -1,29 +1,40 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAuth } from "@/context/AuthContext";
+import { useRouter } from "next/navigation";
+
 import { InputField } from "@/components/ui/InputField";
 import Button from "@/components/ui/Button";
 import StatusBadge from "@/components/ui/StatusBadge";
 import { ArrowRight, Mail } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import { useRouter } from "next/navigation";
 import { AuthFooter } from "@/components/ui/AuthFooter";
 
 interface VerifyOtpFormInputs {
 	otp: string;
 }
 
+type UiState =
+	| "idle"
+	| "sending"
+	| "verifying"
+	| "cooldown"
+	| "error"
+	| "success";
+
 export default function VerifyOtp() {
-	const { user, verifyOtp, resendOtp } = useAuth();
+	const { user, verifyOtp, resendOtp, pendingEmail } = useAuth();
 	const router = useRouter();
 
-	const [loading, setLoading] = useState(false);
+	const [uiState, setUiState] = useState<UiState>("idle");
 	const [error, setError] = useState("");
-	const [successMessage, setSuccessMessage] = useState("");
+	const [success, setSuccess] = useState("");
 
-	// derived from backend expiry
+	const [nextResendAt, setNextResendAt] = useState<number | null>(null);
 	const [timeLeft, setTimeLeft] = useState<number>(0);
+
+	const email = user?.email || pendingEmail;
 
 	const {
 		register,
@@ -31,136 +42,156 @@ export default function VerifyOtp() {
 		formState: { errors },
 	} = useForm<VerifyOtpFormInputs>();
 
-	// Auto-send OTP on mount if user exists
+	// ----------------------------
+	// RESEND TIMER (backend driven)
+	// ----------------------------
 	useEffect(() => {
-		if (user && !user.isVerified) {
-			resendOtp(user.email);
-		}
-	}, [user, resendOtp]);
+		if (!nextResendAt) return;
 
-	// derive countdown from otpExpiresAt (refresh-safe)
-	useEffect(() => {
-		if (!user?.otpExpiresAt) return;
+		const tick = () => {
+			const diff = Math.max(
+				0,
+				Math.floor((nextResendAt - Date.now()) / 1000)
+			);
 
-		const updateTimer = () => {
-			// otpExpiresAt may be undefined at type level; guard defensively
-			const expiresAt = user.otpExpiresAt ?? 0;
-			if (!expiresAt) {
-				setTimeLeft(0);
-				return;
+			setTimeLeft(diff);
+
+			if (diff <= 0) {
+				setUiState("idle");
 			}
-
-			const diff = Math.floor((expiresAt - Date.now()) / 1000);
-			setTimeLeft(diff > 0 ? diff : 0);
 		};
 
-		updateTimer();
+		tick();
+		const interval = setInterval(tick, 1000);
 
-		const interval = setInterval(updateTimer, 1000);
 		return () => clearInterval(interval);
-	}, [user?.otpExpiresAt]);
+	}, [nextResendAt]);
 
-	// Handle OTP submission
+	// ----------------------------
+	// AUTO RESEND ON LOAD (optional UX)
+	// ----------------------------
+	useEffect(() => {
+		if (!email) return;
+
+		// optional: auto trigger first OTP
+		handleResendOtp();
+	}, [email]);
+
+	// ----------------------------
+	// VERIFY OTP
+	// ----------------------------
 	const onSubmit = async (data: VerifyOtpFormInputs) => {
-		setLoading(true);
+		setUiState("verifying");
 		setError("");
-		setSuccessMessage("");
+		setSuccess("");
 
 		try {
-			if (!user) throw new Error("User not found");
+			if (!email) throw new Error("No email found");
 
 			await verifyOtp({
-				email: user.email,
+				email,
 				otp: data.otp,
 			});
 
-			setSuccessMessage("OTP verified successfully");
+			setUiState("success");
+			setSuccess("Account verified successfully");
 
-			router.push("/dashboard");
+			setTimeout(() => {
+				router.push("/dashboard");
+			}, 800);
 		} catch (err: any) {
-			setError(err?.message || "OTP verification failed");
-		} finally {
-			setLoading(false);
+			setUiState("error");
+			setError(err.message || "Verification failed");
 		}
 	};
 
-	// Resend OTP
+	// ----------------------------
+	// RESEND OTP
+	// ----------------------------
 	const handleResendOtp = async () => {
+		if (!email) return;
+
+		setUiState("sending");
 		setError("");
-		setSuccessMessage("");
+		setSuccess("");
 
 		try {
-			if (!user) throw new Error("User not found");
+			const res = await resendOtp(email);
 
-			const res = await resendOtp(user.email);
-			console.log("Resend OTP response:", res);
+			setSuccess(res.message);
 
-			
-			if (res?.otpExpiresAt) {
-				user.otpExpiresAt = res.otpExpiresAt;
-			}
+			// backend is source of truth
+			setNextResendAt(res.nextResendAt);
 
-			setSuccessMessage("OTP has been resent to your email.");
+			setUiState("cooldown");
 		} catch (err: any) {
-			setError("Failed to resend OTP. Please try again.");
+			setUiState("error");
+			setError(err.message || "Failed to resend OTP");
 		}
 	};
 
-	const formatTime = (seconds: number) => {
-		const m = Math.floor(seconds / 60);
-		const s = seconds % 60;
-		return `${m}:${s.toString().padStart(2, "0")}`;
+	const formatTime = (s: number) => {
+		const m = Math.floor(s / 60);
+		const r = s % 60;
+		return `${m}:${r.toString().padStart(2, "0")}`;
 	};
 
-	return (
-		<div className="w-full max-w-md ui-stack-lg mx-auto mt-16">
-			<h1 className="text-2xl font-bold text-center">Verify Your Email</h1>
+	// ----------------------------
+	// GUARD
+	// ----------------------------
+	if (!email) {
+		return (
+			<div className="text-center mt-20 text-red-500">
+				No verification session found
+			</div>
+		);
+	}
 
-			<p className="text-center text-sm text-muted-foreground mb-2">
-				We sent an OTP to your email. Enter it below to verify your account.
+	return (
+		<div className="w-full max-w-md mx-auto mt-16 space-y-5">
+
+			<h1 className="text-2xl font-bold text-center">
+				Verify Your Email
+			</h1>
+
+			<p className="text-center text-sm text-muted-foreground">
+				We sent an OTP to{" "}
+				<span className="font-medium">{email}</span>
 			</p>
 
-			{/* expiry info */}
-			{user?.otpExpiresAt && (
-				<p className="text-center text-sm text-muted-foreground mb-4">
-					OTP expires in:{" "}
-					<span className={timeLeft === 0 ? "text-red-500" : ""}>
+			{/* TIMER */}
+			{nextResendAt && timeLeft > 0 && (
+				<p className="text-center text-sm text-muted-foreground">
+					Resend available in{" "}
+					<span className="text-blue-500">
 						{formatTime(timeLeft)}
 					</span>
 				</p>
 			)}
 
-			{successMessage && (
-				<StatusBadge
-					variant="success"
-					solid
-					size="md"
-					className="mb-4 w-full text-center"
-				>
-					{successMessage}
+			{/* SUCCESS / ERROR */}
+			{success && (
+				<StatusBadge variant="success" solid>
+					{success}
 				</StatusBadge>
 			)}
 
 			{error && (
-				<StatusBadge
-					variant="danger"
-					solid
-					size="md"
-					className="mb-4 w-full text-center"
-				>
+				<StatusBadge variant="danger" solid>
 					{error}
 				</StatusBadge>
 			)}
 
-			<form onSubmit={handleSubmit(onSubmit)} className="ui-stack">
+			{/* OTP FORM */}
+			<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 				<InputField
 					label="OTP"
-					placeholder="Enter the 6-digit OTP"
+					placeholder="Enter 6-digit code"
 					leftIcon={<Mail size={18} />}
 					{...register("otp", {
-						required: "OTP is required",
-						minLength: { value: 6, message: "OTP must be 6 digits" },
-						maxLength: { value: 6, message: "OTP must be 6 digits" },
+						required: "OTP required",
+						minLength: 6,
+						maxLength: 6,
 					})}
 					errorMessage={errors.otp?.message}
 				/>
@@ -168,24 +199,28 @@ export default function VerifyOtp() {
 				<Button
 					type="submit"
 					fullWidth
-					rightIcon={!loading && <ArrowRight size={18} />}
-					variant="accent"
-					isLoading={loading}
-					disabled={timeLeft === 0}
+					rightIcon={<ArrowRight size={18} />}
+					isLoading={uiState === "verifying"}
 				>
 					Verify OTP
 				</Button>
 			</form>
 
-			<div className="text-center mt-4 text-sm text-muted-foreground">
+			{/* RESEND BUTTON */}
+			<div className="text-center text-sm">
 				{timeLeft > 0 ? (
-					<p>You can resend OTP after expiry</p>
+					<p className="text-muted-foreground">
+						You can resend after cooldown
+					</p>
 				) : (
 					<button
 						onClick={handleResendOtp}
+						disabled={uiState === "sending"}
 						className="text-blue-500 hover:underline"
 					>
-						Resend OTP
+						{uiState === "sending"
+							? "Sending..."
+							: "Resend OTP"}
 					</button>
 				)}
 			</div>

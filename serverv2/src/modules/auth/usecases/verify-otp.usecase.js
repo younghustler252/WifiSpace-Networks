@@ -11,6 +11,7 @@ export class VerifyOtp {
 
 	async execute({ email, otp, ip = null }) {
 		const user = await this.userRepository.findByEmail(email);
+
 		if (!user) {
 			throw new NotFoundError("User not found");
 		}
@@ -18,57 +19,65 @@ export class VerifyOtp {
 		if (user.isVerified) {
 			throw new ValidationError("User already verified");
 		}
+
 		if (!user.verificationOTP) {
-			throw new ValidationError("No OTP set. Please request a new one.");
+			throw new ValidationError(
+				"No OTP set. Please request a new one."
+			);
 		}
 
+		user.unlockOTPIfExpired();
 
-		const isValid = await this.passwordService.compare(otp.toString(), user.verificationOTP);
+		// persist auto-unlock if it happened
+		if (
+			user.otpAttempts === 0 &&
+			user.otpLockedUntil === null
+		) {
+			await this.userRepository.update(user.id, {
+				otpAttempts: user.otpAttempts,
+				otpLockedUntil: user.otpLockedUntil
+			});
+		}
+
+		if (user.isOTPLocked()) {
+			throw new ValidationError(
+				"Too many OTP attempts. Please try again later."
+			);
+		}
+
+		if (user.isOTPExpired()) {
+			throw new ValidationError(
+				"OTP expired. Please request a new code."
+			);
+		}
+
+		const isValid =
+			await this.passwordService.compare(
+				otp.toString(),
+				user.verificationOTP
+			);
 
 		if (!isValid) {
-			throw new ValidationError("Invalid OTP");
-		}
+			user.incrementOTPAttempts();
 
-		if (Date.now() > user.otpExpiresAt) {
-			throw new ValidationError("OTP expired");
+			await this.userRepository.update(user.id, {
+				otpAttempts: user.otpAttempts,
+				otpLockedUntil: user.otpLockedUntil
+			});
+
+			throw new ValidationError("Invalid OTP");
 		}
 
 		user.verify();
 
 		await this.userRepository.update(user.id, {
-			isVerified: true,
-			verificationOTP: null,
-			otpExpiresAt: null
+			isVerified: user.isVerified,
+			verificationOTP: user.verificationOTP,
+			otpExpiresAt: user.otpExpiresAt,
+			otpAttempts: user.otpAttempts,
+			otpLockedUntil: user.otpLockedUntil,
+			lastOtpSentAt: user.lastOtpSentAt
 		});
 
-		const payload = {
-			sub: user.id,
-			email: user.email,
-			role: user.role
-		};
-
-const accessToken = this.tokenService.generateAccessToken(payload);
-const refreshToken = this.tokenService.generateRefreshToken(payload);
-		if (this.auditService) {
-			await this.auditService.log({
-				actorId: user.id,
-				action: "USER_VERIFIED",
-				meta: { ip }
-			});
-		}
-
-		return {                     
-			
-			user: {
-				id: user.id,
-				email: user.email,
-				firstName: user.firstName,
-				lastName: user.lastName,
-				role: user.role,
-				isVerified: true
-			},
-			accessToken,
-			refreshToken
-		};
 	}
 }

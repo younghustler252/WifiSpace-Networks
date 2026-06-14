@@ -24,7 +24,7 @@ export class CreateAccount {
 		// ----------------------------
 		const account = new Account({
 			...data,
-			userId: context.user?.id || data.userId
+			userId: data.userId
 		});
 
 		account.profileStatus = "pending";

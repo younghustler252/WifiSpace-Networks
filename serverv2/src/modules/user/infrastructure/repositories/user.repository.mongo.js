@@ -34,7 +34,7 @@ export class UserRepositoryMongo extends UserRepository {
 	}
 	
 	async findAuthById(id) {
-		const user = await UserModel.findById(id).select("+password");
+		const user = await UserModel.findById(id).select("+password +verificationOTP +otpExpiresAt +otpAttempts");
 		return UserMapper.toDomain(user);
 	}
 
@@ -44,7 +44,7 @@ export class UserRepositoryMongo extends UserRepository {
 	}
 
 	async findAuthByEmail(email) {
-		const user = await UserModel.findOne({ email }).select("+password");
+		const user = await UserModel.findOne({ email }).select("+password +verificationOTP +otpExpiresAt +otpAttempts")
 		return UserMapper.toDomain(user);
 	}
 
