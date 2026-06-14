@@ -104,6 +104,7 @@ export class PaystackPaymentService {
 				renewalStrategy
 			}
 		});
+		console.log("Paystack initialization response:", paystackResponse);
 
 		return {
 			payment,
