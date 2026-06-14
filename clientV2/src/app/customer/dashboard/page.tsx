@@ -34,15 +34,11 @@ export default function Dashboard() {
 	const isNoAccount = !activeAccount;
 
 	// ================= DATA (ONLY WHEN ACCOUNT EXISTS) =================
-	const { data } = useUsage(accountId, {
-		enabled: !!accountId,
-	});
-
+	const { data } = useUsage(accountId);
+	console.log("Usage Data:", data);
 	const usage = data?.data;
 
-	const { subscription } = useSubscription(accountId ?? "", {
-		enabled: !!accountId,
-	});
+	const { subscription } = useSubscription(accountId ?? "");
 
 	const { progress = 0, daysLeft = 0 } =
 		useSubscriptionMetrics(subscription);
