@@ -8,29 +8,35 @@ interface PlanCardProps {
 	plan: any;
 	onSelect: (plan: any) => void;
 	isCurrent?: boolean;
+	disabled?: boolean;
 }
 
 export default function PlanCard({
 	plan,
 	onSelect,
 	isCurrent = false,
+	disabled = false,
 }: PlanCardProps) {
+	// Treat both as blocking conditions
+	const isBlocked = isCurrent || disabled;
+
 	// Format duration properly
-	const getDurationLabel = () => `${plan.durationValue} ${plan.durationUnit}`;
+	const getDurationLabel = () =>
+		`${plan.durationValue} ${plan.durationUnit}`;
 
 	return (
 		<Card
 			onClick={() => {
-				if (!isCurrent) onSelect(plan);
+				if (!isBlocked) onSelect(plan);
 			}}
 			className={`h-full border-2 transition-all relative cursor-pointer hover:border-accent ${
-				isCurrent ? "opacity-80" : ""
+				isBlocked ? "opacity-80 cursor-not-allowed" : ""
 			}`}
 		>
 			<CardContent>
 				<div className="flex flex-col h-full ui-stack">
-					
-					{/* POPULAR BADGE */}
+
+					{/* CURRENT PLAN BADGE */}
 					{isCurrent && (
 						<div className="absolute top-0 right-0 bg-accent text-white text-xs px-3 py-1 rounded-bl-xl">
 							current plan
@@ -93,13 +99,17 @@ export default function PlanCard({
 						<Button
 							variant={isCurrent ? "outline" : "accent"}
 							fullWidth
-							disabled={isCurrent}
+							disabled={isBlocked}
 							onClick={(e) => {
 								e.stopPropagation();
-								if (!isCurrent) onSelect(plan);
+								if (!isBlocked) onSelect(plan);
 							}}
 						>
-							{isCurrent ? "Current Plan" : "Select Plan"}
+							{isCurrent
+								? "Current Plan"
+								: disabled
+								? "Not Available"
+								: "Select Plan"}
 						</Button>
 					</div>
 

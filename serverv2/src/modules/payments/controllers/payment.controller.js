@@ -92,20 +92,20 @@ export class PaymentController {
 		try {
 			const { paymentId } = req.params;
 
-			console.log("🔁 REPROCESS PAYMENT START:", {
-				paymentId,
-				adminId: req.user?.id
-			});
+			// console.log("🔁 REPROCESS PAYMENT START:", {
+			// 	paymentId,
+			// 	adminId: req.user?.id
+			// });
 
 			const result =
 				await this.reprocessPaymentUseCase.execute({
 					paymentId
 				});
 
-			console.log("✅ REPROCESS PAYMENT SUCCESS:", {
-				paymentId,
-				alreadyProcessed: result.alreadyProcessed
-			});
+			// console.log("✅ REPROCESS PAYMENT SUCCESS:", {
+			// 	paymentId,
+			// 	alreadyProcessed: result.alreadyProcessed
+			// });
 
 			return successResponse({
 				res,
@@ -145,7 +145,7 @@ export class PaymentController {
 				sort
 			} = req.query;
 
-			console.log("QUERY RECEIVED:", req.query);
+			// console.log("QUERY RECEIVED:", req.query);
 
 			const paymentsResult = await this.getPaymentsUseCase.execute(
 				req.user,
@@ -213,17 +213,18 @@ export class PaymentController {
 	// ----------------------------
 	handleWebhook = async (req, res, next) => {
 		try {
-			const signature =
-				req.headers["x-paystack-signature"];
-
+			const signature = req.headers["x-paystack-signature"];
 			const payload = req.body;
+			const rawBody = req.rawBody;
 
 			await this.handleWebhookUseCase.execute({
 				payload,
-				signature
+				signature,
+				rawBody
 			});
-
+			// 🔥 ALWAYS return 200 to stop Paystack retries
 			return res.status(200).send("OK");
+
 		} catch (err) {
 			next(err);
 		}

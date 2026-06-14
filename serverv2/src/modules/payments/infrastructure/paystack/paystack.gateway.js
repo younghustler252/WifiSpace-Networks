@@ -63,21 +63,20 @@ export class PaystackGateway {
 	// =========================
 	// WEBHOOK VERIFICATION (SECURITY CRITICAL)
 	// =========================
-	verifyWebhookSignature(payload, signature) {
+	verifyWebhookSignature(rawBody, signature) {
 		try {
-			if (!signature) return false;
+			if (!signature || !rawBody) return false;
 
 			const hash = crypto
-				.createHmac("sha512", this.secretKey)
-				.update(JSON.stringify(payload))
-				.digest("hex");
+			.createHmac("sha512", this.secretKey)
+			.update(rawBody) // 🔥 RAW BUFFER (NOT JSON)
+			.digest("hex");
 
 			return hash === signature;
 		} catch {
 			return false;
 		}
 	}
-
 	// =========================
 	// STATUS MAPPING
 	// =========================
