@@ -80,19 +80,19 @@ export class HotspotController {
 		});
 	};
 
-	getHotspotSessions = async (req, res) => {
-		const { macAddress } = req.query;
+	getHotspotSession = async (req, res) => {
+		const { macAddress, email } = req.query;
 
 		const result = await this.getHotspotSessionUsecase.execute({
-			macAddress
-		})
+			macAddress,
+			email
+		});
 
 		return successResponse({
 			res,
-			data: result,
-			message: "session fetched succesfully"
-		})
-
-
+			data:    result,
+			message: "Session fetched successfully"
+		});
 	}
+
 }

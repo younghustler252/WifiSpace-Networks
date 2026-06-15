@@ -1,26 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { useSearchParams } from "next/navigation";
+import { useQuery }            from "@tanstack/react-query";
+import { useSearchParams }     from "next/navigation";
 
-import Logo from "@/components/ui/Logo";
-import Button from "@/components/ui/Button";
+import Logo                        from "@/components/ui/Logo";
+import Button                      from "@/components/ui/Button";
 import Modal, { ModalHeader, ModalBody } from "@/components/ui/Modal";
-import { InputField } from "@/components/ui/InputField";
-import PlanCard from "@/features/plan/PlanCard";
-import { hotspotApi } from "@/lib/api/hotspot";
+import { InputField }              from "@/components/ui/InputField";
+import PlanCard                    from "@/features/plan/PlanCard";
+import { hotspotApi }              from "@/lib/api/hotspot";
 
-// -------------------------------------------------------
+// ─────────────────────────────────────────────
 // Types
-// -------------------------------------------------------
+// ─────────────────────────────────────────────
 interface HotspotSession {
-    macAddress:  string;
-    ipAddress:   string;
-    routerUid:   string;
-    identity:    string;
-    linkLogin:   string;
-    linkOrig:    string;
+    macAddress: string;
+    ipAddress:  string;
+    routerUid:  string;
+    identity:   string;
+    linkLogin:  string;
+    linkOrig:   string;
 }
 
 interface FormErrors {
@@ -29,126 +29,163 @@ interface FormErrors {
     phone?:     string;
 }
 
-// -------------------------------------------------------
-// Page
-// -------------------------------------------------------
+// ─────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────
 export default function HotspotClient() {
     const searchParams = useSearchParams();
 
-    // Capture everything MikroTik gives us
     const session: HotspotSession = {
-        macAddress: decodeURIComponent(searchParams.get("mac")        || ""),
-        ipAddress:  searchParams.get("ip")                            || "",
-        routerUid:  searchParams.get("uid")                           || "",
-        identity:   searchParams.get("identity")                      || "",
-        linkLogin:  searchParams.get("link-login")                    || "",
-        linkOrig:   searchParams.get("link-orig")                     || "",
+        macAddress: decodeURIComponent(searchParams.get("mac")       || ""),
+        ipAddress:  searchParams.get("ip")                           || "",
+        routerUid:  searchParams.get("uid")                          || "",
+        identity:   searchParams.get("identity")                     || "",
+        linkLogin:  searchParams.get("link-login")                   || "",
+        linkOrig:   searchParams.get("link-orig")                    || "",
     };
-    console.log(session.ipAddress)
 
-    // Persist session so callback/login pages can access it
+    // Persist for callback/success pages
     useEffect(() => {
         if (session.macAddress) {
             sessionStorage.setItem("hotspotSession", JSON.stringify(session));
         }
     }, [session.macAddress]);
 
-    // -------------------------------------------------------
-    // Returning user check
-    // -------------------------------------------------------
-    const { data: returningUser, isLoading: checkingUser } = useQuery({
+    // ── Returning user by MAC ──────────────────
+    const {
+        data:      returningData,
+        isLoading: checkingMac
+    } = useQuery({
         queryKey: ["hotspot-session", session.macAddress],
         queryFn:  () => hotspotApi.getSessionByMac(session.macAddress),
         enabled:  !!session.macAddress,
         retry:    false,
     });
 
-    const existingAccount    = returningUser?.data?.account;
-    const activeSubscription = returningUser?.data?.subscription;
+    const existingAccount    = returningData?.data?.account;
+    const activeSubscription = returningData?.data?.subscription;
+    const returningUser      = returningData?.data?.user;
 
-    // -------------------------------------------------------
-    // Plans
-    // -------------------------------------------------------
+    // ── Plans ──────────────────────────────────
     const { data: plansData, isLoading: plansLoading } = useQuery({
         queryKey: ["hotspot-plans"],
         queryFn:  () => hotspotApi.getPlans(),
     });
-   
+
     const plans = plansData?.data?.data || [];
-    
 
-    // -------------------------------------------------------
-    // State
-    // -------------------------------------------------------
-    const [selectedPlan, setSelectedPlan] = useState<any>(null);
-    const [openCheckout, setOpenCheckout] = useState(false);
-    const [firstName,    setFirstName]    = useState("");
-    const [email,        setEmail]        = useState("");
-    const [phone,        setPhone]        = useState("");
-    const [errors,       setErrors]       = useState<FormErrors>({});
-    const [loading,      setLoading]      = useState(false);
+    // ── Form state ─────────────────────────────
+    const [selectedPlan,   setSelectedPlan]   = useState<any>(null);
+    const [openCheckout,   setOpenCheckout]   = useState(false);
+    const [firstName,      setFirstName]      = useState("");
+    const [email,          setEmail]          = useState("");
+    const [phone,          setPhone]          = useState("");
+    const [errors,         setErrors]         = useState<FormErrors>({});
+    const [loading,        setLoading]        = useState(false);
+    const [submitError,    setSubmitError]    = useState("");
 
-    // Pre-fill if returning user
+    // ── MAC-change flow ────────────────────────
+    const [showMacChange,  setShowMacChange]  = useState(false);
+    const [lookupEmail,    setLookupEmail]    = useState("");
+    const [lookupLoading,  setLookupLoading]  = useState(false);
+    const [lookupError,    setLookupError]    = useState("");
+
+    // Pre-fill returning user
     useEffect(() => {
-        if (existingAccount) {
-            setFirstName(returningUser?.data?.user?.firstName || "");
-            setEmail(returningUser?.data?.user?.email         || "");
-            setPhone(returningUser?.data?.user?.phone         || "");
+        if (returningUser) {
+            setFirstName(returningUser.firstName || "");
+            setEmail(returningUser.email         || "");
+            setPhone(returningUser.phone         || "");
         }
-    }, [existingAccount]);
+    }, [returningUser]);
 
-    // -------------------------------------------------------
-    // Validation
-    // -------------------------------------------------------
+    // ── Validation ─────────────────────────────
     const validate = (): boolean => {
         const e: FormErrors = {};
-        if (!firstName.trim())              e.firstName = "First name is required";
-        if (!email.trim())                  e.email     = "Email is required";
-        else if (!/\S+@\S+\.\S+/.test(email)) e.email  = "Enter a valid email";
-        if (!phone.trim())                  e.phone     = "Phone is required";
-        else if (phone.length < 10)         e.phone     = "Enter a valid phone number";
+        if (!firstName.trim())                 e.firstName = "First name is required";
+        if (!email.trim())                     e.email     = "Email is required";
+        else if (!/\S+@\S+\.\S+/.test(email)) e.email     = "Enter a valid email";
+        if (!phone.trim())                     e.phone     = "Phone is required";
+        else if (phone.replace(/\D/g, "").length < 10) e.phone = "Enter a valid phone number";
         setErrors(e);
         return Object.keys(e).length === 0;
     };
 
-    // -------------------------------------------------------
-    // Handlers
-    // -------------------------------------------------------
+    // ── Handlers ───────────────────────────────
     const handleSelectPlan = (plan: any) => {
         setSelectedPlan(plan);
         setOpenCheckout(true);
         setErrors({});
+        setSubmitError("");
     };
 
     const handleSubmit = async () => {
         if (!selectedPlan || !validate()) return;
 
         setLoading(true);
+        setSubmitError("");
+
         try {
             const res = await hotspotApi.startPurchase({
                 firstName,
                 email,
                 phone,
-                planId:    selectedPlan.id,
-                routerUid: session.routerUid,
-                identity:  session.identity,
+                planId:     selectedPlan.id,
+                routerUid:  session.routerUid,
+                identity:   session.identity,
                 macAddress: session.macAddress,
-                ipAddress:  session.ipAddress,   // ← was missing
+                ipAddress:  session.ipAddress,
             });
 
             window.location.href =
                 res.data.payment.paystack.data.authorization_url;
 
-        } catch (err) {
-            console.error(err);
+        } catch (err: any) {
+            setSubmitError(
+                err?.response?.data?.message || "Something went wrong. Please try again."
+            );
         } finally {
             setLoading(false);
         }
     };
 
-    // -------------------------------------------------------
-    // Loading state
-    // -------------------------------------------------------
+    // MAC changed — look up by email then reactivate
+    const handleEmailLookup = async () => {
+        if (!lookupEmail.trim()) {
+            setLookupError("Enter your email");
+            return;
+        }
+
+        setLookupLoading(true);
+        setLookupError("");
+
+        try {
+            const res = await hotspotApi.getSessionByMac(
+                session.macAddress,
+                lookupEmail
+            );
+
+            const found = res?.data;
+
+            if (!found?.account) {
+                setLookupError("No account found for this email");
+                return;
+            }
+
+            // Pre-fill and close MAC-change panel
+            setFirstName(found.user?.firstName || "");
+            setEmail(found.user?.email         || "");
+            setPhone(found.user?.phone         || "");
+            setShowMacChange(false);
+
+        } catch {
+            setLookupError("Could not find account. Please try again.");
+        } finally {
+            setLookupLoading(false);
+        }
+    };
+
+    // ── Loading ────────────────────────────────
     if (plansLoading) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center gap-3">
@@ -160,9 +197,7 @@ export default function HotspotClient() {
         );
     }
 
-    // -------------------------------------------------------
-    // UI
-    // -------------------------------------------------------
+    // ── UI ─────────────────────────────────────
     return (
         <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background">
 
@@ -171,18 +206,19 @@ export default function HotspotClient() {
                 <Logo size="lg" />
 
                 <h1 className="mt-4 text-2xl font-bold">
-                    {existingAccount
-                        ? `Welcome back, ${returningUser?.data?.user?.firstName}`
-                        : "Connect to High-Speed Internet"}
+                    {checkingMac
+                        ? "Connect to High-Speed Internet"
+                        : existingAccount
+                            ? `Welcome back, ${returningUser?.firstName}`
+                            : "Connect to High-Speed Internet"}
                 </h1>
 
                 <p className="text-sm text-muted-foreground max-w-md mt-2">
                     {activeSubscription
-                        ? `Your current plan expires ${new Date(activeSubscription.expiresAt).toLocaleDateString()}. Renew or upgrade below.`
+                        ? `Current plan expires ${new Date(activeSubscription.expiresAt).toLocaleDateString()}. Renew or upgrade below.`
                         : "Choose a plan and get online instantly."}
                 </p>
 
-                {/* Friendly device indicator — not raw MAC */}
                 {session.macAddress && (
                     <div className="mt-3 px-3 py-1 rounded-full bg-muted text-xs text-muted-foreground">
                         Device recognised
@@ -190,24 +226,79 @@ export default function HotspotClient() {
                 )}
             </div>
 
+            {/* MAC CHANGE BANNER */}
+            {!checkingMac && !existingAccount && session.macAddress && (
+                <div className="max-w-5xl mx-auto px-4 mb-6">
+                    {!showMacChange ? (
+                        <div className="p-3 rounded-xl bg-muted text-sm flex items-center justify-between gap-3">
+                            <p className="text-muted-foreground">
+                                Bought a plan before? Your device may have a new MAC address.
+                            </p>
+                            <button
+                                onClick={() => setShowMacChange(true)}
+                                className="text-primary underline text-xs whitespace-nowrap"
+                            >
+                                Reconnect
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="p-4 rounded-xl border bg-background space-y-3">
+                            <p className="text-sm font-medium">
+                                Enter your email to reconnect
+                            </p>
+                            <InputField
+                                label="Email"
+                                type="email"
+                                value={lookupEmail}
+                                onChange={(e) => setLookupEmail(e.target.value)}
+                                errorMessage={lookupError}
+                            />
+                            <div className="flex gap-2">
+                                <Button
+                                    fullWidth
+                                    disabled={lookupLoading}
+                                    onClick={handleEmailLookup}
+                                >
+                                    {lookupLoading ? "Looking up..." : "Find my account"}
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    onClick={() => {
+                                        setShowMacChange(false);
+                                        setLookupError("");
+                                    }}
+                                >
+                                    Cancel
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* PLANS */}
             <div className="max-w-5xl mx-auto px-4 pb-16">
-                <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                    {plans.map((plan: any) => (
-                        <div key={plan.id} className="transition hover:scale-[1.02]">
-                            <PlanCard
-                                plan={plan}
-                                onSelect={() => handleSelectPlan(plan)}
-                            />
-                        </div>
-                    ))}
-                </div>
+                {plans.length === 0 ? (
+                    <div className="text-center py-20 text-muted-foreground text-sm">
+                        No plans available right now. Please try again later.
+                    </div>
+                ) : (
+                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                        {plans.map((plan: any) => (
+                            <div key={plan.id} className="transition hover:scale-[1.02]">
+                                <PlanCard
+                                    plan={plan}
+                                    onSelect={() => handleSelectPlan(plan)}
+                                />
+                            </div>
+                        ))}
+                    </div>
+                )}
 
-                {/* Portal login link */}
                 <p className="text-center text-xs text-muted-foreground mt-10">
-                    Already have an account?{" "}
+                    Already have a dashboard account?{" "}
                     <a href="/auth/login" className="underline text-primary">
-                        Sign in to your dashboard
+                        Sign in
                     </a>
                 </p>
             </div>
@@ -225,7 +316,7 @@ export default function HotspotClient() {
 
                         {/* Plan summary */}
                         <div className="p-3 rounded-xl bg-muted text-sm flex justify-between items-center">
-                            <span className="font-semibold">{selectedPlan?.name}</span>
+                            <span className="font-medium">{selectedPlan?.name}</span>
                             <span className="text-primary font-bold">
                                 ₦{selectedPlan?.price?.toLocaleString()}
                             </span>
@@ -254,6 +345,13 @@ export default function HotspotClient() {
                             errorMessage={errors.phone}
                         />
 
+                        {/* Submit error */}
+                        {submitError && (
+                            <p className="text-xs text-red-500 text-center">
+                                {submitError}
+                            </p>
+                        )}
+
                         <Button
                             fullWidth
                             disabled={loading}
@@ -265,7 +363,7 @@ export default function HotspotClient() {
                         </Button>
 
                         <p className="text-xs text-center text-muted-foreground">
-                            Secured by Paystack • You'll be online immediately after payment
+                            Secured by Paystack • You'll be connected after payment
                         </p>
                     </div>
                 </ModalBody>

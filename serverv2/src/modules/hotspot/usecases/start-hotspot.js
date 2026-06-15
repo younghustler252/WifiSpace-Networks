@@ -2,11 +2,13 @@ export class StartHotspotPurchase {
     constructor({
         registerHotspotUser,
         createPayment,
-        routerRepository // 👈 ADD THIS
+        routerRepository,
+        accountRepository   // ← add this
     }) {
         this.registerHotspotUser = registerHotspotUser;
-        this.createPayment = createPayment;
-        this.routerRepository = routerRepository;
+        this.createPayment       = createPayment;
+        this.routerRepository    = routerRepository;
+        this.accountRepository   = accountRepository;
     }
 
     async execute({
@@ -14,25 +16,22 @@ export class StartHotspotPurchase {
         email,
         phone,
         planId,
-
         routerId,
         routerUid,
         identity,
-
         macAddress,
         ipAddress,
         userAgent
     }) {
-          
-        console.log("ipAddress from body:", ipAddress);
-        // 1. Create / fetch user
+
+        // 1. Register or fetch existing user
         const user = await this.registerHotspotUser.execute({
             firstName,
             email,
             phone
         });
 
-        // 2. Resolve router (IMPORTANT FIX)
+        // 2. Resolve router
         const router = await this.routerRepository.findRouterForHotspot({
             routerId,
             routerUid,
@@ -43,13 +42,17 @@ export class StartHotspotPurchase {
             throw new Error("No available hotspot router found");
         }
 
-        // if (!router.isHotspotRouter?.()) {
-        //     throw new Error("Selected router does not support hotspot service");
-        // }
+        // 3. Check if user already has a hotspot account
+        const existingAccount = await this.accountRepository.findOne({
+            userId:      user.id,
+            serviceType: "hotspot"
+        });
 
-        // 3. Create payment with clean router context
+        // 4. Create payment — pass existingAccountId so processor
+        //    skips account creation and reuses the existing one
         const payment = await this.createPayment.execute({
-            userId: user.id,
+            userId:    user.id,
+            accountId: existingAccount?.id || null,  // ← key addition
             planId,
             email,
 
@@ -57,26 +60,29 @@ export class StartHotspotPurchase {
                 firstName,
                 phone,
 
-                routerId: router.id,
-                routerUid: router.routerUid,
+                routerId:     router.id,
+                routerUid:    router.routerUid,
                 identity,
 
                 macAddress,
+                ipAddress,
 
-                serviceType: "hotspot",
+                serviceType:  "hotspot",
 
-                routerCode: router.code,
+                routerCode:   router.code,
                 routerStatus: router.status,
 
                 userAgent,
-                ipAddress
+
+                // Pass existing account id in metadata as backup
+                existingAccountId: existingAccount?.id || null
             }
         });
-        console.log("Payment created with metadata:", payment.metadata);
+
         return {
             user,
             payment,
-            router // optional but useful for debugging
+            router
         };
     }
 }

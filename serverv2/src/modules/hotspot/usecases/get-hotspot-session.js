@@ -1,5 +1,3 @@
-// src/application/hotspot/GetHotspotSessionByMac.js
-
 export class GetHotspotSession {
 
     constructor({
@@ -14,31 +12,46 @@ export class GetHotspotSession {
         this.planRepository         = planRepository;
     }
 
-    async execute({ macAddress }) {
+    async execute({ macAddress, email }) {
 
-        if (!macAddress) {
-            throw new Error("MAC address is required");
+        if (!macAddress && !email) {
+            throw new Error("MAC address or email is required");
         }
 
-        // 1. Find account that has this MAC in its devices array
-        const account = await this.accountRepository.findByMac(macAddress);
+        let account = null;
+        let user    = null;
 
-        if (!account) {
-            return null; // new user — no account yet
+        // 1. Try MAC lookup first
+        if (macAddress) {
+            account = await this.accountRepository.findByMac(macAddress);
+
+            if (account) {
+                user = await this.userRepository.findById(account.userId);
+            }
         }
 
-        // 2. Get the user
-        const user = await this.userRepository.findById(account.userId);
+        // 2. Fall back to email lookup if MAC not found
+        if (!account && email) {
+            user = await this.userRepository.findByEmail(email);
 
-        if (!user) {
+            if (user) {
+                account = await this.accountRepository.findOne({
+                    userId:      user.id,
+                    serviceType: "hotspot"
+                });
+            }
+        }
+
+        // 3. Nothing found — new user
+        if (!account || !user) {
             return null;
         }
 
-        // 3. Get active subscription if any
+        // 4. Get active subscription
         const subscription = await this.subscriptionRepository
             .findActiveByAccount(account.id);
 
-        // 4. Enrich with plan details if subscription exists
+        // 5. Enrich with plan
         let plan = null;
 
         if (subscription?.planId) {
@@ -49,10 +62,7 @@ export class GetHotspotSession {
             account,
             user,
             subscription: subscription
-                ? {
-                    ...subscription,
-                    plan
-                }
+                ? { ...subscription, plan }
                 : null
         };
     }

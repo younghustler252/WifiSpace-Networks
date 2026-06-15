@@ -40,6 +40,14 @@ export class AccountRepositoryMongo extends AccountRepository {
             limit,
         };
     }
+    async findOne(filters) {
+        const doc = await accountModel.findOne({  // ← lowercase, matches your import
+            ...filters
+          
+        }).lean();
+
+        return doc ? AccountMapper.toDomain(doc) : null;  // ← use AccountMapper
+    }
 
     async findByWsnId(wsnId) {
         const model = await accountModel.findOne({ wsnId });

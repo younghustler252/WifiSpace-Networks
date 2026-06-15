@@ -10,10 +10,11 @@ export class AccountMapper {
 
         const user = raw.userId;
         const isPopulated = user && typeof user === "object" && user._id;
+        console.log("toDomain serviceType:", raw.serviceType); 
 
         return new Account({
             id: raw._id?.toString(),
-
+            
             // ----------------------------
             // User
             // ----------------------------
@@ -39,7 +40,6 @@ export class AccountMapper {
             businessName: raw.businessName ?? null,
             companyRegistrationNumber: raw.companyRegistrationNumber ?? null,
             taxId: raw.taxId ?? null,
-
             // ----------------------------
             // Network
             // ----------------------------
@@ -63,6 +63,7 @@ export class AccountMapper {
             // ----------------------------
             serviceType: raw.serviceType,
             profileStatus: raw.profileStatus,
+            
 
             // ----------------------------
             // Monitoring

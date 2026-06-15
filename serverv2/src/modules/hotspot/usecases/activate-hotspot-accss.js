@@ -6,19 +6,19 @@ export class ActivateHotspotAccess {
         mikrotikService
     }) {
         this.accountRepository = accountRepository;
-        this.routerRepository = routerRepository;
-        this.mikrotikService = mikrotikService;
+        this.routerRepository  = routerRepository;
+        this.mikrotikService   = mikrotikService;
     }
 
     async execute({
         accountId,
         macAddress,
         hostname,
-        ipAddress      // ← add this
+        ipAddress
     }) {
 
         const account = await this.accountRepository.findById(accountId);
-        // console.log("acount", account)
+
         if (!account) {
             throw new Error("Account not found");
         }
@@ -43,24 +43,22 @@ export class ActivateHotspotAccess {
         }
 
         await this.accountRepository.update(account.id, account);
-        console.log("ipadress in activate hotspot b4 provision", ipAddress);
-        
 
         try {
-           await this.mikrotikService.provisionAccess(
-            account,
-            router,
-            {
-                username: account.wsnId,
-                password: account.routerPassword,
-                macAddress,
-                ipAddress
-            }
-        );
+            const result = await this.mikrotikService.provisionAccess(
+                router,          // ← fixed: router first, no account
+                {
+                    username:  account.wsnId,
+                    password:  account.routerPassword,
+                    macAddress,
+                    ipAddress
+                }
+            );
+
+            return result;       // ← return the full result so autoConnected flows back up
+
         } catch (err) {
             throw new Error("Hotspot authorization failed: " + err.message);
         }
-
-        return { success: true };
     }
 }

@@ -170,25 +170,39 @@ export class HotspotIntegration {
 
     
     
-    async apiLogin(router, { username, password, macAddress, ipAddress }) {
+   async apiLogin(router, { username, password, macAddress, ipAddress }) {
 
-        const params = [
-            `=user=${username}`,
-            `=password=${password}`,
-            `=mac-address=${macAddress}`
-        ];
+    const hosts = await mikrotikClient.execute(
+        router,
+        "/ip/hotspot/host/print",
+        []
+    );
+    console.log("Current hotspot hosts:", JSON.stringify(hosts, null, 2));
 
-        // Only add ip if we actually have it
-        if (ipAddress && ipAddress !== "0.0.0.0") {
-            params.push(`=ip=${ipAddress}`);
-        }
+    const activeUsers = await mikrotikClient.execute(
+        router,
+        "/ip/hotspot/active/print",
+        []
+    );
+    console.log("Active hotspot sessions:", JSON.stringify(activeUsers, null, 2));
 
-        return mikrotikClient.execute(
-            router,
-            "/ip/hotspot/active/login",
-            params
-        );
+    const params = [
+        `=user=${username}`,
+        `=password=${password}`,
+        `=mac-address=${macAddress}`
+    ];
+
+    // Only add ip if device is in host table and not bypassed
+    if (ipAddress) {
+        params.push(`=ip=${ipAddress}`);
     }
+
+    return mikrotikClient.execute(
+        router,
+        "/ip/hotspot/active/login",
+        params
+    );
+}
 
 
     // ==================================================
