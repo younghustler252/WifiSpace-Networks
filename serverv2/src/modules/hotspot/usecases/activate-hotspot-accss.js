@@ -19,6 +19,7 @@ export class ActivateHotspotAccess {
 
         const account = await this.accountRepository.findById(accountId);
 
+        console.log("hotspsot acct", account)
         if (!account) {
             throw new Error("Account not found");
         }
@@ -45,11 +46,12 @@ export class ActivateHotspotAccess {
         await this.accountRepository.update(account.id, account);
 
         try {
-            const result = await this.mikrotikService.provisionAccess(
-                router,          // ← fixed: router first, no account
+           const result = await this.mikrotikService.provisionAccess(
+                account,
+                router,
                 {
-                    username:  account.wsnId,
-                    password:  account.routerPassword,
+                    username: account.wsnId,
+                    password: account.routerPassword,
                     macAddress,
                     ipAddress
                 }
