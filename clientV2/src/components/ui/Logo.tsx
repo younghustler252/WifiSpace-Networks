@@ -31,13 +31,11 @@ const Logo = ({ size = "md", showText = true, className }: LogoProps) => {
 	return (
 		<div className={cn("flex items-center gap-2", className)}>
 			{/* LOGO IMAGE */}
-			<Image
+			<img
 				src="/wifispace.png"
 				alt="Wifispace Networks"
 				width={styles.icon}
 				height={styles.icon}
-				className="rounded-md object-cover"
-				priority
 			/>
 
 			{/* BRAND TEXT */}

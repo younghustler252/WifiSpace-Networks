@@ -57,7 +57,7 @@ export class SubscriptionRepositoryMongo extends SubscriptionRepository {
         return doc ? SubscriptionMapper.toDomain(doc) : null;
     }
 
-    async findExpiredCandidates(now) {
+    async findExpired(now) {
         const docs = await SubscriptionModel.find({
             status: "active",
             expiresAt: { $lte: now }

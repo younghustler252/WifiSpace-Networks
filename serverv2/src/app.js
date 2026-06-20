@@ -19,6 +19,11 @@ import { errorMiddleware } from "./shared/middleware/error.middleware.js";
 
 const app = express();
 
+app.use((req, res, next) => {
+    console.log("🔥 REQUEST:", req.method, req.url);
+    next();
+});
+
 app.use(
   express.json({
     verify: (req, res, buf) => {
@@ -62,13 +67,16 @@ app.use("/api/payments", payment.routes);
 app.use("/api/plans", plan.routes);
 app.use("/api/subscriptions", subscription.routes);
 app.use("/api/users", user.routes);
+app.use("/api/agents", router.routes.agent);
 app.use("/api/routers/admin", router.routes.admin);
 app.use("/api/routers", router.routes.provisioning);
 app.use("/api/usage", usage.routes);
 app.use("/api/dashboard", dashboard.routes)
 // ----------------------------
 // ERROR HANDLER
+
 // ----------------------------
 app.use(errorMiddleware);
+
 
 export default app;

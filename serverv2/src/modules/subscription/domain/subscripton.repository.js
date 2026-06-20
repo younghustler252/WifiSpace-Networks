@@ -27,6 +27,11 @@ export class SubscriptionRepository {
 		throw new Error("Not implemented");
 	}
 
+	findExpired() {
+		throw new Error("Not implemented");
+	}
+
+
 	// Find a suspended subscription for an account (newly added)
 	async findSuspendedByAccount(accountId) {
 		throw new Error("Not implemented");

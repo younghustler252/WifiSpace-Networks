@@ -27,10 +27,10 @@ export class RouterMapper {
 
 			ssl: doc.ssl,
 
-			// ✅ FIX: use schema field
 			supportedServices: doc.supportedServices || [],
 
 			location: doc.location,
+			siteCode: doc.siteCode,
 			popName: doc.popName,
 
 			status: doc.status,
@@ -41,8 +41,14 @@ export class RouterMapper {
 			lastSeenAt: doc.lastSeenAt,
 			lastProvisionSyncAt: doc.lastProvisionSyncAt,
 
+			connectionType: doc.connectionType,
+			connectorId: doc.connectorId,
+
 			maxSessions: doc.maxSessions,
 			currentSessions: doc.currentSessions,
+
+			agentLastSeenAt: doc.agentLastSeenAt,
+			agentStatus: doc.agentStatus,
 
 			routerOsVersion: doc.routerOsVersion,
 			routerBoard: doc.routerBoard,
@@ -75,10 +81,10 @@ export class RouterMapper {
 
 			ssl: entity.ssl,
 
-			// ✅ FIX: persist array instead of routerType
 			supportedServices: entity.supportedServices,
 
 			location: entity.location,
+			siteCode: entity.siteCode,
 			popName: entity.popName,
 
 			status: entity.status,
@@ -89,8 +95,14 @@ export class RouterMapper {
 			lastSeenAt: entity.lastSeenAt,
 			lastProvisionSyncAt: entity.lastProvisionSyncAt,
 
+			connectionType: entity.connectionType,
+			connectorId: entity.connectorId,
+
 			maxSessions: entity.maxSessions,
 			currentSessions: entity.currentSessions,
+
+			agentLastSeenAt: entity.agentLastSeenAt,
+			agentStatus: entity.agentStatus,
 
 			routerOsVersion: entity.routerOsVersion,
 			routerBoard: entity.routerBoard,

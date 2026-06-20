@@ -1,4 +1,5 @@
 import { ROUTER_STATUSES } from "./router.enum.js";
+import { ROUTER_CONNECTION_TYPES } from "./router.enum.js";
 
 export class RouterEntity {
 	constructor({
@@ -17,10 +18,10 @@ export class RouterEntity {
 
 		routerUid = null,
 
-		// FIX: matches schema
 		supportedServices = [],
 
 		location = null,
+		siteCode = null,
 		popName = null,
 
 		status = ROUTER_STATUSES.OFFLINE,
@@ -31,8 +32,14 @@ export class RouterEntity {
 		lastSeenAt = null,
 		lastProvisionSyncAt = null,
 
+		connectionType = ROUTER_CONNECTION_TYPES.DIRECT,
+		connectorId = null,
+
 		maxSessions = 0,
 		currentSessions = 0,
+
+		agentLastSeenAt = null,
+		agentStatus = "offline",
 
 		routerOsVersion = null,
 		routerBoard = null,
@@ -62,10 +69,6 @@ export class RouterEntity {
 		// Capability (FIXED)
 		this.supportedServices = supportedServices;
 
-		// Location
-		this.location = location;
-		this.popName = popName;
-
 		// Status
 		this.status = status;
 		this.isEnabled = isEnabled;
@@ -82,6 +85,19 @@ export class RouterEntity {
 		this.routerOsVersion = routerOsVersion;
 		this.routerBoard = routerBoard;
 		this.systemIdentity = systemIdentity;
+
+		// Location
+		this.location = location;
+		this.siteCode = siteCode;
+		this.popName = popName;
+
+		// Connection
+		this.connectionType = connectionType;
+		this.connectorId = connectorId;
+
+		// Agent
+		this.agentLastSeenAt = agentLastSeenAt;
+		this.agentStatus = agentStatus;
 
 		// Priority
 		this.priority = priority;
@@ -116,7 +132,17 @@ export class RouterEntity {
 	}
 
 	canProvision() {
-		return this.isEnabled && this.apiEnabled && this.isOnline();
+		if (!this.isEnabled) return false;
+
+		if (!this.apiEnabled) return false;
+
+		if (!this.isOnline()) return false;
+
+		if (this.isAgentConnection()) {
+			return this.isAgentOnline();
+		}
+
+		return true;
 	}
 
 	hasCapacity() {
@@ -143,5 +169,34 @@ export class RouterEntity {
 		if (this.currentSessions > 0) {
 			this.currentSessions -= 1;
 		}
+	}
+	isDirectConnection() {
+	return this.connectionType ===  ROUTER_CONNECTION_TYPES.DIRECT;
+}
+
+	isAgentConnection() {
+		return this.connectionType === ROUTER_CONNECTION_TYPES.AGENT;
+	}
+
+	isVpnConnection() {
+		return this.connectionType === ROUTER_CONNECTION_TYPES.VPN;
+	}
+	isAgentOnline() {
+		return this.agentStatus === ROUTER_AGENT_STATUSES.ONLINE;
+	}
+
+	isAgentOffline() {
+		return this.agentStatus === ROUTER_AGENT_STATUSES.OFFLINE;
+	}
+	markAgentOnline() {
+		this.agentStatus = ROUTER_AGENT_STATUSES.ONLINE;
+		this.agentLastSeenAt = new Date();
+	}
+
+	markAgentOffline() {
+		this.agentStatus = ROUTER_AGENT_STATUSES.OFFLINE;
+	}
+	requiresAgent() {
+		return this.connectionType === ROUTER_CONNECTION_TYPES.AGENT;
 	}
 }

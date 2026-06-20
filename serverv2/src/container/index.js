@@ -31,6 +31,8 @@ import { MailService } from "../shared/mail/services/mail.service.js";
 import { FileStorageService } from "../shared/services/file-storage.service.js";
 import TrackAnalytics from "../modules/analytics/usecases/track-analytics.js";
 
+import { agentConfig } from "../config/agentConfig.js";
+
 import AnalyticsRepositoryMongo from "../modules/analytics/infrastructure/repositories/analytics.repository.mongo.js";
 import { AuditRepositoryMongo } from "../modules/audit/infrastructure/repositories/audit.repository.mongo.js";
 /*
@@ -64,8 +66,8 @@ container.register({
 container.register({
   secret: asValue(process.env.JWT_SECRET),
   refreshSecret: asValue(process.env.JWT_REFRESH_SECRET),
-  bcryptSaltRounds: asValue(Number(process.env.BCRYPT_SALT_ROUNDS || 10))
-
+  bcryptSaltRounds: asValue(Number(process.env.BCRYPT_SALT_ROUNDS || 10)),
+  agentConfig: asValue(agentConfig)
 });
 
 /*

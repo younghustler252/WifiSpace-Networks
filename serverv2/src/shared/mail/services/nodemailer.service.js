@@ -1,12 +1,14 @@
 import nodemailer from "nodemailer";
 
 export class NodemailerService {
-    static async create() {
-        const service = new NodemailerService();
+    constructor() {
+        this.ready = this.init();
+    }
 
+    async init() {
         const testAccount = await nodemailer.createTestAccount();
 
-        service.transporter = nodemailer.createTransport({
+        this.transporter = nodemailer.createTransport({
             host: "smtp.ethereal.email",
             port: 587,
             auth: {
@@ -14,11 +16,11 @@ export class NodemailerService {
                 pass: testAccount.pass
             }
         });
-
-        return service;
     }
 
     async send({ to, subject, html }) {
+        await this.ready; // ensure init finished
+
         const info = await this.transporter.sendMail({
             from: '"Wifispace" <no-reply@wifispace.net>',
             to,
@@ -26,9 +28,7 @@ export class NodemailerService {
             html
         });
 
-        console.log(
-            "Preview URL:",
-            nodemailer.getTestMessageUrl(info)
-        );
+        console.log("📧 Preview URL:", nodemailer.getTestMessageUrl(info));
+        return info;
     }
 }

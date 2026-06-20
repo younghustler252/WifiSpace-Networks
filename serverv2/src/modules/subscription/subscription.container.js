@@ -73,6 +73,9 @@ import { GetAccountSubscriptionsUseCase } from "./usecases/shared/get-account-su
 */
 import { ExpireSubscriptionsUseCase } from "./usecases/system/expire-subscriptions.js";
 
+
+// import { ExpireSubscriptionWorker }
+// 	from "./infrastructure/workers/expire-subscription.worker.js";
 /*
 |--------------------------------------------------------------------------
 | REGISTER MODULE
@@ -153,6 +156,9 @@ export function registerSubscription(container) {
 		*/
 		expireSubscriptions:
 			asClass(ExpireSubscriptionsUseCase).scoped(),
+
+		// expireSubscriptionWorker:
+		// 	asClass(ExpireSubscriptionWorker).scoped(),
 
 		/*
 		|--------------------------------------------------------------------------

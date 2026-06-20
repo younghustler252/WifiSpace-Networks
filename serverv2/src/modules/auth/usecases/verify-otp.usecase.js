@@ -78,6 +78,11 @@ export class VerifyOtp {
 			otpLockedUntil: user.otpLockedUntil,
 			lastOtpSentAt: user.lastOtpSentAt
 		});
+		return {
+			user,
+			accessToken: this.tokenService.generateAccessToken(user),
+			refreshToken: this.tokenService.generateRefreshToken(user)
+		};
 
 	}
 }

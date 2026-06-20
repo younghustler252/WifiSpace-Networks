@@ -122,7 +122,7 @@ if (account) {
     );
 
     account = result.account;
-    console.log("New account created:", account.id, "serviceType:", account.serviceType);
+    console.log("New account created:", account, "serviceType:", account.serviceType);
 }
 
         // Always keep payment.accountId in sync

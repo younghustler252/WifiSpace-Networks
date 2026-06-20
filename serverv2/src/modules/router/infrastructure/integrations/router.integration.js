@@ -1,38 +1,55 @@
-import { mikrotikClient } from "../client/mikrotik.client.js";
-
-
 export class RouterIntegration {
+    constructor({ mikrotikClient }) {
+        this.mikrotikClient = mikrotikClient;
+    }
+
     async getIdentity(router) {
-        return mikrotikClient.execute(router, "/system/identity/print", []);
+        return this.mikrotikClient.execute(
+            router,
+            "/system/identity/print",
+            []
+        );
     }
 
     async getResources(router) {
-        return mikrotikClient.execute(router, "/system/resource/print", []);
+        return this.mikrotikClient.execute(
+            router,
+            "/system/resource/print",
+            []
+        );
     }
 
     async getAddresses(router) {
-        return mikrotikClient.execute(router, "/ip/address/print", []);
+        return this.mikrotikClient.execute(
+            router,
+            "/ip/address/print",
+            []
+        );
     }
 
     async getRouterInfo(router) {
-    const [identity, resource, addresses, board] = await Promise.all([
-        this.getIdentity(router),
-        this.getResources(router),
-        this.getAddresses(router),
-        mikrotikClient.execute(router, "/system/routerboard/print", [])
-    ]);
+        const [identity, resource, addresses, board] = await Promise.all([
+            this.getIdentity(router),
+            this.getResources(router),
+            this.getAddresses(router),
+            this.mikrotikClient.execute(
+                router,
+                "/system/routerboard/print",
+                []
+            )
+        ]);
 
-    const routerUid =
-        board?.[0]?.["serial-number"] ||
-        resource?.[0]?.uuid ||
-        identity?.[0]?.name; // fallback only
+        const routerUid =
+            board?.[0]?.["serial-number"] ||
+            resource?.[0]?.uuid ||
+            identity?.[0]?.name;
 
-    return {
-        identity: identity?.[0]?.name,
-        version: resource?.[0]?.version,
-        board: resource?.[0]?.["board-name"],
-        routerUid,
-        addresses
-    };
-}
+        return {
+            identity: identity?.[0]?.name,
+            version: resource?.[0]?.version,
+            board: resource?.[0]?.["board-name"],
+            routerUid,
+            addresses
+        };
+    }
 }

@@ -1,5 +1,6 @@
 import { ROLE_PERMISSIONS } from "../../../shared/constants/roles.js";
 import { ValidationError } from "../../../shared/errors/validation-error.js";
+import { maskNin } from "../../../shared/utils/mask-sensitive.js";
 
 export class User {
 	constructor({
@@ -82,7 +83,7 @@ export class User {
 	// ----------------------------
 	// Safe Output (DTO)
 	// ----------------------------
-	toJSON() {
+	toJSON({ exposeSensitive = false } = {}) {
 		return {
 			id: this.id,
 			firstName: this.firstName,
@@ -94,9 +95,17 @@ export class User {
 			isVerified: this.isVerified,
 			permissions: this.permissions,
 			phone: this.phone,
-			nin: this.nin,
+
+			nin: exposeSensitive
+				? this.nin
+				: maskNin(this.nin),
+
 			address: this.address,
-			dateOfBirth: this.dateOfBirth,
+			dateOfBirth: this.dateOfBirth
+				? new Date(this.dateOfBirth)
+					.toISOString()
+					.split("T")[0]
+				: null,
 			gender: this.gender,
 			lastLoginAt: this.lastLoginAt,
 			createdAt: this.createdAt,
@@ -104,7 +113,6 @@ export class User {
 			theme: this.theme
 		};
 	}
-
 	// ----------------------------
 	// Status Management
 	// ----------------------------

@@ -20,6 +20,11 @@ const firaMono = Fira_Mono({
 export const metadata: Metadata = {
   title: "Wifispace Networks",
   description: "Manage your network efficiently",
+  icons: {
+    icon: "/wifispace.png",
+    shortcut: "/wifispace.png",
+    apple: "/wifispace.png",
+  },
 };
 
 export default function LayoutServer({ children }: { children: React.ReactNode }) {

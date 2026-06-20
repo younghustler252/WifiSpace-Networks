@@ -1,9 +1,16 @@
 // src/infrastructure/mikrotik/PppoeIntegration.js
-import { mikrotikClient } from "../client/mikrotik.client.js";
 
 export class PppoeIntegration {
+    constructor({ mikrotikClient }) {
+        if (!mikrotikClient) {
+            throw new Error("mikrotikClient is required");
+        }
+
+        this.mikrotikClient = mikrotikClient;
+    }
+
     // ==================================================
-    // Account Lifecyle Management
+    // ACCOUNT LIFECYCLE MANAGEMENT
     // ==================================================
 
     async createUser(router, account) {
@@ -11,53 +18,58 @@ export class PppoeIntegration {
             `=name=${account.wsnId}`,
             `=password=${account.routerPassword}`,
             `=service=pppoe`,
-            `=profile=${account.routerProfile || "default"}`,
+            `=profile=${account.routerProfile || "default"}`
         ];
-        
 
-        return mikrotikClient.execute(router, "/ppp/secret/add", params);
+        return this.mikrotikClient.execute(
+            router,
+            "/ppp/secret/add",
+            params
+        );
     }
 
     async suspendUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ppp/secret/set", [
-            `=numbers=${wsnId}`,
-            `=disabled=yes`,
+        const secret = await this._findSecret(router, wsnId);
+
+        return this.mikrotikClient.execute(router, "/ppp/secret/set", [
+            `=.id=${secret[".id"]}`,
+            `=disabled=yes`
         ]);
     }
 
     async resumeUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ppp/secret/set", [
-            `=numbers=${wsnId}`,
-            `=disabled=no`,
+        const secret = await this._findSecret(router, wsnId);
+
+        return this.mikrotikClient.execute(router, "/ppp/secret/set", [
+            `=.id=${secret[".id"]}`,
+            `=disabled=no`
         ]);
     }
 
     async disconnectUser(router, wsnId) {
-        // Warning: MikroTik requires the internal identifier or active name.
-        // If your custom client supports names for numbers, this works perfectly.
-        return mikrotikClient.execute(router, "/ppp/active/remove", [
-            `=numbers=${wsnId}`,
+        return this.mikrotikClient.execute(router, "/ppp/active/remove", [
+            `=numbers=${wsnId}`
         ]);
     }
 
     // ==================================================
-    // Hardware Admin & Profiling Extensions
+    // ADMIN / SYSTEM
     // ==================================================
 
     async getSystemResources(router) {
-        return mikrotikClient.execute(router, "/system/resource/print", []);
+        return this.mikrotikClient.execute(router, "/system/resource/print", []);
     }
 
     async reboot(router) {
-        return mikrotikClient.execute(router, "/system/reboot", []);
+        return this.mikrotikClient.execute(router, "/system/reboot", []);
     }
 
     async getProfiles(router) {
-        return mikrotikClient.execute(router, "/ppp/profile/print", []);
+        return this.mikrotikClient.execute(router, "/ppp/profile/print", []);
     }
 
     async checkUserExists(router, wsnId) {
-        const users = await mikrotikClient.execute(
+        const users = await this.mikrotikClient.execute(
             router,
             "/ppp/secret/print",
             [`?name=${wsnId}`]
@@ -67,32 +79,28 @@ export class PppoeIntegration {
     }
 
     async removeUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ppp/secret/remove", [
-            `=numbers=${wsnId}`,
+        const secret = await this._findSecret(router, wsnId);
+
+        return this.mikrotikClient.execute(router, "/ppp/secret/remove", [
+            `=.id=${secret[".id"]}`
         ]);
     }
 
     async changePassword(router, username, password) {
-        const secrets = await mikrotikClient.execute(
-            router,
-            "/ppp/secret/print",
-            [`?name=${username}`]
-        );
+        const secret = await this._findSecret(router, username);
 
-        if (!Array.isArray(secrets) || secrets.length === 0) {
-            throw new Error(`PPP secret '${username}' not found`);
-        }
-
-        const secretId = secrets[0][".id"];
-
-        return mikrotikClient.execute(router, "/ppp/secret/set", [
-            `=.id=${secretId}`,
-            `=password=${password}`,
+        return this.mikrotikClient.execute(router, "/ppp/secret/set", [
+            `=.id=${secret[".id"]}`,
+            `=password=${password}`
         ]);
     }
 
+    // ==================================================
+    // ACTIVE USERS
+    // ==================================================
+
     async getActiveUsers(router) {
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(
             router,
             "/ppp/active/print",
             []
@@ -100,7 +108,7 @@ export class PppoeIntegration {
     }
 
     async getActiveUser(router, wsnId) {
-        const res = await mikrotikClient.execute(
+        const res = await this.mikrotikClient.execute(
             router,
             "/ppp/active/print",
             [`?name=${wsnId}`]
@@ -108,13 +116,30 @@ export class PppoeIntegration {
 
         return Array.isArray(res) ? res[0] : null;
     }
-     
 
     async getActiveSessions(router) {
-    return mikrotikClient.execute(
-        router,
-        "/ppp/active/print",
-        []
-    );
-}
+        return this.mikrotikClient.execute(
+            router,
+            "/ppp/active/print",
+            []
+        );
+    }
+
+    // ==================================================
+    // INTERNAL HELPERS
+    // ==================================================
+
+    async _findSecret(router, wsnId) {
+        const secrets = await this.mikrotikClient.execute(
+            router,
+            "/ppp/secret/print",
+            [`?name=${wsnId}`]
+        );
+
+        if (!Array.isArray(secrets) || secrets.length === 0) {
+            throw new Error(`PPP secret not found: ${wsnId}`);
+        }
+
+        return secrets[0];
+    }
 }

@@ -2,10 +2,13 @@
 
 import routerAdminRoutes from "./presentation/routes/admin.routes.js";
 import routerProvisioningRoutes from "./presentation/routes/provisioning.route.js";
+import agentroutes from "./presentation/routes/agent.routes.js";
+
 
 export function RouterModule({
     routerAdminController,
     routerProvisioningController,
+    agentController,
     permissionService,
     userRepository
 }) {
@@ -21,10 +24,15 @@ export function RouterModule({
         userRepository
     });
 
+    const agentRoutes = agentroutes({
+        agentController,
+    });
+
     return {
         routes: {
             admin: adminRoutes,
-            provisioning: provisioningRoutes
+            provisioning: provisioningRoutes,
+            agent: agentRoutes
         }
     };
 }

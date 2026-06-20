@@ -83,6 +83,10 @@
 				type: String,
 				trim: true,
 			},
+			siteCode:{
+				type:String,
+				trim:true,
+			},
 
 			popName: {
 				type: String,
@@ -121,10 +125,30 @@
 			lastProvisionSyncAt: {
 				type: Date,
 			},
+			// ----------------------------
+			// Connection / Connector
+			// ----------------------------
+
+			connectionType: {
+				type: String,
+				enum: [
+					"direct",
+					"agent",
+					"vpn"
+				],
+				default: "direct",
+			},
+
+			connectorId: {
+				type: String,
+				default: null,
+				trim: true,
+			},
 
 			// ----------------------------
 			// Capacity Monitoring
 			// ----------------------------
+
 
 			maxSessions: {
 				type: Number,
@@ -134,6 +158,19 @@
 			currentSessions: {
 				type: Number,
 				default: 0,
+			},
+
+			agentLastSeenAt: {
+				type: Date,
+			},
+
+			agentStatus: {
+				type: String,
+				enum: [
+					"online",
+					"offline"
+				],
+				default: "offline"
 			},
 
 			// ----------------------------
@@ -187,7 +224,17 @@
 
 	routerSchema.index({ location: 1 });
 
+	routerSchema.index({
+		connectorId: 1
+	});
 
+	routerSchema.index({
+		connectionType: 1
+	});
+
+	routerSchema.index({
+		agentStatus: 1
+	});
 
 	// ----------------------------
 	// Hide Sensitive Data

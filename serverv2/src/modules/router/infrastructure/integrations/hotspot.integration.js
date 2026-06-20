@@ -1,11 +1,18 @@
 // src/infrastructure/mikrotik/HotspotIntegration.js
-import { mikrotikClient } from "../client/mikrotik.client.js";
+
 import { formatUptime } from "../../../../shared/utils/formatUptime.js";
 
 export class HotspotIntegration {
+    constructor({ mikrotikClient }) {
+        if (!mikrotikClient) {
+            throw new Error("mikrotikClient is required");
+        }
+
+        this.mikrotikClient = mikrotikClient;
+    }
 
     // ==================================================
-    // Account Lifecycle Management
+    // ACCOUNT LIFECYCLE MANAGEMENT
     // ==================================================
 
     async createUser(router, account) {
@@ -15,14 +22,12 @@ export class HotspotIntegration {
             `=profile=${account.routerProfile || "default"}`
         ];
 
-        // Only if limitUptime is defined and > 0
         if (account.limitUptime && account.limitUptime > 0) {
             const uptime = formatUptime(Number(account.limitUptime));
-            // console.log("limit uptime:", uptime);
             params.push(`=limit-uptime=${uptime}`);
         }
 
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(
             router,
             "/ip/hotspot/user/add",
             params
@@ -30,38 +35,48 @@ export class HotspotIntegration {
     }
 
     async changePassword(router, username, password) {
-        return mikrotikClient.execute(router, "/ip/hotspot/user/set", [
-            `=.id=[find name="${username}"]`,
+        const users = await this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/user/print",
+            [`?name=${username}`]
+        );
+
+        if (!Array.isArray(users) || users.length === 0) {
+            throw new Error(`User not found: ${username}`);
+        }
+
+        return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
+            `=.id=${users[0][".id"]}`,
             `=password=${password}`
         ]);
     }
 
     async suspendUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ip/hotspot/user/set", [
+        return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
             `=numbers=${wsnId}`,
             `=disabled=yes`
         ]);
     }
 
     async resumeUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ip/hotspot/user/set", [
+        return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
             `=numbers=${wsnId}`,
             `=disabled=no`
         ]);
     }
 
     async disconnectUser(router, wsnId) {
-        return mikrotikClient.execute(router, "/ip/hotspot/active/remove", [
+        return this.mikrotikClient.execute(router, "/ip/hotspot/active/remove", [
             `=user=${wsnId}`
         ]);
     }
 
     // ==================================================
-    // Extensions
+    // EXTENSIONS
     // ==================================================
 
     async getProfiles(router) {
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(
             router,
             "/ip/hotspot/user/profile/print",
             []
@@ -69,7 +84,7 @@ export class HotspotIntegration {
     }
 
     async checkUserExists(router, wsnId) {
-        const users = await mikrotikClient.execute(
+        const users = await this.mikrotikClient.execute(
             router,
             "/ip/hotspot/user/print",
             [`?name=${wsnId}`]
@@ -79,7 +94,7 @@ export class HotspotIntegration {
     }
 
     async getActiveSessions(router) {
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(
             router,
             "/ip/hotspot/active/print",
             []
@@ -87,7 +102,7 @@ export class HotspotIntegration {
     }
 
     async getActiveUser(router, wsnId) {
-        const res = await mikrotikClient.execute(
+        const res = await this.mikrotikClient.execute(
             router,
             "/ip/hotspot/active/print",
             [`?user=${wsnId}`]
@@ -96,22 +111,25 @@ export class HotspotIntegration {
         return Array.isArray(res) ? res[0] : null;
     }
 
+    // ==================================================
+    // SESSION CONTROL
+    // ==================================================
+
     async forceReconnect(router, macAddress) {
         if (!macAddress) return;
 
-        const active = await mikrotikClient.execute(
+        const active = await this.mikrotikClient.execute(
             router,
-            "/ip/hotspot/active/print"
+            "/ip/hotspot/active/print",
+            []
         );
 
-        const session = active.find(
-            s =>
-                (s["mac-address"] || "").toLowerCase() ===
-                macAddress.toLowerCase()
+        const session = (active || []).find(
+            s => (s["mac-address"] || "").toLowerCase() === macAddress.toLowerCase()
         );
 
         if (session?.[".id"]) {
-            await mikrotikClient.execute(
+            await this.mikrotikClient.execute(
                 router,
                 "/ip/hotspot/active/remove",
                 [`=.id=${session[".id"]}`]
@@ -120,19 +138,18 @@ export class HotspotIntegration {
     }
 
     async bindMac(router, { macAddress, wsnId }) {
-        // Check if binding already exists
-        const existing = await mikrotikClient.execute(
+        const existing = await this.mikrotikClient.execute(
             router,
             "/ip/hotspot/ip-binding/print",
             [`?mac-address=${macAddress}`]
         );
 
         if (existing?.length > 0) {
-            console.log(`MAC binding already exists for ${macAddress}, skipping`);
+            console.log(`MAC binding exists: ${macAddress}`);
             return existing[0];
         }
 
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(
             router,
             "/ip/hotspot/ip-binding/add",
             [
@@ -142,13 +159,13 @@ export class HotspotIntegration {
             ]
         );
     }
+
     // ==================================================
-    // NEW: Set MAC address directly on the hotspot user
-    // This is what enables MAC-based auto-login on reconnect
+    // USER MAC LINKING
     // ==================================================
 
     async setMacOnUser(router, { username, macAddress }) {
-        const users = await mikrotikClient.execute(
+        const users = await this.mikrotikClient.execute(
             router,
             "/ip/hotspot/user/print",
             [`?name=${username}`]
@@ -158,64 +175,61 @@ export class HotspotIntegration {
             throw new Error(`Hotspot user not found: ${username}`);
         }
 
-        return mikrotikClient.execute(
+        return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
+            `=.id=${users[0][".id"]}`,
+            `=mac-address=${macAddress}`
+        ]);
+    }
+
+    // ==================================================
+    // API LOGIN
+    // ==================================================
+
+    async apiLogin(router, { username, password, macAddress, ipAddress }) {
+        const hosts = await this.mikrotikClient.execute(
             router,
-            "/ip/hotspot/user/set",
-            [
-                `=.id=${users[0][".id"]}`,
-                `=mac-address=${macAddress}`
-            ]
+            "/ip/hotspot/host/print",
+            []
+        );
+
+        console.log("Hosts:", hosts?.length || 0);
+
+        const activeUsers = await this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/active/print",
+            []
+        );
+
+        console.log("Active sessions:", activeUsers?.length || 0);
+
+        const params = [
+            `=user=${username}`,
+            `=password=${password}`,
+            `=mac-address=${macAddress}`
+        ];
+
+        if (ipAddress) {
+            params.push(`=ip=${ipAddress}`);
+        }
+
+        return this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/active/login",
+            params
         );
     }
 
-    
-    
-   async apiLogin(router, { username, password, macAddress, ipAddress }) {
-
-    const hosts = await mikrotikClient.execute(
-        router,
-        "/ip/hotspot/host/print",
-        []
-    );
-    console.log("Current hotspot hosts:", JSON.stringify(hosts, null, 2));
-
-    const activeUsers = await mikrotikClient.execute(
-        router,
-        "/ip/hotspot/active/print",
-        []
-    );
-    console.log("Active hotspot sessions:", JSON.stringify(activeUsers, null, 2));
-
-    const params = [
-        `=user=${username}`,
-        `=password=${password}`,
-        `=mac-address=${macAddress}`
-    ];
-
-    // Only add ip if device is in host table and not bypassed
-    if (ipAddress) {
-        params.push(`=ip=${ipAddress}`);
-    }
-
-    return mikrotikClient.execute(
-        router,
-        "/ip/hotspot/active/login",
-        params
-    );
-}
-
-
     // ==================================================
-    // Router Info
+    // ROUTER INFO
     // ==================================================
 
     async getRouterInfo(router) {
         const [identity, resource, addresses, hotspots] =
             await Promise.all([
-                mikrotikClient.execute(router, "/system/identity/print", []),
-                mikrotikClient.execute(router, "/system/resource/print", []),
-                mikrotikClient.execute(router, "/ip/address/print",      []),
-                mikrotikClient.execute(router, "/ip/hotspot/print",      [])
+                this.mikrotikClient.execute(router, "/system/identity/print", []),
+                this.mikrotikClient.execute(router, "/system/resource/print", []),
+                this.mikrotikClient.execute(router, "/ip/address/print", []),
+                this.mikrotikClient.execute(router, "/ip/hotspot/print", [])
             ]);
 
         let hotspotIp = null;
@@ -233,26 +247,23 @@ export class HotspotIntegration {
         }
 
         return {
-            identity:        identity?.[0]?.name,
+            identity: identity?.[0]?.name,
             routerOsVersion: resource?.[0]?.version,
-            routerBoard:     resource?.[0]?.boardName,
+            routerBoard: resource?.[0]?.boardName,
             hotspotIp,
             addresses
         };
     }
 
     // ==================================================
-    // Access Provisioning (MAIN FLOW) — updated
+    // MAIN FLOW
     // ==================================================
 
     async provisionAccess(router, { username, password, macAddress, ipAddress }) {
-        console.log("provisionAccess received:", { username, macAddress, ipAddress });
-        // 1. Set MAC on hotspot user entry
         if (macAddress) {
             await this.setMacOnUser(router, { username, macAddress });
         }
 
-        // 2. Bind MAC in ip-binding
         if (macAddress) {
             try {
                 await this.bindMac(router, { macAddress, wsnId: username });
@@ -263,28 +274,32 @@ export class HotspotIntegration {
             }
         }
 
-        // 3. Try RouterOS API login — no ip argument
         try {
-            console.log("Calling apiLogin with:", { username, macAddress, ipAddress });
-            await this.apiLogin(router, { username, password, macAddress, ipAddress });
+            console.log("[API LOGIN]", { username, macAddress, ipAddress });
+
+            await this.apiLogin(router, {
+                username,
+                password,
+                macAddress,
+                ipAddress
+            });
+
             return {
-                success:       true,
-                method:        "api-login",
-                autoConnected: true,
-                message:       "User logged in via RouterOS API."
+                success: true,
+                method: "api-login",
+                autoConnected: true
             };
+
         } catch (err) {
-            console.warn("API login failed, falling back to MAC auth:", err.message);
+            console.warn("API login failed:", err.message);
         }
 
-        // 4. Fallback — clear stale session, MAC auth on reconnect
         await this.forceReconnect(router, macAddress);
 
         return {
-            success:       true,
-            method:        "mac-reconnect",
-            autoConnected: false,
-            message:       "MAC bound. User will auto-login on reconnect."
+            success: true,
+            method: "mac-reconnect",
+            autoConnected: false
         };
     }
 }

@@ -7,6 +7,7 @@ import { RouterRepositoryMongo } from "./infrastructure/repositories/router.repo
 
 // SERVICES
 import { MikrotikService } from "./services/mikrotik.service.js";
+import { AgentService } from "./services/agent.service.js";
 
 // USE CASES - ACCOUNT
 import { CreateRouterAccount } from "./usecases/account/create-router-account.js";
@@ -27,7 +28,9 @@ import { SyncAllRouters } from "./usecases/admin/syncAllRouter.js";
 
 import { RouterAdminController } from "./presentation/controller/admin.controller.js";
 import { RouterProvisioningController } from "./presentation/controller/provisioning.controller.js";
+import { AgentController } from "./presentation/controller/agent.controller.js";
 
+import {MikrotikClient} from "./infrastructure/client/mikrotik.client.js";
 import { PppoeIntegration } from "./infrastructure/integrations/pppoe.integration.js";
 import { HotspotIntegration } from "./infrastructure/integrations/hotspot.integration.js";
 import { RouterIntegration } from "./infrastructure/integrations/router.integration.js";
@@ -38,6 +41,7 @@ export function registerRouter(container) {
 	// REPOSITORY
 	// -------------------------
 	container.register({
+		mikrotikClient: asClass(MikrotikClient).singleton(),
 		routerRepository: asClass(RouterRepositoryMongo).singleton()
 	});
 
@@ -46,6 +50,7 @@ export function registerRouter(container) {
 	// -------------------------
 	container.register({
 		mikrotikService: asClass(MikrotikService).singleton(),
+		agentService: asClass(AgentService).singleton(),
 		pppoeIntegration: asClass(PppoeIntegration).singleton(),
 		hotspotIntegration: asClass(HotspotIntegration).singleton(),
 		routerIntegration: asClass(RouterIntegration).singleton()
@@ -76,9 +81,13 @@ export function registerRouter(container) {
 		syncAllRouters: asClass(SyncAllRouters).scoped()
 	});
 
+	
+	// -------------------------
+	// CONTROLLERS
+	// -------------------------
 	container.register({
 		routerAdminController: asClass(RouterAdminController).scoped(),
 		routerProvisioningController: asClass(RouterProvisioningController).scoped(),
-
+		agentController: asClass(AgentController).scoped()
 	})
 }

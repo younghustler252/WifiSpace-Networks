@@ -82,32 +82,45 @@ export class Subscription {
 		this.currentPeriodEnd = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
 
 		this.mikrotikStatus = mikrotikStatus;
-		this.mikrotikLastSyncAt = mikrotikLastSyncAt
-			? new Date(mikrotikLastSyncAt)
-			: null;
-
+		this.mikrotikLastSyncAt = mikrotikLastSyncAt ? new Date(mikrotikLastSyncAt) : null;
 		this.mikrotikError = mikrotikError;
 
-		// prevent external array mutation
 		this.events = [...events];
 	}
 
-	// STATUS METHODS
+	// =========================
+	// TIME / STATE SEPARATION
+	// =========================
 
-	isActive() {
-		return (
-			this.status === "active" &&
-			!this.isSuspended() &&
-			(!this.expiresAt || new Date() <= this.expiresAt)
-		);
+	/**
+	 * PURE TIME CHECK
+	 */
+	isPastExpiry() {
+		return this.expiresAt && new Date() > this.expiresAt;
+	}
+
+	/**
+	 * STATE CHECK (SOURCE OF TRUTH)
+	 */
+	isExpired() {
+		return this.status === "expired";
 	}
 
 	isSuspended() {
 		return this.status === "suspended";
 	}
 
-	isExpired() {
-		return this.expiresAt && new Date() > this.expiresAt;
+	isCanceled() {
+		return this.status === "canceled";
+	}
+
+	isActive() {
+		return (
+			this.status === "active" &&
+			!this.isSuspended() &&
+			!this.isExpired() &&
+			(!this.expiresAt || new Date() <= this.expiresAt)
+		);
 	}
 
 	isInGracePeriod() {
@@ -119,17 +132,28 @@ export class Subscription {
 			this.expiresAt.getTime() + graceDays * 86400000
 		);
 
-		return (
-			new Date() > this.expiresAt &&
-			new Date() <= graceEnd
-		);
+		return this.isPastExpiry() && new Date() <= graceEnd;
 	}
 
 	hasAccess() {
 		return this.isActive() || this.isInGracePeriod();
 	}
 
+	// =========================
+	// IDENTITY / IDENTITY SAFETY
+	// =========================
+
+	/**
+	 * SAFE GUARD:
+	 * prevents double processing in workers/cron
+	 */
+	isAlreadyFinalized() {
+		return this.status === "expired" || this.status === "canceled";
+	}
+
+	// =========================
 	// LIFECYCLE METHODS
+	// =========================
 
 	activate() {
 		this.status = "active";
@@ -162,9 +186,7 @@ export class Subscription {
 		this.suspensionReason = null;
 
 		if (this.expiresAt && !this.isExpired()) {
-			this.expiresAt = new Date(
-				this.expiresAt.getTime() + duration
-			);
+			this.expiresAt = new Date(this.expiresAt.getTime() + duration);
 		}
 
 		this.status = "active";
@@ -173,6 +195,8 @@ export class Subscription {
 	}
 
 	cancel(reason) {
+		if (this.isCanceled()) return;
+
 		this.status = "canceled";
 		this.canceledAt = new Date();
 		this.cancellationReason = reason;
@@ -180,7 +204,12 @@ export class Subscription {
 		this.addEvent("canceled", { reason });
 	}
 
+	/**
+	 * IDEMPOTENT EXPIRY
+	 */
 	expire() {
+		if (this.isExpired()) return; // 👈 IMPORTANT GUARD
+
 		this.status = "expired";
 		this.expiredAt = new Date();
 
@@ -205,13 +234,10 @@ export class Subscription {
 		this.status = "active";
 		this.expiredAt = null;
 
-		// clear cancellation state
 		this.canceledAt = null;
 		this.cancellationReason = null;
 
 		this.lastRenewedAt = now;
-
-		// support multi-cycle renewals
 		this.cycles += cycles;
 
 		this.lastPaymentId = paymentId;
@@ -226,7 +252,10 @@ export class Subscription {
 		});
 	}
 
+	// =========================
 	// MIKROTIK SYNC
+	// =========================
+
 	upgrade({
 		newPlan,
 		newExpiresAt,
@@ -280,7 +309,9 @@ export class Subscription {
 		this.mikrotikLastSyncAt = new Date();
 	}
 
+	// =========================
 	// EVENTS
+	// =========================
 
 	addEvent(type, metadata = {}) {
 		this.events.push({

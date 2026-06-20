@@ -1,96 +1,81 @@
 import { RouterOSAPI } from "node-routeros";
 import PQueue from "p-queue";
 
-class MikrotikClient {
-	constructor() {
-		/**
-		 * Map<routerId, RouterOSAPI>
-		 */
+export class MikrotikClient {
+	constructor({ agentService } = {}) {
 		this.connections = new Map();
-
-		/**
-		 * Map<routerId, PQueue>
-		 */
 		this.queues = new Map();
+		this.agentService = agentService;
 	}
 
-	/**
-	 * Create unique router key
-	 */
 	getRouterKey(router) {
 		return `${router.host}:${router.port || 8728}`;
 	}
 
-	/**
-	 * Get/Create queue per router
-	 */
 	getQueue(routerKey) {
 		if (!this.queues.has(routerKey)) {
-			this.queues.set(
-				routerKey,
-				new PQueue({
-					concurrency: 1,
-				})
-			);
+			this.queues.set(routerKey, new PQueue({ concurrency: 1 }));
 		}
-
 		return this.queues.get(routerKey);
 	}
 
-	/**
-	 * Connect to router
-	 */
+	// -----------------------------
+	// CONNECT DIRECT
+	// -----------------------------
 	async connect(router) {
 		const routerKey = this.getRouterKey(router);
 
-		// Reuse existing connection
 		if (this.connections.has(routerKey)) {
 			return this.connections.get(routerKey);
 		}
 
-		try {
-			const conn = new RouterOSAPI({
-				host: router.host,
-				user: router.username,
-				password: router.password,
-				port: router.port || 8728,
-				timeout: 5000,
-			});
+		const conn = new RouterOSAPI({
+			host: router.host,
+			user: router.username,
+			password: router.password,
+			port: router.port || 8728,
+			timeout: 5000,
+		});
 
-			await conn.connect();
+		await conn.connect();
 
-			console.log(`✅ MikroTik connected: ${router.host}`);
+		conn.on("close", () => this.connections.delete(routerKey));
+		conn.on("error", () => this.connections.delete(routerKey));
 
-			conn.on("close", () => {
-				console.warn(`⚠️ MikroTik closed: ${router.host}`);
+		this.connections.set(routerKey, conn);
 
-				this.connections.delete(routerKey);
-			});
-
-			conn.on("error", (err) => {
-				console.error(`❌ MikroTik error: ${router.host}`, err);
-
-				this.connections.delete(routerKey);
-			});
-
-			this.connections.set(routerKey, conn);
-
-			return conn;
-		} catch (err) {
-			console.error(`❌ Failed to connect: ${router.host}`, err);
-
-			this.connections.delete(routerKey);
-
-			throw err;
-		}
+		return conn;
 	}
 
-	/**
-	 * Execute MikroTik command safely
-	 */
+	// -----------------------------
+	// TYPE DETECTION
+	// -----------------------------
+	isReadCommand(command) {
+		return (
+			command.includes("print") ||
+			command.includes("resource") ||
+			command.includes("identity") ||
+			command.includes("active")
+		);
+	}
+
+	// -----------------------------
+	// MAIN EXECUTION
+	// -----------------------------
 	async execute(router, command, params = [], retries = 3) {
+
 		const routerKey = this.getRouterKey(router);
 
+		// =========================
+		// AGENT MODE
+		// =========================
+		if (router.connectionType === "agent") {
+			return this.executeViaAgent(router, command, params);
+		}
+
+		// =========================
+		// DIRECT MODE
+		// =========================
 		const queue = this.getQueue(routerKey);
 
 		return queue.add(async () => {
@@ -102,96 +87,71 @@ class MikrotikClient {
 						conn = await this.connect(router);
 					}
 
-					// timeout protection
+					const timeout = new Promise((_, reject) =>
+						setTimeout(() => {
+							reject(new Error(`MikroTik timeout: ${router.host}`));
+						}, 5000)
+					);
+
 					const result = await Promise.race([
 						conn.write(command, params),
-
-						new Promise((_, reject) =>
-							setTimeout(() => {
-								reject(
-									new Error(
-										`MikroTik timeout: ${router.host}`
-									)
-								);
-							}, 5000)
-						),
+						timeout,
 					]);
 
 					return result;
-				} catch (err) {
-					console.error(
-						`❌ MikroTik command failed (${attempt}/${retries})`,
-						{
-							router: router.host,
-							command,
-							error: err.message,
-						}
-					);
 
-					// Remove broken connection
+				} catch (err) {
 					this.connections.delete(routerKey);
 
-					// Last retry
-					if (attempt === retries) {
-						throw err;
-					}
+					if (attempt === retries) throw err;
 
-					// small delay before retry
-					await new Promise((resolve) =>
-						setTimeout(resolve, 1000 * attempt)
+					await new Promise(r =>
+						setTimeout(r, 1000 * attempt)
 					);
 				}
 			}
 		});
 	}
 
-	/**
-	 * Disconnect one router
-	 */
-	async disconnect(router) {
-		const routerKey = this.getRouterKey(router);
+	// -----------------------------
+	// AGENT MODE (UPDATED)
+	// -----------------------------
+	async executeViaAgent(router, command, params) {
+    if (!router.connectorId) throw new Error("Router missing connectorId");
+    if (!this.agentService) throw new Error("AgentService not injected");
 
-		const conn = this.connections.get(routerKey);
+    return await this.agentService.executeCommand(router.connectorId, {
+        router,
+        command,
+        params,
+    });
+}
+	// -----------------------------
+	// CLEANUP
+	// -----------------------------
+	async disconnect(router) {
+		const key = this.getRouterKey(router);
+		const conn = this.connections.get(key);
 
 		if (conn) {
-			try {
-				await conn.close();
-			} catch (err) {
-				console.error("Disconnect error:", err);
-			}
-
-			this.connections.delete(routerKey);
-
-			console.log(`🔌 Disconnected: ${router.host}`);
+			await conn.close().catch(() => {});
+			this.connections.delete(key);
 		}
 	}
 
-	/**
-	 * Disconnect all routers
-	 */
 	async disconnectAll() {
-		for (const [routerKey, conn] of this.connections.entries()) {
-			try {
-				await conn.close();
-			} catch (err) {
-				console.error(`Disconnect error: ${routerKey}`, err);
-			}
+		for (const [key, conn] of this.connections) {
+			await conn.close().catch(() => {});
+			this.connections.delete(key);
 		}
-
-		this.connections.clear();
-
-		console.log("🔌 All MikroTik routers disconnected");
 	}
 
-	/**
-	 * Health check
-	 */
+	// -----------------------------
+	// HEALTH CHECK
+	// -----------------------------
 	async ping(router) {
 		try {
-			const result = await this.execute(
-				router,
-				"/system/identity/print"
-			);
+			const result = await this.execute(router, "/system/identity/print");
 
 			return {
 				online: true,
@@ -205,5 +165,3 @@ class MikrotikClient {
 		}
 	}
 }
-
-export const mikrotikClient = new MikrotikClient();

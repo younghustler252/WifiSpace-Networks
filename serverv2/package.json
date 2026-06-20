@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
     "dev": "nodemon",
-    "script": "node src/scripts/sync-legacy-router.js"
+    "migrate": "node src/migrations/runner.js"
   },
   "imports": {
     "#/*": "./src/*"

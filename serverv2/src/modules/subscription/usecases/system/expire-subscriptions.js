@@ -4,56 +4,70 @@ import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js"
 import { Subscription } from "../../domain/subscription.entity.js";
 
 export class ExpireSubscriptionsUseCase {
-    constructor({ subscriptionRepository, analyticsTracker, suspendNetworkAccountUseCase }) {
-        this.subscriptionRepository = subscriptionRepository;
-        this.analyticsTracker = analyticsTracker;
-        this.suspendNetworkAccountUseCase = suspendNetworkAccountUseCase; // Injected dependency
-    }
+	constructor({
+		subscriptionRepository,
+		analyticsTracker,
+		suspendNetworkAccount
+	}) {
+		this.subscriptionRepository = subscriptionRepository;
+		this.analyticsTracker = analyticsTracker;
+		this.suspendNetworkAccount = suspendNetworkAccount;
+	}
 
-    async execute({ subscriptionId, context = {} }) {
-        if (!subscriptionId) throw new ValidationError("subscriptionId is required");
+	async execute({ subscriptionId, context = {} }) {
+		if (!subscriptionId) {
+			throw new ValidationError("subscriptionId is required");
+		}
 
-        // Fetch subscription
-        const rawSub = await this.subscriptionRepository.findById(subscriptionId);
-        if (!rawSub) throw new NotFoundError("Subscription not found");
+		const rawSub = await this.subscriptionRepository.findById(subscriptionId);
 
-        const subscription = new Subscription(rawSub);
+		if (!rawSub) {
+			throw new NotFoundError("Subscription not found");
+		}
 
-        // Already expired safety check
-        if (subscription.isExpired()) return subscription;
+		const subscription = new Subscription(rawSub);
 
-        // Expire subscription
-        subscription.expire();
+		// Already processed (idempotency guard)
+		if (subscription.isAlreadyFinalized()) {
+			return subscription;
+		}
 
-        // Persist changes
-        await this.subscriptionRepository.update(subscription.id, subscription);
+		// Not yet due for expiry → skip safely
+		if (!subscription.isPastExpiry()) {
+			return subscription;
+		}
 
-        // Suspend network account if needed
-        if (subscription.accountId) {
-            try {
-                await this.suspendNetworkAccountUseCase.execute(
-                    subscription.accountId,
-                    "Subscription Expired",
-                    context
-                );
-            } catch (err) {
-                console.error(`[ExpireSubscriptionUseCase] Failed to suspend network account:`, err.message);
-            }
-        }
+		// Apply domain rule
+		subscription.expire();
 
-        // Analytics tracking
-        try {
-            await this.analyticsTracker.track(
-                ANALYTICS_EVENTS.SUBSCRIPTION_EXPIRED,
-                {
-                    accountId: subscription.accountId,
-                    subscriptionId: subscription.id,
-                }
-            );
-        } catch (err) {
-            console.error("Analytics failed:", err.message);
-        }
+		// Persist state change
+		await this.subscriptionRepository.save(subscription);
 
-        return subscription;
-    }
+		// Side-effect: network suspension (async-safe, retryable)
+		if (subscription.accountId) {
+			this.suspendNetworkAccount.execute(
+				subscription.accountId,
+				"Subscription Expired",
+				context
+			).catch((err) => {
+				console.error(
+					"[ExpireSubscriptionsUseCase] Network suspend failed:",
+					err.message
+				);
+			});
+		}
+
+		// Analytics (non-blocking)
+		this.analyticsTracker.track(
+			ANALYTICS_EVENTS.SUBSCRIPTION_EXPIRED,
+			{
+				accountId: subscription.accountId,
+				subscriptionId: subscription.id
+			}
+		).catch((err) => {
+			console.error("Analytics failed:", err.message);
+		});
+
+		return subscription;
+	}
 }

@@ -25,6 +25,7 @@ export class UpdateMyProfile {
 			firstName: user.firstName,
 			lastName: user.lastName,
 			phone: user.phone,
+			nin: user.nin,
 			address: user.address,
 			gender: user.gender,
 			dateOfBirth: user.dateOfBirth

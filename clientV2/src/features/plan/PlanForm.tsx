@@ -132,6 +132,7 @@ export default function PlanForm({
 			enabled: !!routerId,
 		});
 
+		console.log("Profiles:", profiles);
 	// ----------------------------
 	// SUBMIT
 	// ----------------------------
@@ -313,7 +314,7 @@ export default function PlanForm({
 						{loadingProfiles ? "Loading..." : "Select profile"}
 					</option>
 
-					{profiles.map((p: any) => (
+					{profiles?.map((p: any) => (
 						<option key={p.name} value={p.name}>
 							{p.name}
 						</option>

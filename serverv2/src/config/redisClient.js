@@ -1,7 +1,7 @@
 import Redis from "ioredis";
 import { redisConfig } from "./redis.js";
 
-// Create Redis client using URL (for cloud Redis)
+
 export const redisClient = new Redis(redisConfig.url, {
   maxRetriesPerRequest: redisConfig.maxRetriesPerRequest,
 });
