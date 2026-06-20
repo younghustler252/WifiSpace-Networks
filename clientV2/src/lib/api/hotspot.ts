@@ -93,7 +93,7 @@ export const hotspotApi = {
 
     // GET /hotspot/session?macAddress=XX:XX:XX
     // Returns null data if MAC is unknown (new user)
-    ggetSessionByMac: (macAddress: string, email?: string): Promise<ApiResponse<HotspotSession | null>> =>
+    getSessionByMac: (macAddress: string, email?: string): Promise<ApiResponse<HotspotSession | null>> =>
     API.get(`/hotspot/session?macAddress=${encodeURIComponent(macAddress)}${email ? `&email=${encodeURIComponent(email)}` : ""}`),
     // POST /hotspot/purchase
     startPurchase: (
