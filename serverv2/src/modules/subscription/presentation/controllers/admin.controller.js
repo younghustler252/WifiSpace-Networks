@@ -3,93 +3,52 @@
 import { successResponse } from "../../../../shared/utils/api-response.js";
 
 export class SubscriptionAdminController {
-
 	constructor({
-
 		getAllSubscriptions,
-
 		adminCreateSubscription,
-
 		suspendSubscription,
-
 		resumeSubscription,
-
 		cancelSubscription,
-
 		extendSubscription,
-
 		forceExpireSubscription
-
 	}) {
-
-		this.getAllSubscriptionsUseCase =
-			getAllSubscriptions;
-
-		this.adminCreateSubscriptionUseCase =
-			adminCreateSubscription;
-
-		this.suspendSubscriptionUseCase =
-			suspendSubscription;
-
-		this.resumeSubscriptionUseCase =
-			resumeSubscription;
-
-		this.cancelSubscriptionUseCase =
-			cancelSubscription;
-
-		this.extendSubscriptionUseCase =
-			extendSubscription;
-
-		this.forceExpireSubscriptionUseCase =
-			forceExpireSubscription;
+		this.getAllSubscriptionsUseCase = getAllSubscriptions;
+		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
+		this.suspendSubscriptionUseCase = suspendSubscription;
+		this.resumeSubscriptionUseCase = resumeSubscription;
+		this.cancelSubscriptionUseCase = cancelSubscription;
+		this.extendSubscriptionUseCase = extendSubscription;
+		this.forceExpireSubscriptionUseCase = forceExpireSubscription;
 	}
 
 	// ------------------------------------------------
 	// GET ALL SUBSCRIPTIONS
 	// ------------------------------------------------
 	getAllSubscriptions = async (req, res) => {
-
 		const {
 			page = 1,
 			limit = 20,
+			autoRenewEnabled,
 			...filters
 		} = req.query;
 
-		const skip =
-			(Number(page) - 1) * Number(limit);
+		const result =
+			await this.getAllSubscriptionsUseCase.execute({
+				...filters,
+				autoRenewEnabled:
+					autoRenewEnabled === undefined
+						? undefined
+						: autoRenewEnabled === "true",
 
-		const data =
-			await this.usecases
-				.getAllSubscriptions
-				.execute(filters);
-
-		const total = data.length;
-
-		const paginatedData =
-			data.slice(
-				skip,
-				skip + Number(limit)
-			);
+				page: Number(page),
+				limit: Number(limit)
+			});
 
 		return successResponse({
 			res,
-
-			data: paginatedData,
-
-			meta: {
-				total,
-				page: Number(page),
-				limit: Number(limit),
-				pages: Math.ceil(
-					total / Number(limit)
-				)
-			},
-
-			message:
-				"Subscriptions retrieved",
-
+			data: result,
+			message: "Subscriptions retrieved",
 			code: "SUBSCRIPTIONS_LIST",
-
 			statusCode: 200
 		});
 	};
@@ -98,28 +57,17 @@ export class SubscriptionAdminController {
 	// CREATE SUBSCRIPTION (ADMIN)
 	// ------------------------------------------------
 	createSubscription = async (req, res) => {
-
 		const subscription =
-			await this.usecases
-				.adminCreateSubscription
-				.execute({
-
-					...req.body,
-
-					adminId: req.user?.id
-				});
+			await this.adminCreateSubscriptionUseCase.execute({
+				...req.body,
+				adminId: req.user?.id
+			});
 
 		return successResponse({
 			res,
-
 			data: subscription,
-
-			message:
-				"Subscription created successfully",
-
-			code:
-				"SUBSCRIPTION_CREATED",
-
+			message: "Subscription created successfully",
+			code: "SUBSCRIPTION_CREATED",
 			statusCode: 201
 		});
 	};
@@ -131,7 +79,7 @@ export class SubscriptionAdminController {
 		const { reason } = req.body;
 
 		const subscription =
-			await this.usecases.suspendSubscription.execute({
+			await this.suspendSubscriptionUseCase.execute({
 				subscriptionId: req.params.subscriptionId,
 				reason,
 				adminId: req.user?.id
@@ -149,130 +97,81 @@ export class SubscriptionAdminController {
 	// RESUME
 	// ------------------------------------------------
 	resumeSubscription = async (req, res) => {
-	const subscription =
-		await this.usecases.resumeSubscription.execute({
-			subscriptionId: req.params.subscriptionId,
-			adminId: req.user?.id
-		});
+		const subscription =
+			await this.resumeSubscriptionUseCase.execute({
+				subscriptionId: req.params.subscriptionId,
+				adminId: req.user?.id
+			});
 
-	return successResponse({
-		res,
-		data: subscription,
-		message: "Subscription resumed",
-		code: "SUBSCRIPTION_RESUMED"
-	});
-};
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription resumed",
+			code: "SUBSCRIPTION_RESUMED"
+		});
+	};
 
 	// ------------------------------------------------
 	// CANCEL
 	// ------------------------------------------------
-	cancelSubscription = async (
-		req,
-		res
-	) => {
-
+	cancelSubscription = async (req, res) => {
 		const { reason } = req.body;
 
 		const subscription =
-			await this.usecases
-				.cancelSubscription
-				.execute({
-
-					subscriptionId:
-						req.params.subscriptionId,
-
-					reason,
-
-					adminId:
-						req.user?.id
-				});
+			await this.cancelSubscriptionUseCase.execute({
+				subscriptionId: req.params.subscriptionId,
+				reason,
+				adminId: req.user?.id
+			});
 
 		return successResponse({
 			res,
-
 			data: subscription,
-
-			message:
-				"Subscription canceled",
-
-			code:
-				"SUBSCRIPTION_CANCELED"
+			message: "Subscription canceled",
+			code: "SUBSCRIPTION_CANCELED"
 		});
 	};
 
 	// ------------------------------------------------
 	// EXTEND SUBSCRIPTION
 	// ------------------------------------------------
-	extendSubscription = async (
-		req,
-		res
-	) => {
-
-		const { days, reason } =
-			req.body;
+	extendSubscription = async (req, res) => {
+		const { days, reason } = req.body;
 
 		const subscription =
-			await this.usecases
-				.extendSubscription
-				.execute({
-
-					subscriptionId:
-						req.params.subscriptionId,
-
-					days,
-
-					reason,
-
-					adminId:
-						req.user?.id
-				});
+			await this.extendSubscriptionUseCase.execute({
+				subscriptionId: req.params.subscriptionId,
+				days,
+				reason,
+				adminId: req.user?.id
+			});
 
 		return successResponse({
 			res,
-
 			data: subscription,
-
-			message:
-				"Subscription extended",
-
-			code:
-				"SUBSCRIPTION_EXTENDED"
+			message: "Subscription extended",
+			code: "SUBSCRIPTION_EXTENDED"
 		});
 	};
 
 	// ------------------------------------------------
 	// FORCE EXPIRE
 	// ------------------------------------------------
-	forceExpireSubscription =
-		async (req, res) => {
+	forceExpireSubscription = async (req, res) => {
+		const { reason } = req.body;
 
-			const { reason } =
-				req.body;
-
-			const subscription =
-				await this.usecases
-					.forceExpireSubscription
-					.execute({
-
-						subscriptionId:
-							req.params.subscriptionId,
-
-						reason,
-
-						adminId:
-							req.user?.id
-					});
-
-			return successResponse({
-				res,
-
-				data: subscription,
-
-				message:
-					"Subscription expired",
-
-				code:
-					"SUBSCRIPTION_FORCE_EXPIRED"
+		const subscription =
+			await this.forceExpireSubscriptionUseCase.execute({
+				subscriptionId: req.params.subscriptionId,
+				reason,
+				adminId: req.user?.id
 			});
-		};
+
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription expired",
+			code: "SUBSCRIPTION_FORCE_EXPIRED"
+		});
+	};
 }

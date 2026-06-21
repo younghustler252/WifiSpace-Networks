@@ -3,6 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import UpdateRoleForm from "./UpdateRole";
+
+type UserRole = "customer" | "staff" | "superadmin";
 
 import {
 	X,
@@ -38,7 +41,7 @@ interface Props {
 	currentUser: any;
 
 	onUpdateProfile: (data: any) => Promise<void>;
-	onUpdateRole: (role: string) => void;
+	onUpdateRole: (role: UserRole) => Promise<void>;
 
 	onDelete?: () => void;
 	onBan?: () => void;
@@ -68,17 +71,40 @@ export default function UserDrawer({
 	const [tab, setTab] = useState<"overview" | "edit">("overview");
 	const [openCreateAccount, setOpenCreateAccount] = useState(false);
 
-	/* ================= ACCOUNTS ================= */
+	// ================= PERMISSIONS =================
+	const isSuperAdmin = currentUser?.role === "superadmin";
+	const canBan = isSuperAdmin;
+	const canDelete = isSuperAdmin;
+	const canUpdateRole = isSuperAdmin;
+
+	// ================= STATUS UI =================
+	const [status, setStatus] = useState<{
+		type: "success" | "error" | "info" | null;
+		message: string;
+	}>({
+		type: null,
+		message: "",
+	});
+
+	const showStatus = (type: "success" | "error" | "info", message: string) => {
+		setStatus({ type, message });
+
+		setTimeout(() => {
+			setStatus({ type: null, message: "" });
+		}, 3000);
+	};
+
+	// ================= ACCOUNTS =================
 	const { data, isFetching } = useQuery({
 		queryKey: ["user-accounts", user?.id],
 		queryFn: () => accountApi.getAllAccounts({ userId: user.id }),
 		enabled: !!user?.id && open,
-		placeholderData: (prev) => prev, // 🔥 prevents UI wipe
+		placeholderData: (prev) => prev,
 	});
 
 	const userAccounts = data?.data ?? [];
 
-	/* ================= CREATE ACCOUNT ================= */
+	// ================= CREATE ACCOUNT =================
 	const { mutate: createAccount, isPending } = useMutation({
 		mutationFn: accountApi.createAccount,
 		onSuccess: () => {
@@ -86,11 +112,47 @@ export default function UserDrawer({
 				queryKey: ["user-accounts", user?.id],
 			});
 			setOpenCreateAccount(false);
+			showStatus("success", "Account created successfully");
+		},
+		onError: () => {
+			showStatus("error", "Failed to create account");
 		},
 	});
 
 	if (!open || !user) return null;
 
+	// ================= HANDLERS =================
+	const handleRoleUpdate = async (data: { role: UserRole }) => {
+		try {
+			await onUpdateRole(data.role);
+			showStatus("success", "Role updated successfully");
+		} catch (err: any) {
+			showStatus(
+				"error",
+				err?.response?.data?.message || "Failed to update role"
+			);
+		}
+	};
+
+	const handleProfileUpdate = async (data: any) => {
+		try {
+			await onUpdateProfile(data);
+			showStatus("success", "Profile updated successfully");
+		} catch (err: any) {
+			showStatus(
+				"error",
+				err?.response?.data?.message || "Update failed"
+			);
+		}
+	};
+
+	const isBusy =
+		loading?.updateProfile ||
+		loading?.updateRole ||
+		loading?.ban ||
+		loading?.delete;
+
+	// ================= UI =================
 	return (
 		<div className="fixed inset-0 z-50 flex justify-end">
 			<div className="absolute inset-0 bg-black/40" onClick={onClose} />
@@ -99,16 +161,37 @@ export default function UserDrawer({
 
 				{/* ================= HEADER ================= */}
 				<div className="flex items-center justify-between px-6 py-4 border-b">
-					<h2 className="font-semibold text-lg">User Control Panel</h2>
-					<button onClick={onClose} className="p-2 hover:bg-muted rounded-md">
+					<h2 className="font-semibold text-lg">
+						User Control Panel
+					</h2>
+
+					<button
+						onClick={onClose}
+						className="p-2 hover:bg-muted rounded-md"
+					>
 						<X className="w-5 h-5" />
 					</button>
 				</div>
 
+				{/* ================= STATUS BAR ================= */}
+				{status.type && (
+					<div
+						className={`mx-6 mt-3 px-4 py-2 rounded-md text-sm border ${
+							status.type === "success"
+								? "bg-green-50 text-green-700 border-green-200"
+								: status.type === "error"
+								? "bg-red-50 text-red-700 border-red-200"
+								: "bg-blue-50 text-blue-700 border-blue-200"
+						}`}
+					>
+						{status.message}
+					</div>
+				)}
+
 				{/* ================= BODY ================= */}
 				<div className="flex-1 overflow-y-auto ui-scrollbar p-6">
 
-					{/* ================= HERO ================= */}
+					{/* HERO */}
 					<Card className="mb-6">
 						<CardContent className="flex items-center gap-4">
 							<Avatar
@@ -138,7 +221,7 @@ export default function UserDrawer({
 						</CardContent>
 					</Card>
 
-					{/* ================= TABS ================= */}
+					{/* TABS */}
 					<div className="flex gap-2 mb-6">
 						<Button
 							variant={tab === "overview" ? "accent" : "outline"}
@@ -157,7 +240,7 @@ export default function UserDrawer({
 						</Button>
 					</div>
 
-					{/* ================= OVERVIEW ================= */}
+					{/* OVERVIEW */}
 					{tab === "overview" && (
 						<div className="space-y-6">
 
@@ -190,71 +273,44 @@ export default function UserDrawer({
 								</CardHeader>
 
 								<CardContent className="space-y-3">
-
-									{/* subtle background sync indicator */}
 									{isFetching && (
 										<p className="text-xs text-muted-foreground">
 											Synchronizing...
 										</p>
 									)}
 
-									{userAccounts.length > 0 ? (
-										<>
-											{userAccounts.map((acc: any) => (
-												<Card
-													key={acc.id}
-													padding="sm"
-													className="cursor-pointer hover:bg-muted/40 transition"
-													onClick={() =>
-														router.push(`/admin/accounts/${acc.id}`)
-													}
-												>
-													<div className="flex justify-between items-start">
-														<div>
-															<p className="font-semibold text-sm">
-																{acc.wsnId}
-															</p>
-
-															<p className="text-xs text-muted-foreground">
-																{acc.accountType} • {acc.serviceType}
-															</p>
-
-															<p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-																<Activity className="w-3 h-3" />
-																{acc.profileStatus}
-															</p>
-														</div>
-
-														<span className="text-xs px-2 py-1 rounded-full bg-muted">
-															{acc.profileStatus}
-														</span>
-													</div>
-												</Card>
-											))}
-
-											<Button
-												fullWidth
-												variant="accent"
-												leftIcon={<Plus className="w-4 h-4" />}
-												onClick={() => setOpenCreateAccount(true)}
-											>
-												Create Account
-											</Button>
-										</>
-									) : (
-										<Button
-											fullWidth
-											variant="accent"
-											onClick={() => setOpenCreateAccount(true)}
+									{userAccounts.map((acc: any) => (
+										<Card
+											key={acc.id}
+											padding="sm"
+											className="cursor-pointer hover:bg-muted/40"
+											onClick={() =>
+												router.push(
+													`/admin/accounts/${acc.id}`
+												)
+											}
 										>
-											Create First Account
-										</Button>
-									)}
+											<p className="font-semibold text-sm">
+												{acc.wsnId}
+											</p>
+										</Card>
+									))}
+
+									<Button
+										fullWidth
+										variant="accent"
+										leftIcon={<Plus className="w-4 h-4" />}
+										onClick={() =>
+											setOpenCreateAccount(true)
+										}
+									>
+										Create Account
+									</Button>
 								</CardContent>
 							</Card>
 
-							{/* ROLE MANAGEMENT */}
-							{currentUser?.role === "superadmin" && (
+							{/* ROLE */}
+							{canUpdateRole && (
 								<Card>
 									<CardHeader>
 										<div className="flex items-center gap-2">
@@ -264,26 +320,11 @@ export default function UserDrawer({
 									</CardHeader>
 
 									<CardContent>
-										<form
-											onSubmit={(e) => {
-												e.preventDefault();
-												const role =
-													(e.currentTarget.elements.namedItem(
-														"role"
-													) as HTMLSelectElement)?.value;
-
-												onUpdateRole(role);
-											}}
-											className="flex gap-2"
-										>
-											<select className="ui-input" name="role">
-												<option value="customer">Customer</option>
-												<option value="staff">Staff</option>
-												<option value="superadmin">Superadmin</option>
-											</select>
-
-											<Button type="submit">Update</Button>
-										</form>
+										<UpdateRoleForm
+											defaultRole={user.role}
+											loading={loading?.updateRole}
+											onSubmit={handleRoleUpdate}
+										/>
 									</CardContent>
 								</Card>
 							)}
@@ -293,45 +334,53 @@ export default function UserDrawer({
 								<CardHeader>Admin Control Center</CardHeader>
 
 								<CardContent className="grid grid-cols-2 gap-2">
-									<Button variant="outline" onClick={onBan}>
+									<Button
+										disabled={!canBan || isBusy}
+										onClick={onBan}
+										variant="outline"
+									>
 										<Ban className="w-4 h-4 mr-2" />
 										Ban User
 									</Button>
 
-									{currentUser?.role === "superadmin" && (
-										<Button variant="danger" onClick={onDelete}>
+									{canDelete && (
+										<Button
+											disabled={isBusy}
+											variant="danger"
+											onClick={onDelete}
+										>
 											<Trash2 className="w-4 h-4 mr-2" />
 											Delete User
 										</Button>
 									)}
 								</CardContent>
 							</Card>
-
 						</div>
 					)}
 
-					{/* ================= EDIT ================= */}
+					{/* EDIT */}
 					{tab === "edit" && (
 						<UserForm
 							isEdit
 							defaultValues={user}
-							onSubmit={onUpdateProfile}
+							onSubmit={handleProfileUpdate}
 							loading={loading?.updateProfile}
 						/>
 					)}
 				</div>
 
-				{/* ================= FOOTER ================= */}
+				{/* FOOTER */}
 				<div className="p-4 border-t text-xs text-muted-foreground">
 					User management console
 				</div>
 			</div>
 
-			{/* ================= CREATE ACCOUNT MODAL ================= */}
-			<Modal open={openCreateAccount} onClose={() => setOpenCreateAccount(false)}>
-				<ModalHeader onClose={() => setOpenCreateAccount(false)}>
-					Create Account
-				</ModalHeader>
+			{/* CREATE ACCOUNT MODAL */}
+			<Modal
+				open={openCreateAccount}
+				onClose={() => setOpenCreateAccount(false)}
+			>
+				<ModalHeader>Create Account</ModalHeader>
 
 				<ModalBody>
 					<AccountForm
@@ -343,12 +392,14 @@ export default function UserDrawer({
 				</ModalBody>
 
 				<ModalFooter>
-					<Button variant="outline" onClick={() => setOpenCreateAccount(false)}>
+					<Button
+						variant="outline"
+						onClick={() => setOpenCreateAccount(false)}
+					>
 						Cancel
 					</Button>
 				</ModalFooter>
 			</Modal>
-
 		</div>
 	);
 }

@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import {
 	subscriptionApi,
-} from "@/lib/api/subscription";
+} from "@/features/subscription/subscription.api";
 
 interface UseSubscriptionActionsProps {
 	subscriptionId?: string;

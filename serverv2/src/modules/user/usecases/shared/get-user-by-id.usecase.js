@@ -9,7 +9,7 @@ export class GetUserById {
 
 	async execute({
 		userId,
-		exposeSensitive = false
+		exposeSensitive = true
 	}) {
 		const user = await this.userRepository.findById(userId);
 

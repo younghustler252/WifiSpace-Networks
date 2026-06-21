@@ -33,6 +33,7 @@ import TrackAnalytics from "../modules/analytics/usecases/track-analytics.js";
 
 import { agentConfig } from "../config/agentConfig.js";
 
+import { BaseRepository } from "../shared/infrastructure/repository/base.repository.js";
 import AnalyticsRepositoryMongo from "../modules/analytics/infrastructure/repositories/analytics.repository.mongo.js";
 import { AuditRepositoryMongo } from "../modules/audit/infrastructure/repositories/audit.repository.mongo.js";
 /*
@@ -60,7 +61,8 @@ container.register({
   mailService: asClass(MailService).singleton(),
   fileStorageService: asClass(FileStorageService).singleton(),
   analyticsRepository: asClass(AnalyticsRepositoryMongo).singleton(),
-  analyticsTracker: asClass(TrackAnalytics).singleton()
+  analyticsTracker: asClass(TrackAnalytics).singleton(),
+  // baseRepository: asClass(BaseRepository).singleton()
 });
 
 container.register({

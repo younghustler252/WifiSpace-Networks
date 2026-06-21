@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { Subscription } from "@/lib/api/subscription";
+import { Subscription } from "@/features/subscription/subscription.api";
 
 export function useSubscriptionMetrics(
 	subscription?: Subscription

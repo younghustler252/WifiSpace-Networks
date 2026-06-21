@@ -10,7 +10,7 @@ import {
 	CalendarPlus,
 } from "lucide-react";
 
-import { Subscription } from "@/lib/api/subscription";
+import { Subscription } from "@/features/subscription/subscription.api";
 
 
 type Props = {

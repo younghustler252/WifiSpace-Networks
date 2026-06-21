@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { Subscription } from "@/lib/api/subscription";
+import { Subscription } from "@/features/subscription/subscription.api";
 
 import Card, {
 	CardContent,

@@ -91,7 +91,8 @@ export class SubscriptionRepositoryMongo extends SubscriptionRepository {
             .skip(skip)
             .limit(limit)
             .populate("planId")
-            .populate("accountId");
+            .populate("accountId")
+            .populate("userId", "email firstName lastName")
         return docs.map(SubscriptionMapper.toDomain);
     }
 

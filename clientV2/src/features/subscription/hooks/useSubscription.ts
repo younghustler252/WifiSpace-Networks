@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { subscriptionApi } from "@/lib/api/subscription";
+import { subscriptionApi } from "@/features/subscription/subscription.api";
 
 export function useSubscription(accountId: string) {
 	const {

@@ -35,6 +35,7 @@ export class UpdateUserProfile {
 			phone: user.phone,
 			address: user.address,
 			gender: user.gender,
+			nin: user.nin,
 			dateOfBirth: user.dateOfBirth,
 			theme: user.theme,
 		});

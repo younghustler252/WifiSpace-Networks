@@ -1,21 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-	useQuery,
-	useMutation,
-	useQueryClient,
-	keepPreviousData,
-} from "@tanstack/react-query";
 import { Search, Plus, Mail, MoreVertical } from "lucide-react";
 
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
-
-import Dropdown, {
-	DropdownItem,
-	DropdownDivider,
-} from "@/components/ui/Dropdown";
+import Dropdown, { DropdownItem, DropdownDivider } from "@/components/ui/Dropdown";
 
 import {
 	Table,
@@ -29,11 +19,19 @@ import {
 import { MobileDataCard } from "@/components/ui/MobileDataCard";
 import AdminTableLayout from "@/components/layout/AdminTableLayout";
 
-import Modal, { ModalHeader, ModalBody } from "@/components/ui/Modal";
+import Modal, { ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import UserForm from "@/features/user/UserForm";
 import UserDrawer from "@/features/user/UserDrawer";
 
-import { userApi } from "@/lib/api/user";
+import {
+	useAdminUsers,
+	useCreateUser,
+	useUpdateUserProfile,
+	useUpdateUserRole,
+	useBanUser,
+	useDeleteUser,
+} from "@/features/user/hooks/useAdminUsers";
+
 import { useAuth } from "@/context/AuthContext";
 
 type Role = "superadmin" | "staff" | "customer" | "";
@@ -43,9 +41,11 @@ interface Props {
 }
 
 export default function UsersTable({ scope }: Props) {
-	const queryClient = useQueryClient();
-    const { user: currentUser } = useAuth();
-    type SortOrder = "newest" | "oldest" | "az" | "za";
+	const { user: currentUser } = useAuth();
+
+	// ================= ROLE FLAGS =================
+	const isSuperAdmin = currentUser?.role === "superadmin";
+	const isStaff = currentUser?.role === "staff";
 
 	// ================= STATE =================
 	const [search, setSearch] = useState("");
@@ -53,13 +53,20 @@ export default function UsersTable({ scope }: Props) {
 
 	const [roleFilter, setRoleFilter] = useState<Role>("");
 	const [statusFilter, setStatusFilter] = useState("");
-	const [sort, setSort] = useState<SortOrder>("az");
+	const [sort, setSort] = useState<"az" | "za" | "newest" | "oldest">("az");
 
 	const [page, setPage] = useState(1);
 	const [limit, setLimit] = useState(10);
 
 	const [selectedUser, setSelectedUser] = useState<any | null>(null);
 	const [openCreate, setOpenCreate] = useState(false);
+
+	// ================= CONFIRM MODALS =================
+	const [confirmBan, setConfirmBan] = useState(false);
+	const [confirmDelete, setConfirmDelete] = useState(false);
+
+	// ================= INLINE STATUS =================
+	const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
 	// ================= DEBOUNCE =================
 	useEffect(() => {
@@ -72,68 +79,84 @@ export default function UsersTable({ scope }: Props) {
 	}, [debouncedSearch, roleFilter, statusFilter, sort]);
 
 	// ================= QUERY =================
-	const { data, isLoading, isFetching, error } = useQuery({
-		queryKey: [
-			"users",
-			scope,
-			debouncedSearch,
-			roleFilter,
-			statusFilter,
-			sort,
-			page,
-			limit,
-		],
-		queryFn: () =>
-			userApi.getAllUsers({
-				search: debouncedSearch || undefined,
-				role: scope === "staff" ? "customer" : roleFilter || undefined,
-				status: statusFilter || undefined,
-				sort,
-				skip: (page - 1) * limit,
-				limit,
-			}),
-		placeholderData: keepPreviousData,
+	const usersQuery = useAdminUsers({
+		search: debouncedSearch,
+		role: scope === "staff" ? "customer" : roleFilter || undefined,
+		status: statusFilter || undefined,
+		sort,
+		page,
+		limit,
 	});
 
-	const users = data?.data?.data ?? [];
-	const total = data?.data?.total ?? 0;
+	const users = usersQuery.data?.data?.data ?? [];
+	const total = usersQuery.data?.data?.total ?? 0;
 	const totalPages = Math.ceil(total / limit);
 
 	// ================= MUTATIONS =================
-	const createMutation = useMutation({
-		mutationFn: userApi.createUser,
-		onSuccess: () => {
-			setOpenCreate(false);
-			queryClient.invalidateQueries({ queryKey: ["users"] });
-		},
-	});
+	const createMutation = useCreateUser();
+	const updateProfileMutation = useUpdateUserProfile();
+	const updateRoleMutation = useUpdateUserRole();
+	const banMutation = useBanUser();
+	const deleteMutation = useDeleteUser();
 
-	const banMutation = useMutation({
-		mutationFn: (id: string) => userApi.banUser(id),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["users"] });
-		},
-	});
+	// ================= GUARDS =================
+	const lockBan = banMutation.isPending;
+	const lockDelete = deleteMutation.isPending;
+	const lockUpdate = updateProfileMutation.isPending || updateRoleMutation.isPending;
 
-	const deleteMutation = useMutation({
-		mutationFn: (id: string) => userApi.deleteUser(id),
-		onSuccess: () => {
-			setSelectedUser(null);
-			queryClient.invalidateQueries({ queryKey: ["users"] });
-		},
-	});
-
+	// ================= HANDLERS =================
 	const handleCreate = async (data: any) => {
+		if (createMutation.isPending) return;
+
 		await createMutation.mutateAsync(data);
+		setOpenCreate(false);
+		setStatusMsg("User created successfully");
+		setTimeout(() => setStatusMsg(null), 2500);
 	};
 
-	if (error) {
-		return (
-			<div className="p-6 text-danger text-center">
-				Failed to load users
-			</div>
-		);
-	}
+	const handleUpdateProfile = async (data: any) => {
+		if (!selectedUser || lockUpdate) return;
+
+		await updateProfileMutation.mutateAsync({
+			id: selectedUser.id,
+			data,
+		});
+
+		setStatusMsg("Profile updated successfully");
+		setTimeout(() => setStatusMsg(null), 2500);
+	};
+
+	const handleUpdateRole = async (role: any) => {
+		if (!selectedUser || isStaff || updateRoleMutation.isPending) return;
+
+		await updateRoleMutation.mutateAsync({
+			userId: selectedUser.id,
+			role,
+		});
+
+		setStatusMsg("Role updated successfully");
+		setTimeout(() => setStatusMsg(null), 2500);
+	};
+
+	const handleBan = async () => {
+		if (!selectedUser || isStaff || lockBan) return;
+
+		await banMutation.mutateAsync(selectedUser.id);
+		setConfirmBan(false);
+		setStatusMsg("User banned successfully");
+		setTimeout(() => setStatusMsg(null), 2500);
+	};
+
+	const handleDelete = async () => {
+		if (!selectedUser || !isSuperAdmin || lockDelete) return;
+
+		await deleteMutation.mutateAsync(selectedUser.id);
+		setSelectedUser(null);
+		setConfirmDelete(false);
+
+		setStatusMsg("User deleted successfully");
+		setTimeout(() => setStatusMsg(null), 2500);
+	};
 
 	// ================= TOOLBAR =================
 	const primary = (
@@ -154,9 +177,7 @@ export default function UsersTable({ scope }: Props) {
 				<select
 					className="ui-input"
 					value={roleFilter}
-					onChange={(e) =>
-						setRoleFilter(e.target.value as Role)
-					}
+					onChange={(e) => setRoleFilter(e.target.value as Role)}
 				>
 					<option value="">All Roles</option>
 					<option value="customer">Customer</option>
@@ -178,7 +199,7 @@ export default function UsersTable({ scope }: Props) {
 			<select
 				className="ui-input"
 				value={sort}
-				onChange={(e) => setSort(e.target.value as SortOrder)}
+				onChange={(e) => setSort(e.target.value as any)}
 			>
 				<option value="az">A → Z</option>
 				<option value="za">Z → A</option>
@@ -216,8 +237,8 @@ export default function UsersTable({ scope }: Props) {
 				primary={primary}
 				secondary={secondary}
 				actions={actions}
-				loading={isLoading}
-				fetching={isFetching}
+				loading={usersQuery.isLoading}
+				fetching={usersQuery.isFetching}
 				isEmpty={users.length === 0}
 				emptyText="No users found"
 				page={page}
@@ -225,38 +246,8 @@ export default function UsersTable({ scope }: Props) {
 				limit={limit}
 				onPageChange={setPage}
 				onLimitChange={setLimit}
-				mobile={
-					<div className="ui-stack">
-						{users.map((u: any) => (
-							<MobileDataCard
-								key={u.id}
-								title={`${u.firstName} ${u.lastName}`}
-								subtitle={u.email}
-								badge={<span className="ui-badge">{u.role}</span>}
-								fields={[
-									{ label: "Phone", value: u.phone || "-" },
-									{ label: "Status", value: u.status },
-								]}
-								onClick={() => setSelectedUser(u)}
-								actions={
-									<Dropdown trigger={<button className="p-2">⋮</button>}>
-										<DropdownItem
-											onClick={() => setSelectedUser(u)}
-										>
-											View
-										</DropdownItem>
-										<DropdownDivider />
-										<DropdownItem
-											onClick={() => banMutation.mutate(u.id)}
-										>
-											Ban
-										</DropdownItem>
-									</Dropdown>
-								}
-							/>
-						))}
-					</div>
-				}
+	
+				/* 🔥 REQUIRED FIX */
 				table={
 					<Table>
 						<TableHeader>
@@ -272,10 +263,7 @@ export default function UsersTable({ scope }: Props) {
 
 						<TableBody>
 							{users.map((u: any) => (
-								<TableRow
-									key={u.id}
-									onClick={() => setSelectedUser(u)}
-								>
+								<TableRow key={u.id} onClick={() => setSelectedUser(u)}>
 									<TableCell>
 										<div className="flex items-center gap-3">
 											<Avatar
@@ -283,9 +271,7 @@ export default function UsersTable({ scope }: Props) {
 												src={u?.avatar?.url}
 											/>
 											<div>
-												<p>
-													{u.firstName} {u.lastName}
-												</p>
+												<p>{u.firstName} {u.lastName}</p>
 												<p className="text-xs text-muted-foreground flex items-center gap-1">
 													<Mail className="w-3 h-3" />
 													{u.email}
@@ -295,52 +281,24 @@ export default function UsersTable({ scope }: Props) {
 									</TableCell>
 
 									<TableCell>{u.phone || "-"}</TableCell>
+
 									<TableCell>
-										<span className="ui-badge">
-											{u.role}
-										</span>
-									</TableCell>
-									<TableCell>
-										<span className="ui-badge">
-											{u.status}
-										</span>
-									</TableCell>
-									<TableCell>
-										{new Date(
-											u.createdAt
-										).toLocaleDateString()}
+										<span className="ui-badge">{u.role}</span>
 									</TableCell>
 
 									<TableCell>
-										<div
-											onClick={(e) =>
-												e.stopPropagation()
-											}
-										>
-											<Dropdown
-												trigger={
-													<button>
-														<MoreVertical />
-													</button>
-												}
-											>
-												<DropdownItem
-													onClick={() =>
-														setSelectedUser(u)
-													}
-												>
+										<span className="ui-badge">{u.status}</span>
+									</TableCell>
+
+									<TableCell>
+										{new Date(u.createdAt).toLocaleDateString()}
+									</TableCell>
+
+									<TableCell>
+										<div onClick={(e) => e.stopPropagation()}>
+											<Dropdown trigger={<button><MoreVertical /></button>}>
+												<DropdownItem onClick={() => setSelectedUser(u)}>
 													View
-												</DropdownItem>
-												<DropdownDivider />
-												<DropdownItem
-													danger
-													onClick={() =>
-														deleteMutation.mutate(
-															u.id
-														)
-													}
-												>
-													Delete
 												</DropdownItem>
 											</Dropdown>
 										</div>
@@ -350,34 +308,177 @@ export default function UsersTable({ scope }: Props) {
 						</TableBody>
 					</Table>
 				}
+
+				/* 🔥 MOBILE REQUIRED TOO */
+				mobile={
+					<div className="ui-stack">
+						{users.map((u: any) => (
+							<MobileDataCard
+								key={u.id}
+								title={`${u.firstName} ${u.lastName}`}
+								subtitle={u.email}
+								badge={<span className="ui-badge">{u.role}</span>}
+								fields={[
+									{ label: "Phone", value: u.phone || "-" },
+									{ label: "Status", value: u.status },
+								]}
+								onClick={() => setSelectedUser(u)}
+							/>
+						))}
+					</div>
+				}
 			/>
 
-			{/* CREATE USER MODAL */}
-			<Modal
-				open={openCreate}
-				onClose={() => setOpenCreate(false)}
-				size="lg"
-			>
+			{/* STATUS MESSAGE */}
+			{statusMsg && (
+				<div className="fixed top-4 right-4 bg-green-100 text-green-700 px-4 py-2 rounded shadow">
+					{statusMsg}
+				</div>
+			)}
+
+			{/* TABLE */}
+			<div className="mt-4">
+				<Table>
+					<TableHeader>
+						<tr>
+							<TableHead>User</TableHead>
+							<TableHead>Contact</TableHead>
+							<TableHead>Role</TableHead>
+							<TableHead>Status</TableHead>
+							<TableHead>Joined</TableHead>
+							<TableHead>Actions</TableHead>
+						</tr>
+					</TableHeader>
+
+					<TableBody>
+						{users.map((u: any) => (
+							<TableRow key={u.id} onClick={() => setSelectedUser(u)}>
+								<TableCell>
+									<div className="flex items-center gap-3">
+										<Avatar
+											name={`${u.firstName} ${u.lastName}`}
+											src={u?.avatar?.url}
+										/>
+										<div>
+											<p>{u.firstName} {u.lastName}</p>
+											<p className="text-xs text-muted-foreground flex gap-1 items-center">
+												<Mail className="w-3 h-3" />
+												{u.email}
+											</p>
+										</div>
+									</div>
+								</TableCell>
+
+								<TableCell>{u.phone || "-"}</TableCell>
+								<TableCell>
+									<span className="ui-badge">{u.role}</span>
+								</TableCell>
+								<TableCell>
+									<span className="ui-badge">{u.status}</span>
+								</TableCell>
+								<TableCell>
+									{new Date(u.createdAt).toLocaleDateString()}
+								</TableCell>
+
+								<TableCell>
+									<div onClick={(e) => e.stopPropagation()}>
+										<Dropdown trigger={<button><MoreVertical /></button>}>
+											<DropdownItem onClick={() => setSelectedUser(u)}>
+												View
+											</DropdownItem>
+
+											<DropdownDivider />
+
+											{!isStaff && (
+												<DropdownItem onClick={() => setConfirmBan(true)}>
+													Ban
+												</DropdownItem>
+											)}
+
+											{isSuperAdmin && (
+												<DropdownItem
+													danger
+													onClick={() => setConfirmDelete(true)}
+												>
+													Delete
+												</DropdownItem>
+											)}
+										</Dropdown>
+									</div>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</div>
+
+			{/* ================= CREATE MODAL ================= */}
+			<Modal open={openCreate} onClose={() => setOpenCreate(false)}>
 				<ModalHeader>Create User</ModalHeader>
 				<ModalBody>
 					<UserForm
 						onSubmit={handleCreate}
 						loading={createMutation.isPending}
-						apiError={createMutation.error}
 					/>
 				</ModalBody>
 			</Modal>
 
-			{/* USER DRAWER */}
+			{/* ================= BAN CONFIRM ================= */}
+			<Modal open={confirmBan} onClose={() => setConfirmBan(false)}>
+				<ModalHeader>Confirm Ban</ModalHeader>
+				<ModalBody>
+					Are you sure you want to ban this user?
+				</ModalBody>
+				<ModalFooter>
+					<Button variant="outline" onClick={() => setConfirmBan(false)}>
+						Cancel
+					</Button>
+					<Button
+						variant="danger"
+						onClick={handleBan}
+						disabled={lockBan}
+					>
+						Ban User
+					</Button>
+				</ModalFooter>
+			</Modal>
+
+			{/* ================= DELETE CONFIRM ================= */}
+			<Modal open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+				<ModalHeader>Confirm Delete</ModalHeader>
+				<ModalBody>
+					This action cannot be undone. Delete this user?
+				</ModalBody>
+				<ModalFooter>
+					<Button variant="outline" onClick={() => setConfirmDelete(false)}>
+						Cancel
+					</Button>
+					<Button
+						variant="danger"
+						onClick={handleDelete}
+						disabled={lockDelete}
+					>
+						Delete User
+					</Button>
+				</ModalFooter>
+			</Modal>
+
+			{/* ================= DRAWER ================= */}
 			<UserDrawer
 				user={selectedUser}
 				open={!!selectedUser}
 				onClose={() => setSelectedUser(null)}
 				currentUser={currentUser}
-				onUpdateProfile={async () => {}}
-				onUpdateRole={() => {}}
-				onBan={() => banMutation.mutate(selectedUser.id)}
-  				onDelete={() => deleteMutation.mutate(selectedUser.id)}
+				onUpdateProfile={handleUpdateProfile}
+				onUpdateRole={handleUpdateRole}
+				onBan={() => setConfirmBan(true)}
+				onDelete={() => setConfirmDelete(true)}
+				loading={{
+					updateProfile: updateProfileMutation.isPending,
+					updateRole: updateRoleMutation.isPending,
+					ban: banMutation.isPending,
+					delete: deleteMutation.isPending,
+				}}
 			/>
 		</>
 	);
