@@ -331,6 +331,11 @@ export default function AdminPaymentsPage() {
 						{payments.map((p: Payment) => (
 							<MobileDataCard
 								key={p.id}
+								onClick={() => {
+									setSelectedPaymentId(p.id);
+									setDrawerOpen(true);
+								}}
+								// className="cursor-pointer"
 								title={`₦${p.amount.total.toLocaleString()}`}
 								subtitle={formatRef(
 									p.gatewayReference
@@ -346,7 +351,7 @@ export default function AdminPaymentsPage() {
 								}
 								fields={[
 									{
-										label: "Plan",
+										label: "Planamamam",
 										value:
 											p.planId?.name ||
 											"—",
@@ -377,7 +382,13 @@ export default function AdminPaymentsPage() {
 
 						<TableBody>
 							{payments.map((p: Payment) => (
-								<TableRow key={p.id}>
+								<TableRow 
+								onClick={() => {
+									setSelectedPaymentId(p.id);
+									setDrawerOpen(true);
+								}}
+								className="cursor-pointer hover:bg-muted/50"
+								key={p.id}>
 									<TableCell>
 										{p.accountId?.wsnId ||
 											"—"}
