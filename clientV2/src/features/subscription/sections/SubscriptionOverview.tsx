@@ -2,8 +2,7 @@
 
 import { AlertTriangle } from "lucide-react";
 
-import { Subscription } from "@/features/subscription/subscription.api";
-
+import { Subscription } from "../subscription.types";
 import Card, { CardContent, CardHeader } from "@/components/ui/Card";
 
 import SubscriptionInfo from "../components/SubscriptionInfo";
