@@ -1,4 +1,4 @@
-import { Subscription } from "@/features/subscription/subscription.api";
+import { Subscription } from "../subscription.types";
 
 type Role =
 	| "customer"
