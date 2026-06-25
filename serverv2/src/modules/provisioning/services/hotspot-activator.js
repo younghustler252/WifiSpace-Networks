@@ -14,12 +14,16 @@ export class HotspotActivatior {
 		console.log("metadata",metadata)
 
 		const macAddress = metadata.macAddress || null;
+		const ipAddress = metadata.ipAddress;
+		const routerId = metadata.routerId;
 
 		return await this.activateHotspotAccess.execute({
 			accountId: account.id,
 			macAddress: metadata.macAddress,
 			routerId: metadata.routerId,
-			routerProfile: plan.mikrotikProfile
+			ipAddress: ipAddress,
+			routerProfile: plan.mikrotikProfile,
+			hostname: metadata.hostname || ""
 		});
 	}
 }
