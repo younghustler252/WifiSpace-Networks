@@ -17,10 +17,16 @@ export class GetHotspotSession {
 
 
 		if (!macAddress && !email) {
-			throw new Error(
-				"MAC address or email is required"
-			);
-		}
+
+		return {
+			user: null,
+			hasUser: false,
+			hasHotspotAccount: false,
+			accounts: [],
+			needsIdentity: true
+		};
+
+}
 
 
 		let user = null;

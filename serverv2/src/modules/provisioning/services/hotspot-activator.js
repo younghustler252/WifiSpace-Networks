@@ -11,14 +11,9 @@ export class HotspotActivatior {
 		plan,
 		metadata
 	}) {
+		console.log("metadata",metadata)
 
-		if (!metadata.macAddress) {
-			throw new Error("MAC address required for hotspot");
-		}
-
-		if (!metadata.routerId) {
-			throw new Error("Router ID required");
-		}
+		const macAddress = metadata.macAddress || null;
 
 		return await this.activateHotspotAccess.execute({
 			accountId: account.id,
