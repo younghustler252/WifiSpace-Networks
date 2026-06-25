@@ -185,39 +185,29 @@ export class HotspotIntegration {
     // API LOGIN
     // ==================================================
 
-    async apiLogin(router, { username, password, macAddress, ipAddress }) {
-        const hosts = await this.mikrotikClient.execute(
-            router,
-            "/ip/hotspot/host/print",
-            []
-        );
-
-        console.log("Hosts:", hosts?.length || 0);
-
-        const activeUsers = await this.mikrotikClient.execute(
-            router,
-            "/ip/hotspot/active/print",
-            []
-        );
-
-        console.log("Active sessions:", activeUsers?.length || 0);
-
-        const params = [
-            `=user=${username}`,
-            `=password=${password}`,
-            `=mac-address=${macAddress}`
-        ];
-
-        if (ipAddress) {
-            params.push(`=ip=${ipAddress}`);
-        }
-
-        return this.mikrotikClient.execute(
-            router,
-            "/ip/hotspot/active/login",
-            params
-        );
+   async apiLogin(router, { username, password, macAddress, ipAddress }) {
+    // 1. IP address is absolutely mandatory for API login
+    if (!ipAddress) {
+        throw new Error("Cannot perform API login: Missing IP address.");
     }
+
+    // Remove the host and active print calls to optimize speed during payment completion
+    
+    // 2. Strict MikroTik API parameter mapping
+    const params = [
+        `=user=${username}`,
+        `=password=${password}`,
+        `=ip=${ipAddress}`
+    ];
+
+    console.log("[API LOGIN] Sending parameters to MikroTik:", params);
+
+    return this.mikrotikClient.execute(
+        router,
+        "/ip/hotspot/active/login",
+        params
+    );
+}
 
     // ==================================================
     // ROUTER INFO
