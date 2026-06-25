@@ -150,6 +150,7 @@ export default function UsersTable({ scope }: Props) {
 	const handleDelete = async () => {
 		if (!selectedUser || !isSuperAdmin || lockDelete) return;
 
+
 		await deleteMutation.mutateAsync(selectedUser.id);
 		setSelectedUser(null);
 		setConfirmDelete(false);
@@ -368,7 +369,7 @@ export default function UsersTable({ scope }: Props) {
 			</Modal>
 
 			{/* ================= DELETE CONFIRM ================= */}
-			<Modal open={confirmDelete} onClose={() => setConfirmDelete(false)}>
+			<Modal className="z-[100]" open={confirmDelete} onClose={() => setConfirmDelete(false)}>
 				<ModalHeader>Confirm Delete</ModalHeader>
 				<ModalBody>
 					This action cannot be undone. Delete this user?

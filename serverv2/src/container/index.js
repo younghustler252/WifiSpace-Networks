@@ -5,6 +5,7 @@ import { createContainer, asClass, asValue } from "awilix";
 | MODULE REGISTRARS
 |--------------------------------------------------------------------------
 */
+import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
 import { registerDashboard } from "../modules/dashboard/dashboard.container.js";
 import { registerUsage } from "../modules/usage/usage.container.js";
 import { registerAnalytics } from "../modules/analytics/analytics.container.js";
@@ -78,6 +79,7 @@ container.register({
 |--------------------------------------------------------------------------
 */
 const modules = [
+  registerProvisioning,
   registerDashboard,
   registerRouter,
   registerPayment,

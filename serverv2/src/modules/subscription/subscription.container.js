@@ -23,6 +23,8 @@ import { SubscriptionController }
 import { SubscriptionAdminController }
 	from "./presentation/controllers/admin.controller.js";
 
+
+import { SubscriptionService } from "./services/subscription.service.js";
 /*
 |--------------------------------------------------------------------------
 | USE CASES - ACCOUNT
@@ -169,6 +171,9 @@ export function registerSubscription(container) {
 			asClass(SubscriptionController).scoped(),
 
 		subscriptionAdminController:
-			asClass(SubscriptionAdminController).scoped()
+			asClass(SubscriptionAdminController).scoped(),
+
+
+		subscriptionService: asClass(SubscriptionService).scoped()
 	});
 }

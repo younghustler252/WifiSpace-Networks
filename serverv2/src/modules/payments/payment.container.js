@@ -6,9 +6,7 @@ import { PaymentRepositoryMongo } from "./infrastructure/repositories/payment.re
 // SERVICES
 import { PaystackGateway } from "./infrastructure/paystack/paystack.gateway.js";
 import { PaystackPaymentService } from "./services/paystack.service.js";
-import { paymentProcessorService } from "./services/payment-processor.service.js";
-import { HotspotPaymentProcessorService } from "./services/hotspot-payment-processor.service.js";
-
+import { PaymentBusinessProcessor } from "./services/payment-business-processor.service.js";
 // USECASES
 import { CreatePaymentUseCase } from "./usecases/user/create-payment.js";
 import { ConfirmPaymentUseCase } from "./usecases/user/confirm-payment.js";
@@ -42,9 +40,7 @@ export function registerPayment(container) {
 		// -----------------------------
 		paystackGateway: asClass(PaystackGateway).singleton(),
 		paystackPaymentService: asClass(PaystackPaymentService).singleton(),
-		paymentProcessorService: asClass(paymentProcessorService).scoped(),
-		hotspotPaymentProcessorService: asClass(HotspotPaymentProcessorService).scoped(),
-		// -----------------------------
+		paymentBusinessProcessor: asClass(PaymentBusinessProcessor).scoped(),
 		// USECASES
 		// -----------------------------
 		createPayment: asClass(CreatePaymentUseCase).scoped(),

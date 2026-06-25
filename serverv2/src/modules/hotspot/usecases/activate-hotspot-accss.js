@@ -1,66 +1,100 @@
 export class ActivateHotspotAccess {
 
-    constructor({
-        accountRepository,
-        routerRepository,
-        mikrotikService
-    }) {
-        this.accountRepository = accountRepository;
-        this.routerRepository  = routerRepository;
-        this.mikrotikService   = mikrotikService;
-    }
+	constructor({
+		accountRepository,
+		routerRepository,
+		mikrotikService
+	}) {
+		this.accountRepository = accountRepository;
+		this.routerRepository = routerRepository;
+		this.mikrotikService = mikrotikService;
+	}
 
-    async execute({
-        accountId,
-        macAddress,
-        hostname,
-        ipAddress
-    }) {
+	async execute({
+		accountId,
+		routerId,
+		macAddress,
+		hostname,
+		ipAddress
+	}) {
 
-        const account = await this.accountRepository.findById(accountId);
+		if (!accountId) {
+			throw new Error("Account ID required");
+		}
 
-        console.log("hotspsot acct", account)
-        if (!account) {
-            throw new Error("Account not found");
-        }
+		if (!macAddress) {
+			throw new Error("MAC address required");
+		}
 
-        const router = await this.routerRepository.findById(account.routerId);
+		// =====================================================
+		// 1. LOAD ACCOUNT
+		// =====================================================
+		const account =
+			await this.accountRepository.findById(accountId);
 
-        if (!router) {
-            throw new Error("Router not found");
-        }
+		if (!account) {
+			throw new Error("Account not found");
+		}
 
-        // Save/update device record
-        const existing = account.devices.find(d => d.macAddress === macAddress);
+		// =====================================================
+		// 2. LOAD ROUTER (explicit or fallback)
+		// =====================================================
+		const router =
+			routerId
+				? await this.routerRepository.findById(routerId)
+				: await this.routerRepository.findById(account.routerId);
 
-        if (!existing) {
-            account.devices.push({
-                macAddress,
-                hostname,
-                lastSeenAt: new Date()
-            });
-        } else {
-            existing.lastSeenAt = new Date();
-        }
+		if (!router) {
+			throw new Error("Router not found");
+		}
 
-        await this.accountRepository.update(account.id, account);
+		// =====================================================
+		// 3. DEVICE TRACKING (move logic into repository ideally)
+		// =====================================================
+		const devices = account.devices || [];
 
-        try {
-           const result = await this.mikrotikService.provisionAccess(
-                account,
-                router,
-                {
-                    username: account.wsnId,
-                    password: account.routerPassword,
-                    macAddress,
-                    ipAddress
-                }
-            );
+		const existing = devices.find(
+			d => d.macAddress === macAddress
+		);
 
-            return result;       // ← return the full result so autoConnected flows back up
+		if (existing) {
+			existing.lastSeenAt = new Date();
+			existing.ipAddress = ipAddress;
+		} else {
+			devices.push({
+				macAddress,
+				hostname,
+				ipAddress,
+				lastSeenAt: new Date()
+			});
+		}
 
-        } catch (err) {
-            throw new Error("Hotspot authorization failed: " + err.message);
-        }
-    }
+		await this.accountRepository.update(account.id, {
+			...account,
+			devices
+		});
+
+		// =====================================================
+		// 4. PROVISION ACCESS (MICROTIK)
+		// =====================================================
+		try {
+
+			return await this.mikrotikService.provisionAccess(
+				account,
+				router,
+				{
+					username: account.wsnId,
+					password: account.routerPassword,
+					macAddress,
+					ipAddress
+				}
+			);
+
+		} catch (err) {
+
+			throw new Error(
+				"Hotspot activation failed: " + err.message
+			);
+		}
+	}
 }

@@ -1,12 +1,15 @@
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
+import { ValidationError }
+	from "../../../../shared/errors/validation-error.js";
+
+import { NotFoundError }
+	from "../../../../shared/errors/not-found-error.js";
 
 export class ConfirmPaymentUseCase {
 
 	constructor({
 		paymentRepository,
 		paystackPaymentService,
-		paymentProcessorResolver
+		paymentBusinessProcessor
 	}) {
 
 		this.paymentRepository =
@@ -15,15 +18,15 @@ export class ConfirmPaymentUseCase {
 		this.paystackPaymentService =
 			paystackPaymentService;
 
-		this.paymentProcessorResolver =
-			paymentProcessorResolver;
+		this.paymentBusinessProcessor =
+			paymentBusinessProcessor;
 	}
 
 	async execute({ reference }) {
 
-		// -----------------------------
+		// --------------------------------------------------
 		// VALIDATION
-		// -----------------------------
+		// --------------------------------------------------
 		if (!reference) {
 
 			throw new ValidationError(
@@ -31,9 +34,9 @@ export class ConfirmPaymentUseCase {
 			);
 		}
 
-		// -----------------------------
-		// FETCH PAYMENT
-		// -----------------------------
+		// --------------------------------------------------
+		// PAYMENT MUST EXIST
+		// --------------------------------------------------
 		const existingPayment =
 			await this.paymentRepository
 				.findByGatewayReference(reference);
@@ -45,9 +48,9 @@ export class ConfirmPaymentUseCase {
 			);
 		}
 
-		// -----------------------------
-		// VERIFY PAYMENT WITH GATEWAY
-		// -----------------------------
+		// --------------------------------------------------
+		// VERIFY PAYMENT
+		// --------------------------------------------------
 		const {
 			payment,
 			gatewayResponse,
@@ -56,67 +59,74 @@ export class ConfirmPaymentUseCase {
 			await this.paystackPaymentService
 				.verifyPayment(reference);
 
-		// -----------------------------
-		// IDEMPOTENCY GUARD
-		// -----------------------------
+		// --------------------------------------------------
+		// IDEMPOTENCY
+		// --------------------------------------------------
 		if (alreadyProcessed) {
 
 			return {
+				success: true,
 				payment,
 				gatewayResponse,
 				alreadyProcessed: true
 			};
 		}
 
-		// -----------------------------
-		// ONLY PROCESS SUCCESSFUL
-		// -----------------------------
+		// --------------------------------------------------
+		// FAILED PAYMENT
+		// --------------------------------------------------
 		if (!payment.isSuccessful()) {
 
 			return {
+				success: false,
 				payment,
 				gatewayResponse,
 				alreadyProcessed: false
 			};
 		}
 
-		// -----------------------------
+		// --------------------------------------------------
 		// BUSINESS ALREADY PROCESSED
-		// -----------------------------
+		// --------------------------------------------------
 		if (payment.businessProcessed) {
 
 			return {
+				success: true,
 				payment,
 				gatewayResponse,
 				alreadyProcessed: true
 			};
 		}
 
-		// -----------------------------
-		// PROCESS BUSINESS LOGIC
-		// -----------------------------
-		const serviceType =
-			payment.metadata?.serviceType ?? "default";
+		// --------------------------------------------------
+		// PROCESS BUSINESS FLOW
+		// --------------------------------------------------
+		const result =
+			await this.paymentBusinessProcessor
+				.process(payment);
 
-		const processor =
-			this.paymentProcessorResolver.resolve(
-				serviceType
-			);
-		await processor.process(payment);
-		// -----------------------------
-		// REFETCH UPDATED PAYMENT
-		// -----------------------------
+		// --------------------------------------------------
+		// RELOAD PAYMENT
+		// --------------------------------------------------
 		const updatedPayment =
 			await this.paymentRepository
 				.findById(payment.id);
 
-		// -----------------------------
+		// --------------------------------------------------
 		// RESPONSE
-		// -----------------------------
+		// --------------------------------------------------
 		return {
-			payment: updatedPayment,
+			success: true,
+
+			payment:
+				updatedPayment,
+
 			gatewayResponse,
-			alreadyProcessed: false
+
+			alreadyProcessed:
+				false,
+
+			result
 		};
 	}
 }

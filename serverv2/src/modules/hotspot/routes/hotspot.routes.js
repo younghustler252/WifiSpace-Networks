@@ -34,7 +34,7 @@ export function hotspotRoutes({hotspotController}) {
 
 	router.get(
 		"/session",
-		expressAsyncHandler(hotspotController.getHotspotSessions)
+		expressAsyncHandler(hotspotController.getHotspotSession)
 	)
 
 	return router;

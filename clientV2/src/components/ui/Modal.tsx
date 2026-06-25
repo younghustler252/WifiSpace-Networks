@@ -61,7 +61,7 @@ const Modal = ({
 	};
 
 	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center">
+		<div className={cn("fixed inset-0 flex items-center justify-center z-50", className)}>
 			
 			{/* Overlay */}
 			<div

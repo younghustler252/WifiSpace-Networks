@@ -1,69 +1,159 @@
 export class GetHotspotSession {
 
-    constructor({
-        accountRepository,
-        userRepository,
-        subscriptionRepository,
-        planRepository
-    }) {
-        this.accountRepository      = accountRepository;
-        this.userRepository         = userRepository;
-        this.subscriptionRepository = subscriptionRepository;
-        this.planRepository         = planRepository;
-    }
+	constructor({
+		accountRepository,
+		userRepository,
+		subscriptionRepository,
+		planRepository
+	}) {
+		this.accountRepository = accountRepository;
+		this.userRepository = userRepository;
+		this.subscriptionRepository = subscriptionRepository;
+		this.planRepository = planRepository;
+	}
 
-    async execute({ macAddress, email }) {
 
-        if (!macAddress && !email) {
-            throw new Error("MAC address or email is required");
-        }
+	async execute({ macAddress, email }) {
 
-        let account = null;
-        let user    = null;
 
-        // 1. Try MAC lookup first
-        if (macAddress) {
-            account = await this.accountRepository.findByMac(macAddress);
+		if (!macAddress && !email) {
+			throw new Error(
+				"MAC address or email is required"
+			);
+		}
 
-            if (account) {
-                user = await this.userRepository.findById(account.userId);
-            }
-        }
 
-        // 2. Fall back to email lookup if MAC not found
-        if (!account && email) {
-            user = await this.userRepository.findByEmail(email);
+		let user = null;
 
-            if (user) {
-                account = await this.accountRepository.findOne({
-                    userId:      user.id,
-                    serviceType: "hotspot"
-                });
-            }
-        }
 
-        // 3. Nothing found — new user
-        if (!account || !user) {
-            return null;
-        }
 
-        // 4. Get active subscription
-        const subscription = await this.subscriptionRepository
-            .findActiveByAccount(account.id);
+		// =====================================================
+		// 1. EMAIL FIRST
+		// =====================================================
 
-        // 5. Enrich with plan
-        let plan = null;
+		if(email){
 
-        if (subscription?.planId) {
-            plan = await this.planRepository.findById(subscription.planId);
-        }
+			user =
+				await this.userRepository.findByEmail(email);
+		}
 
-        return {
-            account,
-            user,
-            subscription: subscription
-                ? { ...subscription, plan }
-                : null
-        };
-    }
+
+
+
+		// =====================================================
+		// 2. MAC FALLBACK
+		// =====================================================
+
+		if(!user && macAddress){
+
+			const account =
+				await this.accountRepository.findByMac(
+					macAddress
+				);
+
+
+			if(account){
+
+				user =
+					await this.userRepository.findById(
+						account.userId
+					);
+			}
+		}
+
+
+
+
+
+		// =====================================================
+		// NEW USER
+		// =====================================================
+
+		if(!user){
+
+			return {
+				user:null,
+				hasUser:false,
+				hasHotspotAccount:false,
+				accounts:[]
+			};
+		}
+
+
+
+
+
+		// =====================================================
+		// FIND HOTSPOT ACCOUNT
+		// =====================================================
+
+		const account =
+			await this.accountRepository.findOne({
+				userId:user.id,
+				serviceType:"hotspot"
+			});
+
+
+
+
+		// =====================================================
+		// NO ACCOUNT YET
+		// =====================================================
+
+		if(!account){
+
+			return {
+
+				user,
+
+				hasUser:true,
+
+				hasHotspotAccount:false,
+
+				accounts:[]
+			};
+		}
+
+
+
+
+
+		const subscription =
+			await this.subscriptionRepository.findActiveByAccount(
+				account.id
+			);
+
+
+		let plan=null;
+
+
+		if(subscription?.planId){
+
+			plan =
+				await this.planRepository.findById(
+					subscription.planId
+				);
+		}
+
+
+
+
+		return {
+
+			user,
+
+			hasUser:true,
+
+			hasHotspotAccount:true,
+
+
+			accounts:[
+				{
+					account,
+					subscription,
+					plan
+				}
+			]
+		};
+	}
 }

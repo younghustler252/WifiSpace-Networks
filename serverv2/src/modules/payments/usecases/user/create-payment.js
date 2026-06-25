@@ -9,7 +9,8 @@ export class CreatePaymentUseCase {
 
 	constructor({
 		paystackPaymentService,
-		planRepository
+		planRepository,
+		userRepository
 	}) {
 
 		this.paystackPaymentService =
@@ -17,6 +18,9 @@ export class CreatePaymentUseCase {
 
 		this.planRepository =
 			planRepository;
+
+		this.userRepository =
+			userRepository;
 	}
 
 	async execute({
@@ -35,12 +39,28 @@ export class CreatePaymentUseCase {
 		// VALIDATION
 		// -----------------------------
 
+		if (!email && userId) {
+
+			const user =
+				await this.userRepository.findById(
+					userId
+				);
+
+
+			if (user?.email) {
+				email = user.email;
+			}
+		}
+
+
 		if (!email) {
 
 			throw new ValidationError(
 				"Email is required"
 			);
 		}
+
+
 
 		if (
 			!PAYMENT_ACTIONS.includes(actionType)

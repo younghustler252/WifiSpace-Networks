@@ -15,33 +15,55 @@ export interface HotspotPlan {
     features?:     string[];
 }
 
+export type HotspotUIState =
+    | "LOADING"
+    | "NEW_USER"
+    | "SELECT_PLAN"
+    | "ACCOUNT_SELECTION"
+    | "READY"
+    | "ERROR";
+
 export interface HotspotSession {
-    account: {
-        id:            string;
-        wsnId:         string;
-        routerProfile: string;
-        profileStatus: string;
-        serviceType:   string;
-    };
+    state: HotspotUIState;
+    hasHotspotAccount: boolean;
     user: {
-        id:        string;
+        id: string;
         firstName: string;
-        email:     string;
-        phone:     string;
-    };
-    subscription: {
-        id:        string;
-        status:    string;
-        expiresAt: string;
-        plan: {
-            id:            string;
-            name:          string;
-            price:         number;
-            durationValue: number;
-            durationUnit:  string;
-        };
+        email: string;
+        phone: string;
     } | null;
+
+    accounts: HotspotAccount[];
+
+    message?: string;
 }
+
+export interface HotspotAccount {
+	id: string;
+
+	wsnId: string;
+
+	routerProfile: string;
+
+	profileStatus: string;
+
+	serviceType: string;
+
+	subscription: {
+		id: string;
+		status: string;
+		expiresAt: string;
+	} | null;
+
+	plan: {
+		id: string;
+		name: string;
+		price: number;
+		durationValue: number;
+		durationUnit: string;
+	} | null;
+}
+
 
 export interface StartHotspotPurchaseDto {
     firstName: string;
@@ -93,13 +115,25 @@ export const hotspotApi = {
 
     // GET /hotspot/session?macAddress=XX:XX:XX
     // Returns null data if MAC is unknown (new user)
-    getSessionByMac: (macAddress: string, email?: string): Promise<ApiResponse<HotspotSession | null>> =>
-    API.get(`/hotspot/session?macAddress=${encodeURIComponent(macAddress)}${email ? `&email=${encodeURIComponent(email)}` : ""}`),
+    getSession: (params: {
+        macAddress?: string;
+        email?: string;
+    }): Promise<ApiResponse<HotspotSession>> =>
+        API.get(
+            `/hotspot/session?macAddress=${encodeURIComponent(params.macAddress || "")}&email=${encodeURIComponent(params.email || "")}`
+        ),
     // POST /hotspot/purchase
     startPurchase: (
-        data: StartHotspotPurchaseDto
-    ): Promise<ApiResponse<StartHotspotPurchaseResponse>> =>
-        API.post("/hotspot/purchase", data),
+    data: StartHotspotPurchaseDto
+) => {
+    // console.log("PURCHASE BODY", data);
+
+    return API.post(
+        "/hotspot/purchase",
+        data
+    );
+},
+        
 
     // POST /hotspot/confirm
     confirmPurchase: (

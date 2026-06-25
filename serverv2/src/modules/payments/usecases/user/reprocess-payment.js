@@ -1,23 +1,31 @@
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
-import { AppError } from "../../../../shared/errors/app-error.js";
+import { ValidationError }
+	from "../../../../shared/errors/validation-error.js";
+
+import { NotFoundError }
+	from "../../../../shared/errors/not-found-error.js";
+
+import { AppError }
+	from "../../../../shared/errors/app-error.js";
 
 export class ReprocessPaymentUseCase {
 
 	constructor({
 		paymentRepository,
-		paymentProcessorService
+		paymentBusinessProcessor
 	}) {
 
 		this.paymentRepository =
 			paymentRepository;
 
-		this.paymentProcessorService =
-			paymentProcessorService;
+		this.paymentBusinessProcessor =
+			paymentBusinessProcessor;
 	}
 
 	async execute({ paymentId }) {
 
+		// -----------------------------------
+		// VALIDATION
+		// -----------------------------------
 		if (!paymentId) {
 
 			throw new ValidationError(
@@ -25,6 +33,9 @@ export class ReprocessPaymentUseCase {
 			);
 		}
 
+		// -----------------------------------
+		// FETCH PAYMENT
+		// -----------------------------------
 		const payment =
 			await this.paymentRepository
 				.findById(paymentId);
@@ -36,30 +47,50 @@ export class ReprocessPaymentUseCase {
 			);
 		}
 
+		// -----------------------------------
+		// STATUS CHECK
+		// -----------------------------------
 		if (payment.status !== "successful") {
 
-            throw new AppError(
-                "Only successful payments can be reprocessed",
-                400
-            );
-        }
+			throw new AppError(
+				"Only successful payments can be reprocessed",
+				400
+			);
+		}
 
-		// prevent duplicate processing
+		// -----------------------------------
+		// IDEMPOTENCY GUARD
+		// -----------------------------------
 		if (payment.businessProcessed) {
 
 			return {
+				success: true,
 				payment,
 				alreadyProcessed: true
 			};
 		}
 
-		// retry business logic
-		const updatedPayment =
-			await this.paymentProcessorService
+		// -----------------------------------
+		// REPROCESS BUSINESS LOGIC
+		// -----------------------------------
+		const result =
+			await this.paymentBusinessProcessor
 				.process(payment);
 
+		// -----------------------------------
+		// REFRESH PAYMENT
+		// -----------------------------------
+		const updatedPayment =
+			await this.paymentRepository
+				.findById(payment.id);
+
+		// -----------------------------------
+		// RESPONSE
+		// -----------------------------------
 		return {
+			success: true,
 			payment: updatedPayment,
+			result,
 			alreadyProcessed: false
 		};
 	}

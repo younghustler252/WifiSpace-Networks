@@ -1,88 +1,155 @@
 export class StartHotspotPurchase {
-    constructor({
-        registerHotspotUser,
-        createPayment,
-        routerRepository,
-        accountRepository   // ← add this
-    }) {
-        this.registerHotspotUser = registerHotspotUser;
-        this.createPayment       = createPayment;
-        this.routerRepository    = routerRepository;
-        this.accountRepository   = accountRepository;
-    }
 
-    async execute({
-        firstName,
-        email,
-        phone,
-        planId,
-        routerId,
-        routerUid,
-        identity,
-        macAddress,
-        ipAddress,
-        userAgent
-    }) {
+	constructor({
+		userRepository,
+		registerHotspotUser,
+		createPayment,
+		routerRepository,
+		hotspotCheckoutFlow
+	}) {
+		this.userRepository = userRepository;
+		this.registerHotspotUser = registerHotspotUser;
+		this.createPayment = createPayment;
+		this.routerRepository = routerRepository;
+		this.hotspotCheckoutFlow = hotspotCheckoutFlow;
+	}
 
-        // 1. Register or fetch existing user
-        const user = await this.registerHotspotUser.execute({
-            firstName,
-            email,
-            phone
-        });
 
-        // 2. Resolve router
-        const router = await this.routerRepository.findRouterForHotspot({
-            routerId,
-            routerUid,
-            identity
-        });
+	async execute({
+		firstName,
+		email,
+		phone,
 
-        if (!router) {
-            throw new Error("No available hotspot router found");
-        }
+		planId,
 
-        // 3. Check if user already has a hotspot account
-        const existingAccount = await this.accountRepository.findOne({
-            userId:      user.id,
-            serviceType: "hotspot"
-        });
+		routerId,
+		routerUid,
+		identity,
 
-        // 4. Create payment — pass existingAccountId so processor
-        //    skips account creation and reuses the existing one
-        const payment = await this.createPayment.execute({
-            userId:    user.id,
-            accountId: existingAccount?.id || null,  // ← key addition
-            planId,
-            email,
+		macAddress,
+		ipAddress,
+		userAgent
+	}) {
 
-            metadata: {
-                firstName,
-                phone,
 
-                routerId:     router.id,
-                routerUid:    router.routerUid,
-                identity,
+		// =====================================================
+		// 1. FIND USER FIRST
+		// =====================================================
 
-                macAddress,
-                ipAddress,
+		let user =
+			await this.userRepository.findByEmail(
+				email
+			);
 
-                serviceType:  "hotspot",
 
-                routerCode:   router.code,
-                routerStatus: router.status,
 
-                userAgent,
+		// =====================================================
+		// 2. CREATE ONLY IF USER DOES NOT EXIST
+		// =====================================================
 
-                // Pass existing account id in metadata as backup
-                existingAccountId: existingAccount?.id || null
-            }
-        });
+		if (!user) {
 
-        return {
-            user,
-            payment,
-            router
-        };
-    }
+			user =
+				await this.registerHotspotUser.execute({
+					firstName,
+					email,
+					phone
+				});
+		}
+
+
+
+		if (!user) {
+			throw new Error(
+				"Unable to resolve user"
+			);
+		}
+
+
+
+		// =====================================================
+		// 3. RESOLVE ROUTER
+		// =====================================================
+
+		const router =
+			await this.routerRepository.findRouterForHotspot({
+				routerId,
+				routerUid,
+				identity
+			});
+
+
+		if (!router) {
+			throw new Error(
+				"No available hotspot router found"
+			);
+		}
+
+
+
+		// =====================================================
+		// 4. CREATE ACCOUNT + PAYMENT DRAFT
+		// =====================================================
+
+		const result =
+			await this.hotspotCheckoutFlow.execute({
+
+				userId:
+					user.id,
+
+				plan: {
+					id: planId,
+					serviceType:
+						"hotspot"
+				},
+
+				metadata: {
+
+					macAddress,
+					ipAddress,
+					userAgent,
+
+					routerId:
+						router.id,
+
+					routerUid:
+						router.routerUid,
+
+					routerCode:
+						router.code,
+
+					routerStatus:
+						router.status
+				}
+			});
+
+		console.log("hospot check resp",result.paymentDraft)
+
+
+		// =====================================================
+		// 5. PAYMENT
+		// =====================================================
+
+		const payment =
+			await this.createPayment.execute(
+				result.paymentDraft
+			);
+
+
+
+		return {
+
+			user,
+
+			router,
+
+			payment,
+
+			account:
+				result.account,
+
+			status:
+				result.status
+		};
+	}
 }
