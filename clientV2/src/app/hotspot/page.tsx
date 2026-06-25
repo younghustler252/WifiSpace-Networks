@@ -23,6 +23,8 @@ export default function HotspotPage() {
         params.get("mac")
     );
 
+    const ipAddress = params.get("ip") || undefined;
+
     const email =
         params.get("email") || "";
 
@@ -35,7 +37,8 @@ export default function HotspotPage() {
         actions,
     } = useHotspotSession(
         macAddress,
-        email
+        email,
+        ipAddress
     );
 
     return (

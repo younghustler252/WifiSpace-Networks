@@ -31,7 +31,8 @@ type State =
 
 export function useHotspotSession(
     macAddress?: string,
-    email?: string
+    email?: string,
+    ipAddress?: string
 ) {
 
 
@@ -266,7 +267,7 @@ export function useHotspotSession(
                         macAddress || "",
 
 
-                    ipAddress:"",
+                    ipAddress: ipAddress || "",
 
 
                     userAgent:
