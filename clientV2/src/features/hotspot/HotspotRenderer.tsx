@@ -213,19 +213,19 @@ export function HotspotRenderer({
 
                             {session?.hasHotspotAccount ? (
 
-                                                                <>
+                                 <>
                                     <h1 className="text-2xl font-bold">
                                         Welcome back {session?.user?.firstName || "Customer"} 👋
                                     </h1>
 
                                     <p className="text-sm text-muted-foreground mt-1">
-                                        Your account was found. Review your current status or select a plan below.
+                                        Your account was found. Review your current status below.
                                     </p>
 
                                     {/* COMBINED COMPACT DASHBOARD PROFILE CARD */}
                                     <div className="mt-6 max-w-sm mx-auto rounded-2xl border bg-background p-4 shadow-sm space-y-3 text-left">
                                         
-                                        {/* Row 1: Account Context Identifiers */}
+                                        {/* Row 1: Account ID */}
                                         {account?.wsnId && (
                                             <div className="flex justify-between items-center text-xs">
                                                 <span className="text-muted-foreground font-medium">Account ID</span>
@@ -235,17 +235,38 @@ export function HotspotRenderer({
                                             </div>
                                         )}
 
-                                        {/* Row 2: Conditional Plan Data Loops */}
+                                        {/* Row 2: MAC Address Tracker */}
+                                        {account?.macAddress && (
+                                            <div className="flex justify-between items-center text-xs pt-2 border-t border-dashed">
+                                                <span className="text-muted-foreground font-medium">MAC Address</span>
+                                                <span className="font-mono text-neutral-700 font-medium uppercase">
+                                                    {account.macAddress}
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Row 3: Conditional Plan Data Loops */}
                                         {session?.accounts?.[0]?.subscription?.status === "active" && (
                                             <div className="pt-2 border-t space-y-2">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-xs text-muted-foreground font-medium">Active Provision</span>
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold">
-                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                
+                                                {/* Plan Name */}
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="text-muted-foreground font-medium">Current Plan</span>
+                                                    <span className="text-neutral-900 font-bold">
                                                         {session?.accounts[0]?.plan?.name || "Active Tier"}
                                                     </span>
                                                 </div>
 
+                                                {/* Subscription Connection Status */}
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-muted-foreground font-medium">Status</span>
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        Active
+                                                    </span>
+                                                </div>
+
+                                                {/* Expiry Date */}
                                                 {session?.accounts[0]?.subscription?.expiresAt && (
                                                     <div className="flex justify-between items-center text-xs">
                                                         <span className="text-muted-foreground">Expires On</span>
@@ -258,6 +279,8 @@ export function HotspotRenderer({
                                                         </span>
                                                     </div>
                                                 )}
+
+                                                
                                             </div>
                                         )}
                                     </div>
