@@ -65,6 +65,7 @@ import { SuspendSubscriptionUseCase }
 import { ChangePlanUseCase } from "./usecases/admin/change-plan.js";
 
 import { ForceExpireSubscriptionUseCase } from "./usecases/admin/force-expire-subscription.js";
+import { SyncSubscriptionHardwareUseCase } from "./usecases/admin/sync-subscription-hardware.js";
 
 import { GetSubscriptionUseCase } from "./usecases/shared/get-subscription.js";
 import { GetCurrentSubscriptionUseCase } from "./usecases/shared/get-current-subscription.js";
@@ -148,6 +149,9 @@ export function registerSubscription(container) {
 
 		forceExpireSubscription:
 			asClass(ForceExpireSubscriptionUseCase).scoped(),
+		
+		syncSubscriptionHardware:
+			asClass(SyncSubscriptionHardwareUseCase).scoped(),
 		/*
 		|--------------------------------------------------------------------------
 		| SHARED QUERY USE CASES

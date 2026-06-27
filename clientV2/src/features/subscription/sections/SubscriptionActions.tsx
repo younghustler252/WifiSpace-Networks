@@ -23,6 +23,8 @@ interface Props {
 
 	onAdminRenew?: () => void;
 	onAdminChangePlan?: () => void;
+	onSyncHardware?: () => void; 
+
 
 	loadingStates?: {
 		resume?: boolean;
@@ -31,7 +33,8 @@ interface Props {
 		assign?: boolean;
 		adminRenew?: boolean;
 		adminChangePlan?: boolean;
-		suspend?: boolean; // Good practice to add this as well
+		suspend?: boolean; 
+		syncHardware?: boolean; 
 	};
 }
 
@@ -52,6 +55,7 @@ export default function SubscriptionActions({
 
 	onAdminRenew,
 	onAdminChangePlan,
+	onSyncHardware,
 
 	loadingStates,
 }: Props) {
@@ -123,6 +127,17 @@ export default function SubscriptionActions({
 										Extend Days
 									</Button>
 								</div>
+								{/* <div className="h-px bg-border my-4" />
+									<div className="space-y-3">
+										<Button
+											fullWidth
+											variant="outline"
+											onClick={onSyncHardware}
+											isLoading={loadingStates?.syncHardware}
+										>
+											Force Hardware Sync
+										</Button>
+									</div> */}
 
 								{/* DIVIDER */}
 								<div className="h-px bg-border my-4" />

@@ -13,8 +13,33 @@ async function heartbeatLoop() {
         } catch (err) {
             console.error("[HEARTBEAT ERROR]", err.message);
         }
-
         await sleep(config.heartbeatInterval);
+    }
+}
+
+async function handleJobExecution(job) {
+    try {
+        console.log(`[AGENT WORKER] Executing Job ID: ${job.jobId} | Cmd: ${job.command}`);
+        const result = await mikrotikService.executeCommand(
+            job.router,
+            job.command,
+            job.params
+        );
+
+        await backendService.postResult(job.jobId, {
+            success: true,
+            data: result
+        });
+    } catch (err) {
+        console.error(`[AGENT WORKER ERROR] Job ${job.jobId} failed:`, err.message);
+        try {
+            await backendService.postResult(job.jobId, {
+                success: false,
+                error: err.message
+            });
+        } catch (postErr) {
+            console.error(`[AGENT] Fatal result callback dropped for Job ${job.jobId}:`, postErr.message);
+        }
     }
 }
 
@@ -24,53 +49,26 @@ async function pollLoop() {
             const commands = await backendService.fetchPendingCommands();
 
             if (commands && commands.length) {
-                for (const job of commands) {
-                    console.log(`[AGENT] Executing: ${job.command}`, job.params);
-
-                    try {
-                        const result = await mikrotikService.executeCommand(
-                            job.router,
-                            job.command,
-                            job.params
-                        );
-
-                        await backendService.postResult(job.jobId, {
-                            success: true,
-                            data: result
-                        });
-
-                    } catch (err) {
-                        await backendService.postResult(job.jobId, {
-                            success: false,
-                            error: err.message
-                        });
-                    }
-                }
+                // 🔥 Fixed: Spin up all tasks in parallel using Promise.all to prevent single-file queuing delays
+                await Promise.all(commands.map(job => handleJobExecution(job)));
             }
-
         } catch (err) {
             console.error("[POLLING ERROR]", err.message);
         }
-
         await sleep(config.pollInterval);
     }
 }
 
 async function start() {
     console.log("Agent starting...");
-
     try {
         await backendService.register();
         console.log("Registered with backend");
 
-        // run independently (non-blocking)
         heartbeatLoop();
         pollLoop();
-
     } catch (err) {
         console.error("Fatal startup error:", err.message);
-
-        // retry startup after delay
         await sleep(5000);
         start();
     }
@@ -78,7 +76,6 @@ async function start() {
 
 start();
 
-// safety nets (VERY important for agents running 24/7)
 process.on("uncaughtException", (err) => {
     console.error("[UNCAUGHT EXCEPTION]", err);
 });

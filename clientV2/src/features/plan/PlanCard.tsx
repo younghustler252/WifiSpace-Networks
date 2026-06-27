@@ -17,10 +17,9 @@ export default function PlanCard({
 	isCurrent = false,
 	disabled = false,
 }: PlanCardProps) {
-	// Treat both as blocking conditions
-	const isBlocked = isCurrent || disabled;
+	// Only disable interactions if explicitly instructed by the parent component context
+	const isBlocked = disabled;
 
-	// Format duration properly
 	const getDurationLabel = () =>
 		`${plan.durationValue} ${plan.durationUnit}`;
 
@@ -30,20 +29,20 @@ export default function PlanCard({
 				if (!isBlocked) onSelect(plan);
 			}}
 			className={`h-full border-2 transition-all relative cursor-pointer hover:border-accent ${
-				isBlocked ? "opacity-80 cursor-not-allowed" : ""
-			}`}
+				isCurrent ? "border-accent shadow-sm" : ""
+			} ${isBlocked ? "opacity-60 cursor-not-allowed pointer-events-none" : ""}`}
 		>
 			<CardContent>
 				<div className="flex flex-col h-full ui-stack">
 
-					{/* CURRENT PLAN BADGE */}
+					{/* Active Subscription Indicator Badge */}
 					{isCurrent && (
-						<div className="absolute top-0 right-0 bg-accent text-white text-xs px-3 py-1 rounded-bl-xl">
-							current plan
+						<div className="absolute top-0 right-0 bg-accent text-white text-xs px-3 py-1 rounded-bl-xl font-medium tracking-wide">
+							Current Plan
 						</div>
 					)}
 
-					{/* TOP SECTION */}
+					{/* Plan Tier Header */}
 					<div className="flex items-center justify-between">
 						<h3 className="text-lg font-semibold">{plan.name}</h3>
 						<span className="ui-badge ui-badge-success capitalize">
@@ -51,7 +50,7 @@ export default function PlanCard({
 						</span>
 					</div>
 
-					{/* PRICE */}
+					{/* Price Matrix Notation */}
 					<div className="text-3xl font-bold">
 						₦{plan.price.toLocaleString()}
 						<span className="text-sm text-muted-foreground font-normal">
@@ -59,7 +58,7 @@ export default function PlanCard({
 						</span>
 					</div>
 
-					{/* DETAILS */}
+					{/* Core Node Parameters */}
 					<div className="ui-stack text-sm text-muted-foreground">
 						<div className="flex items-center gap-2">
 							<Zap size={14} />
@@ -83,7 +82,7 @@ export default function PlanCard({
 						)}
 					</div>
 
-					{/* FEATURES */}
+					{/* Secondary Feature Sets */}
 					<div className="flex-1">
 						{plan.features?.length > 0 && (
 							<ul className="text-sm text-muted-foreground space-y-1">
@@ -94,7 +93,7 @@ export default function PlanCard({
 						)}
 					</div>
 
-					{/* ACTION */}
+					{/* Click Execution Action Layer */}
 					<div className="pt-4">
 						<Button
 							variant={isCurrent ? "outline" : "accent"}
@@ -106,8 +105,8 @@ export default function PlanCard({
 							}}
 						>
 							{isCurrent
-								? "Current Plan"
-								: disabled
+								? "Renew / Manage Plan"
+								: isBlocked
 								? "Not Available"
 								: "Select Plan"}
 						</Button>

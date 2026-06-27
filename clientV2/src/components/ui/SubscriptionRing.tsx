@@ -5,6 +5,26 @@ interface Props {
 	daysLeft: number;
 }
 
+// Function to calculate a single solid color based on progress percentage
+function getRingColor(progress: number): string {
+	if (progress >= 75) {
+		// 100% to 75%: Vibrant Green to Light Green
+		return "#22c55e"; 
+	} else if (progress >= 50) {
+		// 74% to 50%: Light Green / Yellow-Green
+		return "#84cc16"; 
+	} else if (progress >= 25) {
+		// 49% to 25%: Warning Yellow
+		return "#eab308"; 
+	} else if (progress > 0) {
+		// 24% to 1%: Urgent Orange
+		return "#f97316"; 
+	} else {
+		// 0%: Expired Red
+		return "#dc2626"; 
+	}
+}
+
 export default function SubscriptionRing({
 	progress,
 	daysLeft,
@@ -12,92 +32,53 @@ export default function SubscriptionRing({
 
 	const size = 320;
 	const stroke = 24;
+	const radius = (size - stroke) / 2;
+	const circumference = 2 * Math.PI * radius;
 
-	const radius =
-		(size - stroke) / 2;
-
-	const circumference =
-		2 * Math.PI * radius;
+	// Clamp progress between 0 and 100
+	const validatedProgress = Math.max(0, Math.min(100, progress));
 
 	const strokeDashoffset =
-		circumference -
-		(progress / 100) * circumference;
+		circumference - (validatedProgress / 100) * circumference;
+
+	// Dynamic single color for the active ring
+	const activeColor = getRingColor(validatedProgress);
 
 	return (
-		<div className="flex justify-center">
+		<div className="flex justify-center w-full max-w-[320px] aspect-square mx-auto">
 
 			<svg
-				width={size}
-				height={size}
-				className="overflow-visible"
+				viewBox={`0 0 ${size} ${size}`}
+				className="w-full h-full overflow-hidden"
 			>
-
-				<defs>
-
-					<linearGradient
-						id="subscriptionGradient"
-						x1="0%"
-						y1="0%"
-						x2="100%"
-						y2="100%"
-					>
-						<stop
-							offset="0%"
-							stopColor="#ef4444"
-						/>
-
-						<stop
-							offset="35%"
-							stopColor="#f97316"
-						/>
-
-						<stop
-							offset="65%"
-							stopColor="#eab308"
-						/>
-
-						<stop
-							offset="100%"
-							stopColor="#22c55e"
-						/>
-
-					</linearGradient>
-
-				</defs>
-
-				{/* Base Ring (Always Red) */}
-
+				{/* Premium Dark Red Base Ring (Visible as active ring drains) */}
 				<circle
 					cx={size / 2}
 					cy={size / 2}
 					r={radius}
 					fill="none"
-					stroke="#ef4444"
+					stroke="#7f1d1d" // Deep crimson red background color
 					strokeWidth={stroke}
-					opacity={0.2}
 				/>
 
-				{/* Remaining Subscription */}
-
+				{/* Active Subscription Overlay (Single shifting solid color) */}
 				<circle
 					cx={size / 2}
 					cy={size / 2}
 					r={radius}
 					fill="none"
-					stroke="url(#subscriptionGradient)"
+					stroke={activeColor} // Changes completely based on percentage
 					strokeWidth={stroke}
 					strokeLinecap="round"
 					strokeDasharray={circumference}
 					strokeDashoffset={strokeDashoffset}
 					transform={`rotate(-90 ${size / 2} ${size / 2})`}
 					style={{
-						transition:
-							"stroke-dashoffset .8s ease",
+						transition: "stroke-dashoffset 0.8s ease, stroke 0.5s ease",
 					}}
 				/>
 
-				{/* Days */}
-
+				{/* Days Display */}
 				<text
 					x="50%"
 					y="46%"
@@ -122,7 +103,7 @@ export default function SubscriptionRing({
 					textAnchor="middle"
 					className="fill-foreground text-sm font-medium"
 				>
-					{Math.round(progress)}%
+					{Math.round(validatedProgress)}%
 				</text>
 
 			</svg>

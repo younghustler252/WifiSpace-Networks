@@ -14,6 +14,7 @@ import {
 import { useAuth } from "@/context/AuthContext";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { useSubscriptionMetrics } from "@/features/subscription/hooks/useSubscriptionMetrics";
@@ -178,83 +179,72 @@ export default function Dashboard() {
 				</Card>
 
 				<Card>
-					<CardContent className="h-full">
-						<div className="flex flex-col h-full">
+					<CardContent className="h-full flex flex-col justify-between p-6">
+		<div className="space-y-1.5 mb-8">
+			<h3 className="font-semibold text-base tracking-tight text-foreground">
+				Subscription Details
+			</h3>
+			<p className="text-xs text-muted-foreground font-normal">
+				Manage and monitor your active internet plan
+			</p>
+		</div>
 
-							<div className="mb-6">
-								<h3 className="font-semibold text-lg">
-									Subscription Details
-								</h3>
-								<p className="text-sm text-muted-foreground">
-									Your active internet plan
-								</p>
-							</div>
+		<div className="divide-y divide-border/60 text-sm">
+			
+			{/* PLAN */}
+			<div className="flex items-center justify-between py-3.5 first:pt-0">
+				<div className="flex items-center gap-3">
+					<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+						<Zap size={15} />
+					</div>
+					<span className="text-muted-foreground font-medium">Current Plan</span>
+				</div>
+				<span className="font-semibold text-foreground tracking-tight">
+					{subscription?.planSnapshot?.name || "No Active Plan"}
+				</span>
+			</div>
 
-							<div className="space-y-4">
+			{/* EXPIRY */}
+			<div className="flex items-center justify-between py-3.5">
+				<div className="flex items-center gap-3">
+					<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+						<CalendarDays size={15} />
+					</div>
+					<span className="text-muted-foreground font-medium">Expires On</span>
+				</div>
+				<span className="font-medium font-mono text-foreground/90 bg-muted/40 px-2 py-0.5 rounded text-xs">
+					{subscription?.expiresAt
+						? new Date(subscription.expiresAt).toLocaleDateString("en-US", {
+								year: "numeric",
+								month: "short",
+								day: "numeric",
+						  })
+						: "—"}
+				</span>
+			</div>
 
-								{/* PLAN */}
-								<div className="flex items-center gap-4 rounded-xl border p-4">
-									<div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-										<Zap size={18} />
-									</div>
+			{/* RENEWAL - Now featuring your clean custom badge components */}
+			<div className="flex items-center justify-between py-3.5 last:pb-0">
+				<div className="flex items-center gap-3">
+					<div className="flex size-8 items-center justify-center rounded-md bg-muted text-muted-foreground">
+						<RefreshCw size={15} />
+					</div>
+					<span className="text-muted-foreground font-medium">Renewal Status</span>
+				</div>
+				
+				{subscription?.autoRenewEnabled ? (
+					<StatusBadge variant="success" size="md" withDot>
+						Automatic
+					</StatusBadge>
+				) : (
+					<StatusBadge variant="warning" size="md" withDot>
+						Manual Action
+					</StatusBadge>
+				)}
+			</div>
 
-									<div>
-										<p className="text-xs text-muted-foreground">
-											Current Plan
-										</p>
-										<p className="font-semibold">
-											{subscription?.planSnapshot?.name}
-										</p>
-									</div>
-								</div>
-
-								{/* EXPIRY */}
-								<div className="flex items-center gap-4 rounded-xl border p-4">
-									<div className="flex size-10 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
-										<CalendarDays size={18} />
-									</div>
-
-									<div>
-										<p className="text-xs text-muted-foreground">
-											Expires On
-										</p>
-										<p className="font-semibold">
-											{subscription?.expiresAt
-												? new Date(
-														subscription.expiresAt
-												  ).toLocaleDateString()
-												: "--"}
-										</p>
-									</div>
-								</div>
-
-								{/* RENEWAL */}
-								<div className="flex items-center gap-4 rounded-xl border p-4">
-									<div
-										className={`flex size-10 items-center justify-center rounded-lg ${
-											subscription?.autoRenewEnabled
-												? "bg-green-500/10 text-green-500"
-												: "bg-orange-500/10 text-orange-500"
-										}`}
-									>
-										<RefreshCw size={18} />
-									</div>
-
-									<div>
-										<p className="text-xs text-muted-foreground">
-											Renewal
-										</p>
-										<p className="font-semibold">
-											{subscription?.autoRenewEnabled
-												? "Automatic"
-												: "Manual"}
-										</p>
-									</div>
-								</div>
-
-							</div>
-						</div>
-					</CardContent>
+		</div>
+	</CardContent>
 				</Card>
 
 			</div>

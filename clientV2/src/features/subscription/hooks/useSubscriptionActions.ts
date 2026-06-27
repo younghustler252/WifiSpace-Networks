@@ -42,7 +42,6 @@ export function useSubscriptionActions({
 		onSuccess: refresh,
 	});
 
-
 	const suspendMutation = useMutation({
 		mutationFn: (reason: string) =>
 			subscriptionApi.suspend(requireId(), { reason }),
@@ -64,7 +63,7 @@ export function useSubscriptionActions({
 	const extendMutation = useMutation({
 		mutationFn: (data: ExtendSubscriptionDto) =>
 			subscriptionApi.extend(requireId(), data),
-		onSuccess: refresh, // Fixed: Added missing cache invalidation
+		onSuccess: refresh,
 	});
 
 	const renewMutation = useMutation({
@@ -73,13 +72,11 @@ export function useSubscriptionActions({
 		onSuccess: refresh,
 	});
 
-	// Inside useSubscriptionActions.ts:
 	const forceExpireMutation = useMutation({
-		mutationFn: (data?: { reason: string }) => // 💡 Notice the optional '?' mark
+		mutationFn: (data?: { reason: string }) =>
 			subscriptionApi.forceExpire(requireId(), data),
 		onSuccess: refresh,
 	});
-
 
 	// ----------------------------------
 	// ADMIN OVERRIDES
@@ -102,8 +99,15 @@ export function useSubscriptionActions({
 		onSuccess: refresh,
 	});
 
+	// 🔥 Added: Sync Hardware Router Command Sequence Execution
+	const syncHardwareMutation = useMutation({
+		mutationFn: () => 
+			subscriptionApi.syncHardware(requireId()),
+		onSuccess: refresh,
+	});
+
 	const isWorking =
-		adminCreateSubscriptionMutation.isPending||
+		adminCreateSubscriptionMutation.isPending ||
 		suspendMutation.isPending ||
 		resumeMutation.isPending ||
 		cancelMutation.isPending ||
@@ -111,7 +115,8 @@ export function useSubscriptionActions({
 		renewMutation.isPending ||
 		forceExpireMutation.isPending ||
 		adminRenewMutation.isPending ||
-		adminChangePlanMutation.isPending;
+		adminChangePlanMutation.isPending ||
+		syncHardwareMutation.isPending; // 🔥 Track state inside global loading tracker
 
 	return {
 		refresh,
@@ -122,8 +127,9 @@ export function useSubscriptionActions({
 		extendMutation,
 		renewMutation,
 		forceExpireMutation,
-		adminRenewMutation,       // Exposed administrative mutation
-		adminChangePlanMutation,  // Exposed administrative mutation
+		adminRenewMutation,       
+		adminChangePlanMutation,  
+		syncHardwareMutation,     // 🔥 Exposed to subscription panel page layout
 		isWorking,
 	};
 }

@@ -33,4 +33,10 @@ export interface DashboardStats {
 		mikrotikSynced?: number;
 		mikrotikFailed?: number;
 	};
+
+	customers: {
+		active: number;
+		suspended: number;
+	};
+
 }

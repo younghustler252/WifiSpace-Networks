@@ -14,6 +14,8 @@ import SubscriptionHero from "./sections/SubscriptionHero";
 import SubscriptionTimeline from "./sections/SubscriptionTimeline";
 import SubscriptionOverview from "./sections/SubscriptionOverview";
 import SubscriptionActions from "./sections/SubscriptionActions";
+import SubscriptionBillingInfo from "./sections/SubscriptionBillingInfo";
+import SubscriptionNetworkInfo from "./sections/SubscriptionNetworkInfo";
 
 import Card, { CardContent } from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
@@ -227,6 +229,18 @@ export default function SubscriptionPanel({
 			);
 		};
 
+			const handleSyncHardwareSubmit = () => {
+				actions.syncHardwareMutation.mutate(undefined, {
+					onSuccess: () => {
+						notify.success("Router synchronization triggered successfully.");
+					},
+					onError: (err: any) => {
+						notify.error(err?.message || "Failed to synchronize physical router configuration.");
+					},
+				});
+			};
+
+		
 
 	/* ================= CONDITIONS LOADING / ERRORS / BLANK ================= */
 	if (isLoading) return <CenterLoader label="Loading subscription..." />;
@@ -263,6 +277,7 @@ export default function SubscriptionPanel({
 				{/* LEFT CONTENT */}
 				<div className="space-y-8 lg:col-span-8">
 					<SubscriptionHero subscription={subscription} status={status} />
+					
 					<SubscriptionTimeline
 						progress={metrics.progress}
 						daysLeft={metrics.daysLeft}
@@ -270,7 +285,17 @@ export default function SubscriptionPanel({
 						startDate={metrics.startDate}
 						endDate={metrics.endDate}
 					/>
-					<SubscriptionOverview subscription={subscription} />
+
+					<SubscriptionBillingInfo subscription={subscription} />
+					<SubscriptionNetworkInfo 
+						subscription={subscription} 
+						role={role}
+						onSyncHardware={handleSyncHardwareSubmit}
+						isSyncing={actions.syncHardwareMutation.isPending}
+					/>
+
+
+					{/* <SubscriptionOverview subscription={subscription} /> */}
 				</div>
 
 				{/* RIGHT SIDEBAR ACTIONS */}
@@ -283,27 +308,24 @@ export default function SubscriptionPanel({
 							onRenew={openRenewModal}
 							onUpgrade={upgradeSubscription}
 							onAssign={() => {
-								setTargetPlanId(""); // Clear any old selections
-								setRenewCycles(1);   // Default to 1 month/cycle
+								setTargetPlanId(""); 
+								setRenewCycles(1);   
 								setAdminReason("Initial administrative account assignment");
 								setShowAssignModal(true);
 							}}
-
 							onSuspend={() => setShowSuspendModal(true)}
 							onResume={() => actions.resumeMutation.mutate(undefined, {
 								onSuccess: () => notify.success("Subscription resumed safely."),
 								onError: (err: any) => notify.error(err?.message),
 							})}
-							
-							onExtend={() => setShowExtendModal(true)} // Opens Modal instead of blind mutation
+							onExtend={() => setShowExtendModal(true)} 
 							onExpire={() => setShowCancelModal(true)}
-							
 							onAdminRenew={() => {
-								setRenewCycles(1); // Resets counter state before opening modal
+								setRenewCycles(1); 
 								setShowAdminRenewModal(true);
 							}}
-
-							onAdminChangePlan={() => setShowChangePlanModal(true)} // Wires up Change Plan Modal Trigger
+							onAdminChangePlan={() => setShowChangePlanModal(true)}
+							onSyncHardware={handleSyncHardwareSubmit}
 
 							loadingStates={{
 								resume: actions.resumeMutation.isPending,
@@ -311,61 +333,100 @@ export default function SubscriptionPanel({
 								expire: actions.forceExpireMutation.isPending,
 								adminRenew: actions.adminRenewMutation.isPending,
 								adminChangePlan: actions.adminChangePlanMutation.isPending,
-								suspend: actions.suspendMutation.isPending
+								suspend: actions.suspendMutation.isPending,
+								syncHardware: actions.syncHardwareMutation.isPending 
 							}}
 						/>
 					</div>
 				</div>
 			</div>
 
+
 			{/* ================= USER RENEW MODAL (PAYMENT CHANNELS) ================= */}
-			<Modal open={showRenewModal} onClose={() => setShowRenewModal(false)}>
-				<ModalHeader>Renew Subscription</ModalHeader>
+			<Modal 
+				open={showRenewModal} 
+				onClose={() => {
+					setShowRenewModal(false);
+				}}
+				size="sm"
+			>
+				<ModalHeader>
+					<span className="text-foreground tracking-tight font-semibold">Renew Subscription</span>
+				</ModalHeader>
+				
 				<ModalBody>
-					<div className="space-y-4">
+					<div className="space-y-5">
 						<p className="text-xs text-muted-foreground leading-relaxed">
-							Review your plan details and specify how many cycles you want to add before proceeding to secure payment.
+							Review your active plan details and select how many cycles you want to extend your service by before proceeding to checkout.
 						</p>
 
 						{/* PLAN SUMMARY FIELD */}
 						<div className="space-y-1.5">
-							<label className="text-xs font-medium text-neutral-600">Selected Plan Configuration</label>
-							<div className="ui-input w-full bg-neutral-50 text-neutral-700 flex flex-col justify-center h-14 border select-none px-3 rounded-lg">
-								<p className="font-semibold text-sm">{subscription?.planSnapshot?.name || "Active Tier"}</p>
-								<p className="text-xs text-muted-foreground">₦{subscription?.planSnapshot?.price?.toLocaleString()} per cycle</p>
+							<label className="text-xs font-medium text-muted-foreground">Selected Plan Configuration</label>
+							{/* Upgraded card style to remove wireframe gray look */}
+							<div className="w-full bg-muted/40 border border-border/60 flex flex-col justify-center py-3 px-4 rounded-xl select-none">
+								<p className="font-semibold text-sm text-foreground tracking-tight">
+									{subscription?.planSnapshot?.name || "Active Tier"}
+								</p>
+								<p className="text-xs text-muted-foreground mt-0.5">
+									₦{subscription?.planSnapshot?.price?.toLocaleString() || "0"} / month
+								</p>
 							</div>
 						</div>
 
-						{/* INPUT CONTROLS GRID */}
-						<div className="grid grid-cols-2 gap-4">
+						{/* 📱 RESPONSIVE CONTROLS - Switches from stack on mobile to row on grid tablets */}
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							
+							{/* CYCLES INPUT */}
 							<div className="space-y-1.5">
-								<label className="text-xs font-medium text-neutral-600">Cycles to Purchase</label>
+								<label className="text-xs font-medium text-muted-foreground">Cycles to Purchase</label>
 								<input
 									type="number"
 									min={1}
 									required
-									className="ui-input w-full"
+									className="ui-input w-full font-medium"
 									value={renewCycles}
-									onChange={(e) => setRenewCycles(Math.max(1, Number(e.target.value)))}
+									// Prevents users from typing floating points or negatives
+									onChange={(e) => setRenewCycles(Math.max(1, Math.floor(Number(e.target.value))))}
 								/>
 							</div>
 
+							{/* TOTAL DUE BOX */}
 							<div className="space-y-1.5">
-								<label className="text-xs font-medium text-neutral-600">Total Due Amount</label>
-								<div className="ui-input w-full bg-neutral-50 font-bold text-neutral-900 flex items-center h-10 border select-none">
+								<label className="text-xs font-medium text-muted-foreground">Total Due Amount</label>
+								{/* Styled to mirror a proper invoice indicator token with monospace font */}
+								<div className="ui-input w-full bg-muted/20 border border-border/80 font-mono font-bold text-foreground flex items-center h-10 px-3 rounded-lg select-none">
 									₦{((subscription?.planSnapshot?.price || 0) * renewCycles).toLocaleString()}
 								</div>
 							</div>
+							
 						</div>
 					</div>
 				</ModalBody>
+				
 				<ModalFooter>
-					<Button variant="outline" onClick={() => setShowRenewModal(false)}>Cancel</Button>
-					<Button onClick={confirmRenew} disabled={creatingPayment}>
-						{creatingPayment ? "Processing..." : "Confirm & Pay"}
+					<Button 
+						variant="outline" 
+						size="sm"
+						onClick={() => {
+							setShowRenewModal(false);
+						}}
+					>
+						Cancel
+					</Button>
+					
+					<Button 
+						variant="accent"
+						size="sm"
+						onClick={confirmRenew} 
+						disabled={creatingPayment || !subscription}
+						isLoading={creatingPayment} // Drops in your component's native spinning indicator loader
+					>
+						{creatingPayment ? "Connecting Paystack..." : "Confirm & Pay"}
 					</Button>
 				</ModalFooter>
 			</Modal>
+
 
 
 			{/* ================= ADMIN RENEW OVERRIDE MODAL (NO PAYMENT) ================= */}

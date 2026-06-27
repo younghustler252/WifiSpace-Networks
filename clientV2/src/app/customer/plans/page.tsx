@@ -144,20 +144,18 @@ export default function PlansPage() {
 			<main className="p-4 md:p-8">
 				<div className="max-w-6xl mx-auto ui-stack-lg pb-12">
 
-					{/* ================= BANNER ================= */}
+					{/* Unauthenticated Explore Banner */}
 					{isNoAccount && (
 						<div className="p-4 border rounded-xl bg-muted text-sm">
 							Explore all available plans. Select an account to activate subscription.
 						</div>
 					)}
 
-					{/* ================= HEADER ================= */}
+					{/* Controls and Sorting Header */}
 					<div className="ui-card flex flex-col md:flex-row items-center justify-between gap-4">
 						<div>
 							<h2 className="text-xl font-semibold">
-								{isNoAccount
-									? "Explore Plans"
-									: "Your Plans"}
+								{isNoAccount ? "Explore Plans" : "Your Plans"}
 							</h2>
 
 							<p className="text-sm text-muted-foreground">
@@ -175,34 +173,30 @@ export default function PlansPage() {
 							className="ui-input max-w-[200px]"
 						>
 							<option value="">Default</option>
-							<option value="price_asc">
-								Price: Low → High
-							</option>
-							<option value="price_desc">
-								Price: High → Low
-							</option>
+							<option value="price_asc">Price: Low → High</option>
+							<option value="price_desc">Price: High → Low</option>
 						</select>
 					</div>
 
-					{/* ================= GRID ================= */}
+					{/* Filtered Plans Grid Matrix */}
 					<div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
 						{sortedPlans.map((plan: any) => {
-							const isCurrent =
-								currentPlan &&
-								(plan.id === currentPlan._id ||
-									plan._id === currentPlan._id);
+							const planId = plan._id || plan.id;
+							const currentPlanId = typeof currentPlan === "string" 
+								? currentPlan 
+								: currentPlan?._id;
 
+							const isCurrent = currentPlan && planId === currentPlanId;
 							const isDisabled = isNoAccount;
 
 							return (
 								<PlanCard
-									key={plan.id}
+									key={planId}
 									plan={plan}
 									isCurrent={!!isCurrent}
 									disabled={isDisabled}
 									onSelect={(p) => {
 										if (isNoAccount) return;
-
 										setSelectedPlan(p);
 										setCycles(1);
 									}}
@@ -211,7 +205,7 @@ export default function PlansPage() {
 						})}
 					</div>
 
-					{/* ================= EMPTY ================= */}
+					{/* Empty Result Callback Wrapper */}
 					{sortedPlans.length === 0 && (
 						<div className="text-center p-6 border rounded-xl mt-6">
 							No plans available
@@ -220,107 +214,106 @@ export default function PlansPage() {
 				</div>
 			</main>
 
+
 			{/* ================= MODAL ================= */}
 			<Modal
 				open={!!selectedPlan}
 				onClose={() => setSelectedPlan(null)}
 			>
 				<ModalHeader>
-					<span className="text-lg font-semibold">
-						{isUpgradeMode
-							? "Confirm Upgrade"
-							: "Confirm Subscription"}
+					<span className="text-lg font-semibold tracking-tight text-foreground">
+						{isUpgradeMode ? "Confirm Plan Upgrade" : "Confirm New Subscription"}
 					</span>
 				</ModalHeader>
 
 				<ModalBody>
-					{selectedPlan &&
-						(() => {
-							const baseDuration =
-								selectedPlan.durationValue * cycles;
-
-							const bonusDays = calculateBonusDays(
-								selectedPlan,
-								cycles
-							);
-
-							const totalDuration =
-								baseDuration + bonusDays;
-
-							const totalPrice =
-								selectedPlan.price * cycles;
-
-							return (
-								<div className="space-y-6">
-
-									<div className="p-6 border rounded-xl bg-accent/10">
-										<p className="text-sm text-muted-foreground">
-											{isUpgradeMode
-												? "Upgrading to"
-												: "Subscribing to"}
-										</p>
-
-										<h2 className="text-xl font-bold">
-											{selectedPlan.name}
-										</h2>
-
-										<p className="text-3xl font-bold mt-4">
-											₦{totalPrice.toLocaleString()}
-										</p>
-									</div>
-
-									<div className="grid grid-cols-2 gap-3">
-										<div className="p-4 border rounded-xl">
-											Base: {baseDuration}{" "}
-											{selectedPlan.durationUnit}
-										</div>
-
-										<div className="p-4 border rounded-xl">
-											Total: {totalDuration} days
-										</div>
-									</div>
-
-									<div className="flex items-center justify-between p-4 border rounded-xl">
-										<span>Cycles</span>
-
-										<div className="flex gap-4 items-center">
-											<button
-												onClick={() =>
-													setCycles(
-														Math.max(1, cycles - 1)
-													)
-												}
-											>
-												-
-											</button>
-
-											<span>{cycles}</span>
-
-											<button
-												onClick={() =>
-													setCycles(cycles + 1)
-												}
-											>
-												+
-											</button>
-										</div>
-									</div>
+					{selectedPlan && (
+						<div className="space-y-5">
+							{/* Pricing Highlights Matrix Card */}
+							<div className="p-5 border border-accent/10 rounded-2xl bg-accent/5 flex items-center justify-between">
+								<div>
+									<p className="text-xs font-semibold text-accent uppercase tracking-wider">
+										{isUpgradeMode ? "Selected Upgrade Tier" : "Target Plan Tier"}
+									</p>
+									<h2 className="text-xl font-bold text-foreground mt-1">
+										{selectedPlan.name}
+									</h2>
+									<p className="text-xs text-muted-foreground mt-0.5 capitalize">
+										Mode: {selectedPlan.serviceType} Connection
+									</p>
 								</div>
-							);
-						})()}
+								<div className="text-right">
+									<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Due</p>
+									<p className="text-2xl font-black text-foreground mt-0.5">
+										₦{(selectedPlan.price * cycles).toLocaleString()}
+									</p>
+								</div>
+							</div>
+
+							{/* Quantifiable Cycle Allocation Counter Grid */}
+							<div className="flex items-center justify-between p-4 border border-border rounded-xl bg-muted/20">
+								<div>
+									<span className="text-sm font-semibold text-foreground">Subscription Term Cycles</span>
+									<p className="text-xs text-muted-foreground">Adjust billing intervals for this purchase</p>
+								</div>
+
+								<div className="flex items-center gap-3 bg-background border border-border p-1.5 rounded-lg shadow-sm">
+									<button
+										type="button"
+										onClick={() => setCycles(Math.max(1, cycles - 1))}
+										className="h-7 w-7 flex items-center justify-center rounded-md font-bold text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent active:border-border transition-colors"
+									>
+										—
+									</button>
+									<span className="text-sm font-bold px-2 min-w-[20px] text-center text-foreground">
+										{cycles}
+									</span>
+									<button
+										type="button"
+										onClick={() => setCycles(cycles + 1)}
+										className="h-7 w-7 flex items-center justify-center rounded-md font-bold text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent active:border-border transition-colors"
+									>
+										＋
+									</button>
+								</div>
+							</div>
+
+							{/* Structural Duration Estimates Grid */}
+							<div className="grid grid-cols-2 gap-4">
+								<div className="p-4 border border-border rounded-xl bg-muted/10">
+									<span className="block text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+										Base Value Length
+									</span>
+									<span className="text-base font-bold text-foreground mt-1 block">
+										{selectedPlan.durationValue * cycles} {selectedPlan.durationUnit}
+									</span>
+								</div>
+
+								<div className="p-4 border border-border rounded-xl bg-muted/10">
+									<span className="block text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
+										Net Active Timeline
+									</span>
+									<span className="text-base font-bold text-accent mt-1 block">
+										{(selectedPlan.durationValue * cycles) + calculateBonusDays(selectedPlan, cycles)} Days
+									</span>
+								</div>
+							</div>
+						</div>
+					)}
 				</ModalBody>
 
 				<ModalFooter>
 					<Button
-						variant="primary"
+						variant="accent"
 						isLoading={isPending}
 						fullWidth
 						onClick={handlePay}
 					>
-						{isUpgradeMode ? "Upgrade Now" : "Pay Now"}
+						{isUpgradeMode ? "Authorize Upgrade Invoice" : "Proceed to Secure Payment Gateway"}
 					</Button>
 				</ModalFooter>
 			</Modal>
+
 		</>
 	);
 }

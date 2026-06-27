@@ -12,7 +12,8 @@ export class SubscriptionAdminController {
 		extendSubscription,
 		forceExpireSubscription,
 		adminRenewSubscription,       // Added Dependency
-		changePlan
+		changePlan,
+		syncSubscriptionHardware
 	}) {
 		this.getAllSubscriptionsUseCase = getAllSubscriptions;
 		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
@@ -23,6 +24,7 @@ export class SubscriptionAdminController {
 		this.forceExpireSubscriptionUseCase = forceExpireSubscription;
 		this.adminRenewSubscriptionUseCase = adminRenewSubscription;             // Instantiated
 		this.changePlanUseCase = changePlan;  
+		this.syncSubscriptionHardwareUseCase = syncSubscriptionHardware;
 	}
 
 	// ------------------------------------------------
@@ -214,5 +216,23 @@ export class SubscriptionAdminController {
 				code: "SUBSCRIPTION_FORCE_EXPIRED"
 			});
 		};
+
+			syncHardware = async (req, res) => {
+			const { subscriptionId } = req.params;
+
+			const subscription = await this.syncSubscriptionHardwareUseCase.execute({
+				subscriptionId,
+				adminId: req.user?.id
+			});
+
+			return successResponse({
+				res,
+				data: subscription,
+				message: "Hardware synchronization task queued successfully",
+				code: "SUBSCRIPTION_HARDWARE_SYNC_QUEUED",
+				statusCode: 200
+			});
+		};
+
 
 }

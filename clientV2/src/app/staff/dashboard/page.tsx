@@ -1,33 +1,24 @@
 "use client";
 
 import { useAuth } from "@/context/AuthContext";
+import { useStaffDashboard } from "@/features/dahboard/hooks/useDashboard";
 import PageHeader from "@/components/ui/PageHeader";
 import StatCard from "@/components/ui/StatCard";
-import { useStaffDashboard } from "@/features/dahboard/hooks/useDashboard";
-import {
-	Users,
-	Server,
-	CheckCircle,
-	XCircle,
-} from "lucide-react";
+import { Users, Server, CheckCircle, XCircle } from "lucide-react";
 
 export default function StaffDashboardPage() {
 	const { user } = useAuth();
-
 	const { data: stats } = useStaffDashboard();
 
-	if (!stats) {
-		return (
-			<div className="p-6">
-				<p className="text-gray-500">Loading dashboard...</p>
-			</div>
-		);
-	}
+	// Fallback structures prevent UI breaks and preserve numbers during background re-fetches
+	const customers = stats?.customers || { active: 0, suspended: 0 };
+	const accounts = stats?.accounts || { pending: 0, active: 0, suspended: 0 };
+	const subscriptions = stats?.subscriptions || { active: 0, expired: 0 };
 
 	return (
 		<div className="space-y-6">
 
-			{/* ================= HEADER ================= */}
+			{/* Page Identity Header Context */}
 			<PageHeader
 				title="Staff Dashboard"
 				subtitle={`Welcome back, ${user?.firstName || "Staff"}`}
@@ -38,35 +29,35 @@ export default function StaffDashboardPage() {
 				}
 			/>
 
-			{/* ================= STATS ================= */}
+			{/* Operational Performance Matrix Grid */}
 			<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
 
 				<StatCard
-					title="Total Users"
-					value={stats.users.total}
+					title="Active Customers"
+					value={customers.active}
 					icon={<Users size={20} />}
-					description="Platform users"
+					description={`${customers.suspended} suspended accounts`}
 				/>
 
 				<StatCard
 					title="Active Accounts"
-					value={stats.accounts.active}
+					value={accounts.active}
 					icon={<Server size={20} />}
-					description="Working ISP accounts"
+					description={`${accounts.pending} pending activation`}
 				/>
 
 				<StatCard
 					title="Active Subscriptions"
-					value={stats.subscriptions.active}
+					value={subscriptions.active}
 					icon={<CheckCircle size={20} />}
-					description="Running subscriptions"
+					description="Running hardware syncs"
 				/>
 
 				<StatCard
 					title="Expired Subscriptions"
-					value={stats.subscriptions.expired}
+					value={subscriptions.expired}
 					icon={<XCircle size={20} />}
-					description="Needs attention"
+					description="Tiers requiring renewal"
 				/>
 
 			</div>

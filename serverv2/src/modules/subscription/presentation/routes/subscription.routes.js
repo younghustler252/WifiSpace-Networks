@@ -84,6 +84,13 @@ export default function subscriptionRoutes({
 		requirePermission(PERMISSION.SUBSCRIPTION.EXPIRE, permissionService),
 		asyncHandler(subscriptionAdminController.forceExpireSubscription)
 	);
+	
+	router.post(
+		"/admin/:subscriptionId/sync-hardware",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.UPDATE, permissionService),
+		asyncHandler(subscriptionAdminController.syncHardware)
+	);
 
 
 	// =================================================

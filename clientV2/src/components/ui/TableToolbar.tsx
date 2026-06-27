@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { Funnel, Search } from "lucide-react";
+import { SlidersHorizontal } from "lucide-react"; // Swapped Funnel for a cleaner modern icon
 
-import Modal, { ModalHeader, ModalBody } from "./Modal";
+import Modal, { ModalHeader, ModalBody, ModalFooter } from "./Modal";
 import Button from "./Button";
 import { cn } from "@/lib/cn";
 
@@ -29,60 +29,70 @@ export default function TableToolbar({
 	const [open, setOpen] = useState(false);
 
 	return (
-		<div className={cn("ui-card flex items-center gap-3", className)}>
+		// 📱 Core Mobile Fix: Changed from absolute flex to flex-col on small viewports, changing back to row on lg devices
+		<div className={cn("ui-card flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4", className)}>
 
-			{/* ================= LEFT (PRIMARY ALWAYS VISIBLE) ================= */}
-			<div className="flex items-center gap-3 flex-1 min-w-0">
-				{primary}
+			{/* ================= PRIMARY CONTENT AREA ================= */}
+			<div className="flex items-center gap-3 w-full sm:w-auto flex-1 min-w-0">
+				{/* Wrapped primary elements to stretch smoothly across small screens */}
+				<div className="w-full [&>input]:w-full [&>div]:w-full">
+					{primary}
+				</div>
 			</div>
 
-			{/* ================= DESKTOP SECONDARY ================= */}
-			<div className="hidden lg:flex items-center gap-3">
-				{secondary}
+			{/* ================= SECONDARY ACTIONS ROW ================= */}
+			<div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto shrink-0">
+				
+				{/* Desktop Filters (Kept safely hidden on mobile) */}
+				<div className="hidden lg:flex items-center gap-3">
+					{secondary}
+				</div>
+
+				{/* Mobile Filter Sheet Button Trigger */}
+				<div className="flex lg:hidden items-center gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => setOpen(true)}
+						className="gap-2 text-xs"
+					>
+						<SlidersHorizontal size={14} />
+						<span>Filters</span>
+					</Button>
+
+					{loading && (
+						<span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+					)}
+				</div>
+
+				{/* Primary Structural CTA Blocks (e.g., Create, Export, Refresh) */}
+				<div className="flex items-center gap-3 shrink-0">
+					{right}
+				</div>
 			</div>
 
-			{/* ================= MOBILE / COLLAPSE BUTTON ================= */}
-			<div className="flex lg:hidden items-center gap-2">
-
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => setOpen(true)}
-				>
-					<Funnel size={16} />
-				</Button>
-
-				{loading && (
-					<span className="w-2.5 h-2.5 rounded-full bg-accent animate-pulse" />
-				)}
-			</div>
-
-			{/* ================= RIGHT ACTIONS ================= */}
-			<div className="flex items-center gap-3 ml-auto shrink-0">
-				{right}
-			</div>
-
-			{/* ================= MOBILE MODAL ================= */}
+			{/* ================= MOBILE BOTTOM SHEET SHEET DRAWERS ================= */}
 			<Modal open={open} onClose={() => setOpen(false)} size="sm">
 				<ModalHeader>
-					<h2 className="text-base font-semibold">{title}</h2>
+					<span className="text-sm tracking-tight font-semibold text-foreground">{title}</span>
 				</ModalHeader>
 
 				<ModalBody>
-					<div className="flex flex-col gap-4">
+					{/* Grid format stack to make inputs look pristine when stacked up inside the layout drawer */}
+					<div className="flex flex-col gap-4 py-2 [&_label]:text-xs [&_label]:font-medium [&_label]:text-muted-foreground">
 						{mobile || secondary}
 					</div>
 				</ModalBody>
 
-				<div className="p-4 flex justify-end gap-2 border-t border-border">
-					<Button variant="ghost" onClick={() => setOpen(false)}>
-						Close
+				{/* Formally integrated with your native Modal footer primitive configuration layers */}
+				<ModalFooter>
+					<Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setOpen(false)}>
+						Cancel
 					</Button>
-
-					<Button variant="accent" onClick={() => setOpen(false)}>
-						Apply
+					<Button variant="accent" size="sm" className="w-full sm:w-auto" onClick={() => setOpen(false)}>
+						Apply Filters
 					</Button>
-				</div>
+				</ModalFooter>
 			</Modal>
 		</div>
 	);
