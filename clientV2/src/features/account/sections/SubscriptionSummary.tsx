@@ -130,7 +130,7 @@ if (error || !subscription) {
 					href={
 						role === "customer"
 							? "/subscription"
-							: `/admin/subscriptions/${subscription.id}`
+							: `/admin/subscriptions/${subscription?.accountId}`
 					}
 				>
 					<Button
