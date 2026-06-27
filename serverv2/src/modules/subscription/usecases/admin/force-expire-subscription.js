@@ -51,6 +51,7 @@ export class ForceExpireSubscriptionUseCase {
 				subscriptionId: subscription.id,
 				context: {
 					...context,
+					isForceExpire: true,
 					actorId: adminId || "SYSTEM_ADMIN_TERMINATOR",
 					reason: reason || "Admin forced lifecycle expiration"
 				}

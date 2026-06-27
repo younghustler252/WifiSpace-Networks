@@ -27,8 +27,15 @@ export class ExpireSubscriptionsUseCase {
 		if (!rawSub) throw new NotFoundError("Subscription not found");
 
 		const subscription = new Subscription(rawSub);
-		if (subscription.isAlreadyFinalized()) return subscription;
-		if (!subscription.isPastExpiry()) return subscription;
+		const isForceExpire = context?.isForceExpire === true;
+
+		if (subscription.isAlreadyFinalized() && subscription.mikrotikStatus === "synced") {
+			return subscription;
+		}
+
+		if (!isForceExpire && !subscription.isPastExpiry()) {
+			return subscription;
+		}
 
 		subscription.expire();
 
