@@ -246,6 +246,6 @@ export const subscriptionApi = {
 		subscriptionId: string
 	): Promise<ApiResponse<Subscription>> =>
 		API.post(
-			`/admin/${subscriptionId}/sync-hardware`
+			`/subscriptions/admin/${subscriptionId}/sync-hardware`
 		),
 };
