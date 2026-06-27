@@ -1,5 +1,4 @@
 export class ActivateHotspotAccess {
-
 	constructor({
 		accountRepository,
 		routerRepository,
@@ -17,45 +16,19 @@ export class ActivateHotspotAccess {
 		hostname,
 		ipAddress
 	}) {
+		if (!accountId) throw new Error("Account ID required");
+		if (!macAddress) throw new Error("MAC address required");
 
-		if (!accountId) {
-			throw new Error("Account ID required");
-		}
+		const account = await this.accountRepository.findById(accountId);
+		if (!account) throw new Error("Account not found");
 
-		if (!macAddress) {
-			throw new Error("MAC address required");
-		}
+		const router = routerId
+			? await this.routerRepository.findById(routerId)
+			: await this.routerRepository.findById(account.routerId);
+		if (!router) throw new Error("Router not found");
 
-		// =====================================================
-		// 1. LOAD ACCOUNT
-		// =====================================================
-		const account =
-			await this.accountRepository.findById(accountId);
-
-		if (!account) {
-			throw new Error("Account not found");
-		}
-
-		// =====================================================
-		// 2. LOAD ROUTER (explicit or fallback)
-		// =====================================================
-		const router =
-			routerId
-				? await this.routerRepository.findById(routerId)
-				: await this.routerRepository.findById(account.routerId);
-
-		if (!router) {
-			throw new Error("Router not found");
-		}
-
-		// =====================================================
-		// 3. DEVICE TRACKING (move logic into repository ideally)
-		// =====================================================
 		const devices = account.devices || [];
-
-		const existing = devices.find(
-			d => d.macAddress === macAddress
-		);
+		const existing = devices.find(d => d.macAddress === macAddress);
 
 		if (existing) {
 			existing.lastSeenAt = new Date();
@@ -74,11 +47,18 @@ export class ActivateHotspotAccess {
 			devices
 		});
 
-		// =====================================================
-		// 4. PROVISION ACCESS (MICROTIK)
-		// =====================================================
 		try {
+			const userExists = await this.mikrotikService.checkUserExists(account, router);
+			if (userExists) {
+				await this.mikrotikService.updateAccount(account, router);
+			} else {
+				await this.mikrotikService.createAccount(account, router);
+			}
+		} catch (dbError) {
+			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
+		}
 
+		try {
 			return await this.mikrotikService.provisionAccess(
 				account,
 				router,
@@ -89,12 +69,8 @@ export class ActivateHotspotAccess {
 					ipAddress
 				}
 			);
-
 		} catch (err) {
-
-			throw new Error(
-				"Hotspot activation failed: " + err.message
-			);
+			throw new Error("Hotspot session activation failed: " + err.message);
 		}
 	}
 }

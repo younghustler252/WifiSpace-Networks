@@ -12,6 +12,8 @@ import type {
   UpgradeSubscriptionDto,
   ExtendSubscriptionDto,
   SubscriptionActionDto,
+  AdminRenewSubscriptionDto,      // Added Type Import
+  AdminChangePlanDto,            // Added Type Import
 } from "./subscription.types";
 
 
@@ -211,6 +213,32 @@ export const subscriptionApi = {
 	> =>
 		API.post(
 			`/subscriptions/admin/${subscriptionId}/force-expire`,
+			data
+		),
+
+	// ----------------------------------
+	// ADMIN RENEW
+	// ----------------------------------
+	adminRenew: (
+		data: AdminRenewSubscriptionDto
+	): Promise<
+		ApiResponse<Subscription>
+	> =>
+		API.post(
+			"/subscriptions/admin/renew",
+			data
+		),
+
+	// ----------------------------------
+	// ADMIN CHANGE PLAN
+	// ----------------------------------
+	adminChangePlan: (
+		data: AdminChangePlanDto
+	): Promise<
+		ApiResponse<Subscription>
+	> =>
+		API.post(
+			"/subscriptions/admin/change-plan",
 			data
 		)
 };

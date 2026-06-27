@@ -1,82 +1,93 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
 export class AdminRenewSubscriptionUseCase {
 	constructor({
-		adminRecordPaymentUseCase,
-		renewSubscriptionUseCase
+		adminRecordPayment,
+		renewSubscription,
+		subscriptionRepository,
+		planRepository // 🔥 Added Live Plan Repository for up-to-date pricing
 	}) {
-		this.adminRecordPaymentUseCase =
-			adminRecordPaymentUseCase;
-
-		this.renewSubscriptionUseCase =
-			renewSubscriptionUseCase;
+		this.adminRecordPaymentUseCase = adminRecordPayment;
+		this.renewSubscriptionUseCase = renewSubscription;
+		this.subscriptionRepository = subscriptionRepository;
+		this.planRepository = planRepository;
 	}
 
 	async execute({
-		userId,
-		accountId,
 		subscriptionId,
-		planId,
-		amount,
 		cycles = 1,
-		transactionId, // optional for idempotency
-		notes,
+		reason = "Admin manual bypass renewal",
+		reference,
 		context = {}
 	}) {
-
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
-
 		if (!subscriptionId) {
-			throw new ValidationError(
-				"subscriptionId is required"
-			);
-		}
-
-		if (
-			!amount ||
-			typeof amount.total !== "number" ||
-			amount.total <= 0
-		) {
-			throw new ValidationError(
-				"Invalid payment amount"
-			);
+			throw new ValidationError("subscriptionId is required");
 		}
 
 		// -----------------------------
-		// RECORD PAYMENT
+		// RESOLVE SUBSCRIPTION
 		// -----------------------------
-
-		const payment =
-			await this.adminRecordPaymentUseCase.execute({
-				userId,
-				accountId,
-				planId,
-				amount,
-				transactionId,
-				adminNote: notes
-			});
+		const subscription = await this.subscriptionRepository.findById(subscriptionId);
+		if (!subscription) {
+			throw new NotFoundError("Subscription entity not found");
+		}
 
 		// -----------------------------
-		// RENEW SUBSCRIPTION
+		// 🔥 RESOLVE LIVE PLAN PRICE
 		// -----------------------------
+		let pricePerCycle = 0;
+		
+		if (subscription.planId) {
+			const livePlan = await this.planRepository.findById(subscription.planId);
+			if (livePlan) {
+				pricePerCycle = livePlan.price;
+			}
+		}
 
-		const subscription =
-			await this.renewSubscriptionUseCase.execute({
-				subscriptionId,
-				paymentId: payment.id,
-				cycles,
-				context
-			});
+		if (!pricePerCycle && subscription.planSnapshot?.price) {
+			pricePerCycle = subscription.planSnapshot.price;
+		}
+
+		const totalCalculatedAmount = pricePerCycle * Number(cycles);
 
 		// -----------------------------
-		// RESULT
+		// REFERENCE GENERATION
 		// -----------------------------
+		const finalReference = reference || `ADM-BYP-${Date.now()}`;
+
+		// -----------------------------
+		// RECORD BYPASS PAYMENT LOG
+		// -----------------------------
+		const payment = await this.adminRecordPaymentUseCase.execute({
+			userId: subscription.userId,
+			accountId: subscription.accountId,
+			planId: subscription.planId,
+			amount: {
+				base: totalCalculatedAmount,
+				total: totalCalculatedAmount,
+				currency: subscription.planSnapshot?.currency || "NGN"
+			},
+			transactionId: finalReference,
+			adminNote: reason
+		});
+
+		// -----------------------------
+		// RENEW SUBSCRIPTION LIFECYCLE
+		// -----------------------------
+		const updatedSubscription = await this.renewSubscriptionUseCase.execute({
+			subscriptionId,
+			paymentId: payment.id,
+			cycles: Number(cycles),
+			context
+		});
 
 		return {
 			payment,
-			subscription
+			subscription: updatedSubscription
 		};
 	}
 }

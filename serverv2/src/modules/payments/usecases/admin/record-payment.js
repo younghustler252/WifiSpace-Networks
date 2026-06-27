@@ -46,6 +46,7 @@ export class AdminRecordPaymentUseCase {
             planId,
             amount,
             currency,
+            actionType: "admin_bypass",
             status: "successful",   // immediately successful
             gateway: "manual",
             paymentChannel,

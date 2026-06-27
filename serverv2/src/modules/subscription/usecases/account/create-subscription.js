@@ -9,12 +9,12 @@ export class CreateSubscriptionUseCase {
 		subscriptionRepository,
 		planRepository,
 		analyticsTracker,
-		provisionNetworkAccount // <-- inject this
+		subscriptionQueue
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.analyticsTracker = analyticsTracker;
-		this.provisionNetworkAccount = provisionNetworkAccount;
+		this.subscriptionQueue = subscriptionQueue;
 	}
 
 	async execute({
@@ -29,21 +29,12 @@ export class CreateSubscriptionUseCase {
 		if (!userId) throw new ValidationError("userId is required");
 		if (!planId) throw new ValidationError("planId is required");
 
-		// ---------------------------------
-		// prevent duplicate active subscription
-		// ---------------------------------
 		const existing = await this.subscriptionRepository.findActiveByAccount(accountId);
 		if (existing) throw new ValidationError("Account already has an active subscription");
 
-		// ---------------------------------
-		// get plan
-		// ---------------------------------
 		const plan = await this.planRepository.findById(planId);
 		if (!plan) throw new NotFoundError("Plan not found");
 
-		// ---------------------------------
-		// BILLING CALCULATION
-		// ---------------------------------
 		const billing = PlanBillingCalculator.calculate(plan, cycles);
 		const expiresAt = PlanBillingCalculator.calculateExpiryDate(plan, cycles);
 		const startDate = new Date();
@@ -51,9 +42,6 @@ export class CreateSubscriptionUseCase {
 			? new Date(expiresAt.getTime() + plan.gracePeriodDays * 24 * 60 * 60 * 1000)
 			: null;
 
-		// ---------------------------------
-		// CREATE SUBSCRIPTION ENTITY
-		// ---------------------------------
 		const subscription = new Subscription({
 			accountId,
 			userId,
@@ -80,6 +68,10 @@ export class CreateSubscriptionUseCase {
 			lastPaymentId: paymentId,
 			lastPaymentDate: paymentId ? startDate : null,
 			lastPaymentAmount: paymentId ? plan.price * cycles : null,
+			
+			mikrotikStatus: plan.serviceType === "hotspot" ? "synced" : "pending", 
+			mikrotikError: null,
+
 			events: [
 				{
 					type: "created",
@@ -89,32 +81,23 @@ export class CreateSubscriptionUseCase {
 			]
 		});
 
-		// ---------------------------------
-		// SAVE SUBSCRIPTION
-		// ---------------------------------
 		const savedSubscription = await this.subscriptionRepository.create(subscription);
 
-		// ---------------------------------
-		// PROVISION NETWORK ACCOUNT
-		// ---------------------------------
-		try {
-			await this.provisionNetworkAccount.execute(savedSubscription.id, context);
-		} catch (err) {
-			// console.error("Provisioning failed:", err.message);
-			// Decide: either fail the whole create, or continue and let admin retry
+		if (plan.serviceType === "pppoe" || context.source === "admin") {
+			try {
+				await this.subscriptionQueue.add("provision-network", {
+					subscriptionId: savedSubscription.id,
+					context
+				});
+			} catch (queueErr) {
+				console.error("[CreateSubscriptionUseCase] Failed to dispatch job context:", queueErr.message);
+			}
 		}
 
-		// ---------------------------------
-		// TRACK ANALYTICS
-		// ---------------------------------
-		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.SUBSCRIPTION_CREATED,
-				{ plan: plan.name, price: plan.price, cycles, bonusDays: billing.bonusDays, graceEndsAt }
-			);
-		} catch (err) {
-			// console.error("Analytics failed:", err.message);
-		}
+		this.analyticsTracker.track(
+			ANALYTICS_EVENTS.SUBSCRIPTION_CREATED,
+			{ plan: plan.name, price: plan.price, cycles, bonusDays: billing.bonusDays, graceEndsAt }
+		).catch((err) => console.error("Analytics failed:", err.message));
 
 		return savedSubscription;
 	}

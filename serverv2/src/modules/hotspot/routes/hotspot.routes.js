@@ -37,5 +37,10 @@ export function hotspotRoutes({hotspotController}) {
 		expressAsyncHandler(hotspotController.getHotspotSession)
 	)
 
+	router.post(
+		"/activate",
+		expressAsyncHandler(hotspotController.activateHotspot)
+	);
+
 	return router;
 }

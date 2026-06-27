@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Search, MoreVertical, Plus } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -29,6 +30,7 @@ interface Props {
 
 export default function SubscriptionsTable({ scope }: Props) {
 	const { user: currentUser } = useAuth();
+	const router = useRouter();
 
 	const isStaff = currentUser?.role === "staff";
 	const isSuperAdmin = currentUser?.role === "superadmin";
@@ -43,6 +45,10 @@ export default function SubscriptionsTable({ scope }: Props) {
 	const [limit, setLimit] = useState(10);
 
 	const [selected, setSelected] = useState<any | null>(null);
+
+	const handleRowClick = (subscription: any) => {
+		router.push(`subscriptions/${subscription?.accountId._id}`);
+	};
 
 	// ================= DEBOUNCE =================
 	useEffect(() => {
@@ -172,7 +178,8 @@ export default function SubscriptionsTable({ scope }: Props) {
 						{subscriptions.map((s: any) => (
 							<TableRow
 								key={s.id}
-								onClick={() => setSelected(s)}
+								onClick={() => handleRowClick(s)}
+								className="cursor-pointer"
 							>
 								{/* ACCOUNT */}
 								<TableCell>
@@ -260,7 +267,7 @@ export default function SubscriptionsTable({ scope }: Props) {
 									value: String(s.autoRenewEnabled),
 								},
 							]}
-							onClick={() => setSelected(s)}
+							onClick={() => handleRowClick(s)}
 						/>
 
 					))}

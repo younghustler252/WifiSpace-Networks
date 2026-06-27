@@ -1,8 +1,12 @@
-import { ACCOUNT_TYPE_LIST, PROFILE_STATUS_LIST, SERVICE_TYPE_LIST } from "../../domain/account.enum.js";
+import {
+    ACCOUNT_TYPE_LIST,
+    PROFILE_STATUS_LIST,
+    SERVICE_TYPE_LIST,
+} from "../../domain/account.enum.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class GetAllAccounts {
-    constructor({accountRepository, permissionService}) {
+    constructor({ accountRepository, permissionService }) {
         this.accountRepository = accountRepository;
         this.permissionService = permissionService;
     }
@@ -17,7 +21,8 @@ export class GetAllAccounts {
             serviceType,
             profileStatus,
             userId,
-            routerId,           // optional filter for router
+            routerId,
+            search,
             createdAfter,
             createdBefore,
             sort = "wsnid_desc",
@@ -41,7 +46,7 @@ export class GetAllAccounts {
         }
 
         // ----------------------------
-        // QUERY BUILD
+        // QUERY
         // ----------------------------
         const query = {};
 
@@ -51,9 +56,32 @@ export class GetAllAccounts {
         if (userId) query.userId = userId;
         if (routerId) query.routerId = routerId;
 
-        if (createdAfter || createdBefore) query.createdAt = {};
-        if (createdAfter) query.createdAt.$gte = createdAfter;
-        if (createdBefore) query.createdAt.$lte = createdBefore;
+        if (createdAfter || createdBefore) {
+            query.createdAt = {};
+
+            if (createdAfter) {
+                query.createdAt.$gte = new Date(createdAfter);
+            }
+
+            if (createdBefore) {
+                query.createdAt.$lte = new Date(createdBefore);
+            }
+        }
+
+        // ----------------------------
+        // SEARCH
+        // ----------------------------
+        if (search?.trim()) {
+            const term = search.trim();
+
+            query.$or = [
+                { wsnId: { $regex: term, $options: "i" } },
+                { businessName: { $regex: term, $options: "i" } },
+                { companyRegistrationNumber: { $regex: term, $options: "i" } },
+                { taxId: { $regex: term, $options: "i" } },
+                { routerProfile: { $regex: term, $options: "i" } },
+            ];
+        }
 
         // ----------------------------
         // SORTING
@@ -73,19 +101,11 @@ export class GetAllAccounts {
         const safeLimit = Math.min(Number(limit) || 50, 100);
         const safeSkip = Math.max(Number(skip) || 0, 0);
 
-        // ----------------------------
-        // FETCH FROM REPOSITORY
-        // ----------------------------
-        const result = await this.accountRepository.findAll(
+        return await this.accountRepository.findAll(
             query,
             safeSort,
             safeSkip,
             safeLimit
         );
-
-        // ----------------------------
-        // RETURN
-        // ----------------------------
-        return result; // { data: [...], total, skip, limit }
     }
 }

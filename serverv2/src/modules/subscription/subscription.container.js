@@ -62,6 +62,8 @@ import { ResumeSubscriptionUseCase }
 import { SuspendSubscriptionUseCase } 
 	from "./usecases/admin/suspend-subscription.js";
 
+import { ChangePlanUseCase } from "./usecases/admin/change-plan.js";
+
 import { ForceExpireSubscriptionUseCase } from "./usecases/admin/force-expire-subscription.js";
 
 import { GetSubscriptionUseCase } from "./usecases/shared/get-subscription.js";
@@ -74,6 +76,14 @@ import { GetAccountSubscriptionsUseCase } from "./usecases/shared/get-account-su
 |--------------------------------------------------------------------------
 */
 import { ExpireSubscriptionsUseCase } from "./usecases/system/expire-subscriptions.js";
+
+/*
+|--------------------------------------------------------------------------
+| QUEUE SERVICES
+|--------------------------------------------------------------------------
+*/
+
+import { SubscriptionQueueService } from "./infrastructure/queue/subscription-queue.js";
 
 
 // import { ExpireSubscriptionWorker }
@@ -132,6 +142,10 @@ export function registerSubscription(container) {
 		suspendSubscription:
 			asClass(SuspendSubscriptionUseCase).scoped(),
 
+		changePlan:
+			asClass(ChangePlanUseCase).scoped(),
+
+
 		forceExpireSubscription:
 			asClass(ForceExpireSubscriptionUseCase).scoped(),
 		/*
@@ -158,6 +172,9 @@ export function registerSubscription(container) {
 		*/
 		expireSubscriptions:
 			asClass(ExpireSubscriptionsUseCase).scoped(),
+
+		subscriptionQueue: 
+			asClass(SubscriptionQueueService).scoped(),
 
 		// expireSubscriptionWorker:
 		// 	asClass(ExpireSubscriptionWorker).scoped(),

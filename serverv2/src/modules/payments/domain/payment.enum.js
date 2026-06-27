@@ -21,6 +21,7 @@ export const PAYMENT_ACTIONS = [
     "new_subscription",
     "renewal",
     "upgrade",
+    "admin_bypass"
    
 ];
 

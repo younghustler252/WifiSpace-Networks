@@ -5,6 +5,7 @@ import { Suspense } from "react";  // add this
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
+import { FullScreenLoader } from "@/components/ui/Loader";
 import LayoutServer from "./LayoutServer"; // server component wrapper
 import "./globals.css";
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -14,7 +15,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <LayoutServer>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <Suspense>       {/* add this */}
+          <Suspense fallback={<FullScreenLoader label="Loading..." />} >       {/* add this */}
             {children}
           </Suspense>        {/* add this */}
         </AuthProvider>

@@ -2,7 +2,7 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 
-export class AdminChangePlanUseCase {
+export class ChangePlanUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,

@@ -6,19 +6,14 @@ export class ExpireSubscriptionWorker {
 	}
 	
 	async handle(job) {
-		// console.log("📦 JOB:", job.data);
-		console.log("🔥 Worker started for queue expire-subscriptions");
-		const {
-			subscriptionId
-		} = job.data;
+		console.log(`🔥 Worker processing queue expire-subscriptions for Job ID: ${job.id}`);
+		const { subscriptionId } = job.data;
 
+		// Hand off processing payload variables directly down to usecase thread
 		const result = await this.expireSubscriptions.execute({
 			subscriptionId
 		});
-		// console.log("✅ Subscription expired:", result);
-	}
-	async (job){
-		// console.log("📦 JOB RECEIVED:", job.name, job.data);
-		return workerHandler.handle(job);
+		
+		return result;
 	}
 }

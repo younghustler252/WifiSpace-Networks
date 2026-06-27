@@ -1,76 +1,26 @@
-export class ServiceActivationService {
+import { ValidationError } from "../../../shared/errors/validation-error.js";
 
-	constructor({
-		hotspotActivator,
-		pppoeActivator
-	}) {
+export class ServiceActivationService {
+	constructor({ hotspotActivator }) {
 		this.hotspotActivator = hotspotActivator;
-		this.pppoeActivator = pppoeActivator;
 	}
 
-	// =====================================================
-	// MAIN ENTRY
-	// =====================================================
-	async activate({
-		account,
-		user,
-		plan,
-		subscription,
-		metadata = {}
-	}) {
+	async activate({ account, user, plan, subscription, metadata = {} }) {
+		if (!account) throw new ValidationError("Account is required");
+		if (!plan) throw new ValidationError("Plan is required");
+		if (!subscription) throw new ValidationError("Subscription is required");
 
-		if (!account) {
-			throw new Error("Account is required");
+		if (plan.serviceType !== "hotspot") {
+			// Ignore completely. PPPoE is managed non-blockingly by BullMQ queues.
+			return { success: true, message: "Skipped inline activation for non-hotspot tier" };
 		}
 
-		if (!plan) {
-			throw new Error("Plan is required");
-		}
-
-		if (!subscription) {
-			throw new Error("Subscription is required");
-		}
-
-		const serviceType = plan.serviceType;
-
-		// =====================================================
-		// ROUTE BY SERVICE TYPE
-		// =====================================================
-		switch (serviceType) {
-
-			// -----------------------------
-			// HOTSPOT SERVICE
-			// -----------------------------
-			case "hotspot":
-
-				return await this.hotspotActivator.activate({
-					account,
-					user,
-					plan,
-					subscription,
-					metadata
-				});
-
-			// -----------------------------
-			// PPPoE SERVICE
-			// -----------------------------
-			case "pppoe":
-
-				return await this.pppoeActivator.activate({
-					account,
-					user,
-					plan,
-					subscription,
-					metadata
-				});
-
-			// -----------------------------
-			// UNKNOWN SERVICE
-			// -----------------------------
-			default:
-				throw new Error(
-					`Unknown service type: ${serviceType}`
-				);
-		}
+		return await this.hotspotActivator.activate({
+			account,
+			user,
+			plan,
+			subscription,
+			metadata
+		});
 	}
 }

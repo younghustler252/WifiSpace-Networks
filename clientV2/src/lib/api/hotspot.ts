@@ -103,6 +103,15 @@ export interface HotspotPlanResponse {
     data: HotspotPlan[];
 }
 
+export interface ActivateHotspotDto {
+    accountId: string;
+    routerId?: string;
+    macAddress: string;
+    hostname?: string;
+    ipAddress?: string;
+}
+
+
 // ================================
 // API
 // ================================
@@ -140,4 +149,11 @@ export const hotspotApi = {
         data: ConfirmHotspotDto
     ): Promise<ApiResponse<ConfirmHotspotResponse>> =>
         API.post("/hotspot/confirm", data),
+
+        // POST /hotspot/activate
+    activateHotspot: (
+        data: ActivateHotspotDto
+    ): Promise<ApiResponse<any>> =>
+        API.post("/hotspot/activate", data),
+
 };

@@ -213,59 +213,56 @@ export function HotspotRenderer({
 
                             {session?.hasHotspotAccount ? (
 
-                                <>
-
-                                    <h1
-                                        className="
-                                            text-2xl
-                                            font-bold
-                                        "
-                                    >
-
-                                        Welcome back{" "}
-                                        {session.user.firstName} 👋
-
+                                                                <>
+                                    <h1 className="text-2xl font-bold">
+                                        Welcome back {session?.user?.firstName || "Customer"} 👋
                                     </h1>
 
-
-
-                                    <p
-                                        className="
-                                            text-muted-foreground
-                                        "
-                                    >
-                                        Your hotspot account was found.
-                                        Select a plan to continue.
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                        Your account was found. Review your current status or select a plan below.
                                     </p>
 
+                                    {/* COMBINED COMPACT DASHBOARD PROFILE CARD */}
+                                    <div className="mt-6 max-w-sm mx-auto rounded-2xl border bg-background p-4 shadow-sm space-y-3 text-left">
+                                        
+                                        {/* Row 1: Account Context Identifiers */}
+                                        {account?.wsnId && (
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-muted-foreground font-medium">Account ID</span>
+                                                <span className="font-mono bg-neutral-100 px-2 py-0.5 rounded text-neutral-800 font-semibold">
+                                                    {account.wsnId}
+                                                </span>
+                                            </div>
+                                        )}
 
+                                        {/* Row 2: Conditional Plan Data Loops */}
+                                        {session?.accounts?.[0]?.subscription?.status === "active" && (
+                                            <div className="pt-2 border-t space-y-2">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-xs text-muted-foreground font-medium">Active Provision</span>
+                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700 text-xs font-bold">
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                                        {session?.accounts[0]?.plan?.name || "Active Tier"}
+                                                    </span>
+                                                </div>
 
-                                    {account?.wsnId && (
-
-                                        <div
-                                            className="
-                                                mt-4
-                                                inline-flex
-                                                rounded-full
-                                                bg-primary/10
-                                                px-4
-                                                py-2
-                                                text-sm
-                                                text-primary
-                                                font-medium
-                                            "
-                                        >
-
-                                            Account:
-                                            <span className="ml-2">
-                                                {account.wsnId}
-                                            </span>
-
-                                        </div>
-
-                                    )}
-
+                                                {session?.accounts[0]?.subscription?.expiresAt && (
+                                                    <div className="flex justify-between items-center text-xs">
+                                                        <span className="text-muted-foreground">Expires On</span>
+                                                        <span className="text-neutral-700 font-medium">
+                                                            {new Date(session.accounts[0].subscription.expiresAt).toLocaleDateString("en-NG", {
+                                                                month: "short",
+                                                                day: "numeric",
+                                                                year: "numeric"
+                                                            })}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
+
 
 
                             ) : (
@@ -323,7 +320,11 @@ export function HotspotRenderer({
                             plans={
                                 plans ?? []
                             }
-
+                            currentPlanPrice={
+                                session?.accounts?.[0]?.subscription?.status === "active"
+                                    ? session.accounts[0].subscription.planSnapshot?.price || 0
+                                    : 0
+                            }
                             onSelect={
                                 actions.selectPlan
                             }

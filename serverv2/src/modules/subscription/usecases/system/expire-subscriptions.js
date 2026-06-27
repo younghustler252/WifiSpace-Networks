@@ -37,25 +37,42 @@ export class ExpireSubscriptionsUseCase {
 			return subscription;
 		}
 
-		// Apply domain rule
+		// Apply domain rule (sets status to "expired")
 		subscription.expire();
 
-		// Persist state change
-		await this.subscriptionRepository.save(subscription);
-
-		// Side-effect: network suspension (async-safe, retryable)
+		// -----------------------------------------------------------
+		// 🔥 MIKROTIK INFRASTRUCTURE LAYER RETRY & SYNC GUARD
+		// -----------------------------------------------------------
 		if (subscription.accountId) {
-			this.suspendNetworkAccount.execute(
-				subscription.accountId,
-				"Subscription Expired",
-				context
-			).catch((err) => {
-				console.error(
-					"[ExpireSubscriptionsUseCase] Network suspend failed:",
-					err.message
+			try {
+				// We AWAIT this call so network timeout exceptions can bubble up to BullMQ
+				await this.suspendNetworkAccount.execute(
+					subscription.accountId,
+					"Subscription Expired",
+					context
 				);
-			});
+
+				// Sync succeeded -> flag states cleanly
+				subscription.mikrotikStatus = "synced";
+				subscription.mikrotikError = null;
+				subscription.mikrotikLastSyncAt = new Date();
+
+			} catch (routerError) {
+				// Sync failed -> capture the exact hardware error on the model for the Admin UI
+				subscription.mikrotikStatus = "failed";
+				subscription.mikrotikError = routerError.message;
+				subscription.mikrotikLastSyncAt = new Date();
+
+				// Save the failure flags immediately before crashing the queue thread execution
+				await this.subscriptionRepository.save(subscription);
+
+				// 🔥 CRITICAL: Throw the error so BullMQ transitions to 'failed' and schedules backoff retries
+				throw routerError;
+			}
 		}
+
+		// Persist successful state change
+		await this.subscriptionRepository.save(subscription);
 
 		// Analytics (non-blocking)
 		this.analyticsTracker.track(

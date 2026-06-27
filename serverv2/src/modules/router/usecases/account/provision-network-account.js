@@ -30,9 +30,8 @@ export class ProvisionNetworkAccount {
         const account = await this.accountRepository.findById(subscription.accountId);
         if (!account) throw new ValidationError("Account not found");
 
-        if (account.profileStatus !== "active") {
-            throw new ValidationError("Account must be active for provisioning");
-        }
+        // 🔥 FIXED: Removed the fatal 'account.profileStatus !== "active"' guard lock block.
+        // If an account was previously suspended due to expiration, this action should un-suspend it!
 
         // 3. Fetch router
         if (!account.routerId) {
@@ -48,8 +47,11 @@ export class ProvisionNetworkAccount {
 
         // 4. Apply subscription plan to account
         account.routerProfile = subscription.planSnapshot.mikrotikProfile;
-        account.limitUptime =
-            `${subscription.planSnapshot.durationValue}${subscription.planSnapshot.durationUnit[0]}`;
+        
+        // Handle variations in plural tracking tags array strings safely
+        const unit = subscription.planSnapshot.durationUnit;
+        const unitChar = unit ? unit[0] : 'd'; // fallback safely to days
+        account.limitUptime = `${subscription.planSnapshot.durationValue}${unitChar}`;
 
         account.routerProvision = account.routerProvision || {
             status: "pending",
@@ -58,7 +60,6 @@ export class ProvisionNetworkAccount {
         };
 
         try {
-
             // 5. Check existence on MikroTik (NO outdated flags)
             const userExists = await this.mikrotikService.checkUserExists(account, router);
 
@@ -69,6 +70,10 @@ export class ProvisionNetworkAccount {
             }
 
             // 6. Update account provisioning state
+            // 🔥 FIXED: Explicitly force the profileStatus back to active here since routing is synced
+            account.profileStatus = "active"; 
+            account.suspensionReason = null; // Clear old expiration tombstone logs
+            
             account.routerProvision.status = "synced";
             account.routerProvision.lastError = null;
             account.routerProvision.lastAttemptAt = new Date();
@@ -80,6 +85,7 @@ export class ProvisionNetworkAccount {
 
             // 8. Update subscription sync state
             subscription.mikrotikStatus = "synced";
+            subscription.mikrotikError = null; // Clear old failures
             subscription.mikrotikLastSyncAt = new Date();
 
             await this.subscriptionRepository.update(subscription.id, subscription);
@@ -119,10 +125,12 @@ export class ProvisionNetworkAccount {
 
             // subscription failure tracking
             subscription.mikrotikStatus = "failed";
+            subscription.mikrotikError = error.message; // 🔥 Save the error message here
             subscription.mikrotikLastSyncAt = new Date();
 
             await this.subscriptionRepository.update(subscription.id, subscription);
 
+            // Throw error so BullMQ knows the network task failed and logs the retry waves
             throw new Error(`Network provisioning failed: ${error.message}`);
         }
     }

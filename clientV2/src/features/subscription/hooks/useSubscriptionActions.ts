@@ -5,6 +5,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
 	subscriptionApi,
 } from "@/features/subscription/subscription.api";
+import type { 
+	CreateSubscriptionDto,
+	AdminRenewSubscriptionDto, 
+	AdminChangePlanDto,
+	ExtendSubscriptionDto,
+	SubscriptionActionDto
+} from "@/features/subscription/subscription.types";
 
 interface UseSubscriptionActionsProps {
 	subscriptionId?: string;
@@ -27,8 +34,15 @@ export function useSubscriptionActions({
 	const refresh = () =>
 		queryClient.invalidateQueries({
 			queryKey: ["subscription", accountId],
-	});
+		});
 	
+	const adminCreateSubscriptionMutation = useMutation({
+		mutationFn: (data: CreateSubscriptionDto) =>
+			subscriptionApi.adminCreate(data),
+		onSuccess: refresh,
+	});
+
+
 	const suspendMutation = useMutation({
 		mutationFn: (reason: string) =>
 			subscriptionApi.suspend(requireId(), { reason }),
@@ -48,11 +62,9 @@ export function useSubscriptionActions({
 	});
 
 	const extendMutation = useMutation({
-		mutationFn: () =>
-			subscriptionApi.extend(requireId(), {
-				days: 30,
-				reason: "Admin extension",
-			}),
+		mutationFn: (data: ExtendSubscriptionDto) =>
+			subscriptionApi.extend(requireId(), data),
+		onSuccess: refresh, // Fixed: Added missing cache invalidation
 	});
 
 	const renewMutation = useMutation({
@@ -61,28 +73,57 @@ export function useSubscriptionActions({
 		onSuccess: refresh,
 	});
 
+	// Inside useSubscriptionActions.ts:
 	const forceExpireMutation = useMutation({
-		mutationFn: () =>
-			subscriptionApi.forceExpire(requireId()),
+		mutationFn: (data?: { reason: string }) => // 💡 Notice the optional '?' mark
+			subscriptionApi.forceExpire(requireId(), data),
+		onSuccess: refresh,
+	});
+
+
+	// ----------------------------------
+	// ADMIN OVERRIDES
+	// ----------------------------------
+	const adminRenewMutation = useMutation({
+		mutationFn: (data: Omit<AdminRenewSubscriptionDto, "subscriptionId">) =>
+			subscriptionApi.adminRenew({
+				subscriptionId: requireId(),
+				...data
+			}),
+		onSuccess: refresh,
+	});
+
+	const adminChangePlanMutation = useMutation({
+		mutationFn: (data: Omit<AdminChangePlanDto, "accountId">) =>
+			subscriptionApi.adminChangePlan({
+				accountId,
+				...data
+			}),
 		onSuccess: refresh,
 	});
 
 	const isWorking =
+		adminCreateSubscriptionMutation.isPending||
 		suspendMutation.isPending ||
 		resumeMutation.isPending ||
 		cancelMutation.isPending ||
 		extendMutation.isPending ||
 		renewMutation.isPending ||
-		forceExpireMutation.isPending;
+		forceExpireMutation.isPending ||
+		adminRenewMutation.isPending ||
+		adminChangePlanMutation.isPending;
 
 	return {
 		refresh,
+		adminCreateSubscriptionMutation,
 		suspendMutation,
 		resumeMutation,
 		cancelMutation,
 		extendMutation,
 		renewMutation,
 		forceExpireMutation,
+		adminRenewMutation,       // Exposed administrative mutation
+		adminChangePlanMutation,  // Exposed administrative mutation
 		isWorking,
 	};
 }

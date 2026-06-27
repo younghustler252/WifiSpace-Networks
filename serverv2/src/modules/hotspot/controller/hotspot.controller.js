@@ -97,4 +97,20 @@ export class HotspotController {
 		});
 	};
 
+	activateHotspot = async (req, res) => {
+		const result = await this.activateHotspotAccessUseCase.execute({
+			accountId: req.body.accountId,
+			routerId: req.body.routerId,
+			macAddress: req.body.macAddress,
+			hostname: req.body.hostname || "",
+			ipAddress: req.body.ipAddress || req.ip
+		});
+
+		return successResponse({
+			res,
+			data: result,
+			message: "Hotspot network access provisioned on router successfully"
+		});
+	};
+
 }

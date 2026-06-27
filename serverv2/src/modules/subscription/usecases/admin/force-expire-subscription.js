@@ -2,9 +2,12 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class ForceExpireSubscriptionUseCase {
-	constructor({ subscriptionRepository, suspendNetworkAccount }) {
+	constructor({ 
+		subscriptionRepository, 
+		subscriptionQueue // 🔥 FIXED: Injected shared Redis queue service instead of direct execution
+	}) {
 		this.subscriptionRepository = subscriptionRepository;
-		this.suspendNetworkAccount = suspendNetworkAccount;
+		this.subscriptionQueue = subscriptionQueue;
 	}
 
 	async execute({ subscriptionId, adminId, reason, context = {} }) {
@@ -22,24 +25,43 @@ export class ForceExpireSubscriptionUseCase {
 		// -----------------------------
 		// 2. Expire subscription
 		// -----------------------------
-		subscription.expire(); // Uses entity lifecycle method
+		subscription.expire(); // Uses entity lifecycle method (sets status to "expired")
+
+		// 🔥 RETRY & SYNC FLAGS INITIALIZATION
+		// Reset tracking parameters to pending so filters capture this operational transition state
+		subscription.mikrotikStatus = "pending";
+		subscription.mikrotikError = null;
 
 		// Add metadata about admin action
-		subscription.addEvent("expired", { action: "force_expire", adminId, reason });
+		subscription.addEvent("expired", { 
+			action: "force_expire", 
+			adminId, 
+			reason: reason || "Admin forced lifecycle expiration" 
+		});
 
 		// Persist the updated subscription
 		const updatedSubscription = await this.subscriptionRepository.update(subscriptionId, subscription);
 
 		// -----------------------------
-		// 3. Suspend network account
+		// 3. DISPATCH TO EXPIRE-SUBSCRIPTIONS QUEUE
 		// -----------------------------
-		if (this.suspendNetworkAccount) {
-			try {
-				await this.suspendNetworkAccount.execute(subscription.accountId, reason, context);
-			} catch (err) {
-				console.error("Network suspension failed:", err.message);
-				// We don't fail the force-expire just because network suspend failed
-			}
+		try {
+			// Reuses the exact same queue that handles natural cron expirations
+			await this.subscriptionQueue.add("expire-subscriptions", {
+				subscriptionId: subscription.id,
+				context: {
+					...context,
+					actorId: adminId || "SYSTEM_ADMIN_TERMINATOR",
+					reason: reason || "Admin forced lifecycle expiration"
+				}
+			});
+		} catch (queueErr) {
+			console.error(
+				"[ForceExpireSubscriptionUseCase] Failed to dispatch job context to Redis queue:",
+				queueErr.message
+			);
+			// Left safely as 'pending' inside MongoDB. If Redis drops, 
+			// fallback cron loops or manual refreshes can process it safely.
 		}
 
 		return updatedSubscription;

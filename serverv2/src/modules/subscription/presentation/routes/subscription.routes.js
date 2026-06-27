@@ -19,7 +19,75 @@ export default function subscriptionRoutes({
 	const auth = authMiddleware({ userRepository });
 
 	// =================================================
-	// USER ROUTES
+	// ADMIN ROUTES (PLACE FIRST TO PREVENT WILDCARD HIJACKING)
+	// =================================================
+
+	router.get(
+		"/admin/all",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.VIEW, permissionService),
+		asyncHandler(subscriptionAdminController.getAllSubscriptions)
+	);
+
+	router.post(
+		"/admin/create",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.CREATE, permissionService),
+		asyncHandler(subscriptionAdminController.createSubscription)
+	);
+
+	router.post(
+		"/admin/renew",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.RENEW, permissionService),
+		asyncHandler(subscriptionAdminController.adminRenewSubscription) // 💡 Note: Changed to match your controller method name
+	);
+
+	router.post(
+		"/admin/change-plan",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.CHANGE_PLAN, permissionService),
+		asyncHandler(subscriptionAdminController.adminChangePlan)
+	);
+
+	router.post(
+		"/admin/:subscriptionId/suspend",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.SUSPEND, permissionService),
+		asyncHandler(subscriptionAdminController.suspendSubscription)
+	);
+
+	router.post(
+		"/admin/:subscriptionId/resume",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.RESUME, permissionService),
+		asyncHandler(subscriptionAdminController.resumeSubscription)
+	);
+
+	router.post(
+		"/admin/:subscriptionId/cancel",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.CANCEL, permissionService),
+		asyncHandler(subscriptionAdminController.cancelSubscription)
+	);
+
+	router.post(
+		"/admin/:subscriptionId/extend",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.UPDATE, permissionService),
+		asyncHandler(subscriptionAdminController.extendSubscription)
+	);
+
+	router.post(
+		"/admin/:subscriptionId/force-expire",
+		auth(["staff", "superadmin"]),
+		requirePermission(PERMISSION.SUBSCRIPTION.EXPIRE, permissionService),
+		asyncHandler(subscriptionAdminController.forceExpireSubscription)
+	);
+
+
+	// =================================================
+	// USER ROUTES (PLACE LAST)
 	// =================================================
 
 	router.post(
@@ -56,59 +124,6 @@ export default function subscriptionRoutes({
 		"/account/:accountId/current",
 		auth(),
 		asyncHandler(subscriptionController.getCurrentSubscription)
-	);
-
-	// =================================================
-	// ADMIN ROUTES
-	// =================================================
-
-	router.get(
-		"/admin/all",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.VIEW, permissionService),
-		asyncHandler(subscriptionAdminController.getAllSubscriptions)
-	);
-
-	router.post(
-		"/admin/create",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.CREATE, permissionService),
-		asyncHandler(subscriptionAdminController.createSubscription)
-	);
-
-	router.post(
-		"/admin/:subscriptionId/suspend",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.SUSPEND, permissionService),
-		asyncHandler(subscriptionAdminController.suspendSubscription)
-	);
-
-	router.post(
-		"/admin/:subscriptionId/resume",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.RESUME, permissionService),
-		asyncHandler(subscriptionAdminController.resumeSubscription)
-	);
-
-	router.post(
-		"/admin/:subscriptionId/cancel",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.CANCEL, permissionService),
-		asyncHandler(subscriptionAdminController.cancelSubscription)
-	);
-
-	router.post(
-		"/admin/:subscriptionId/extend",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.UPDATE, permissionService),
-		asyncHandler(subscriptionAdminController.extendSubscription)
-	);
-
-	router.post(
-		"/admin/:subscriptionId/force-expire",
-		auth(["staff", "superadmin"]),
-		requirePermission(PERMISSION.SUBSCRIPTION.EXPIRE, permissionService),
-		asyncHandler(subscriptionAdminController.forceExpireSubscription)
 	);
 
 	return router;

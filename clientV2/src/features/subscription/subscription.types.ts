@@ -122,6 +122,9 @@ export interface CreateSubscriptionDto {
   accountId: string;
   planId: string;
   cycles?: number;
+  reason?: string;
+  userId: string;
+  overrideExisting: boolean;
   autoRenewEnabled?: boolean;
   renewalStrategy?: RenewalStrategy;
 }
@@ -157,4 +160,18 @@ export interface ExtendSubscriptionDto {
 
 export interface SubscriptionActionDto {
   reason?: string;
+}
+export interface AdminRenewSubscriptionDto {
+  subscriptionId: string;
+  cycles: number;
+  reason?: string;
+  reference?: string;
+}
+
+
+export interface AdminChangePlanDto {
+  accountId: string;
+  newPlanId: string;
+  reason?: string;
+  paymentAdjustment?: number;
 }

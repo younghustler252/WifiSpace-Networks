@@ -51,23 +51,44 @@ export class HotspotIntegration {
         ]);
     }
 
-    async suspendUser(router, wsnId) {
+       async suspendUser(router, wsnId) {
+        const users = await this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/user/print",
+            [`?name=${wsnId}`]
+        );
+
+        if (!Array.isArray(users) || users.length === 0) {
+            throw new Error(`Hotspot user account not found on router: ${wsnId}`);
+        }
+
         return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
-            `=numbers=${wsnId}`,
+            `=.id=${users[0][".id"]}`,
             `=disabled=yes`
         ]);
     }
+
+    async disconnectUser(router, wsnId) {
+        const activeSessions = await this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/active/print",
+            [`?user=${wsnId}`]
+        );
+
+        if (Array.isArray(activeSessions) && activeSessions.length > 0) {
+            return this.mikrotikClient.execute(router, "/ip/hotspot/active/remove", [
+                `=.id=${activeSessions[0][".id"]}`
+            ]);
+        }
+        
+        return { success: true, message: "No active session found to disconnect" };
+    }
+
 
     async resumeUser(router, wsnId) {
         return this.mikrotikClient.execute(router, "/ip/hotspot/user/set", [
             `=numbers=${wsnId}`,
             `=disabled=no`
-        ]);
-    }
-
-    async disconnectUser(router, wsnId) {
-        return this.mikrotikClient.execute(router, "/ip/hotspot/active/remove", [
-            `=user=${wsnId}`
         ]);
     }
 

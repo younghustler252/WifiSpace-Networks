@@ -7,13 +7,13 @@ export class AdminCreateSubscriptionUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,
-		adminRecordPayment, // <-- injected
-		provisionNetworkAccount // <-- injected
+		adminRecordPayment,
+		subscriptionQueue // 🔥 FIXED: Injected shared Redis queue service instead of direct execution
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.adminRecordPayment = adminRecordPayment;
-		this.provisionNetworkAccount = provisionNetworkAccount;
+		this.subscriptionQueue = subscriptionQueue;
 	}
 
 	async execute({
@@ -31,13 +31,13 @@ export class AdminCreateSubscriptionUseCase {
 		paymentAmount, // { total, base, discount }
 		paymentChannel = "bank_transfer",
 		currency = "NGN",
-		adminNote = null
+		adminNote = null,
+		context = {} // Added support for downstream context overrides
 	}) {
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
 		if (!accountId) throw new ValidationError("accountId is required");
-		if (!userId) throw new ValidationError("userId is required");
 		if (!planId) throw new ValidationError("planId is required");
 		if (cycles < 1) throw new ValidationError("cycles must be at least 1");
 
@@ -114,6 +114,12 @@ export class AdminCreateSubscriptionUseCase {
 			lastPaymentId: savedPayment?.id || null,
 			lastPaymentDate: savedPayment ? new Date() : null,
 			lastPaymentAmount: savedPayment ? savedPayment.amount.total : null,
+			
+			// 🔥 RETRY & SYNC FLAGS INITIALIZATION
+			// Set flag to pending on document creation if status is active so background queues track it
+			mikrotikStatus: status === "active" ? "pending" : "none",
+			mikrotikError: null,
+
 			events: [
 				{
 					type: "created",
@@ -141,13 +147,24 @@ export class AdminCreateSubscriptionUseCase {
 		const savedSubscription = await this.subscriptionRepository.create(subscription);
 
 		// -----------------------------
-		// OPTIONAL: PROVISION NETWORK ACCOUNT
+		// 🔥 DISPATCH PROVISIONING TASK TO BULLMQ REDIS QUEUE
 		// -----------------------------
-		if (status === "active" && this.provisionNetworkAccount) {
+		if (status === "active") {
 			try {
-				await this.provisionNetworkAccount.execute(savedSubscription.id, { actorId: adminId });
-			} catch (err) {
-				console.error("Provisioning failed:", err.message);
+				await this.subscriptionQueue.add("provision-network", {
+					subscriptionId: savedSubscription.id,
+					context: {
+						...context,
+						actorId: adminId || "SYSTEM_ADMIN_PROVISIONER"
+					}
+				});
+			} catch (queueErr) {
+				console.error(
+					"[AdminCreateSubscriptionUseCase] Failed to dispatch job context to Redis queue:",
+					queueErr.message
+				);
+				// Remains safely in 'pending' status inside MongoDB. If Redis drops,
+				// the system handles it gracefully since workers parse 'pending' states.
 			}
 		}
 
