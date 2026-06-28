@@ -8,7 +8,8 @@ const accountSchema = new mongoose.Schema({
     // Owner
     userId: { 
         type: mongoose.Schema.Types.ObjectId, 
-        ref: "User" 
+        ref: "User",
+        required: true 
     },
 
     // Account Type
@@ -62,6 +63,7 @@ accountSchema.index({ userId: 1 });
 accountSchema.index({ routerId: 1 });
 accountSchema.index({ routerProfile: 1 });
 accountSchema.index({ profileStatus: 1 });
-accountSchema.index({ "routerStatus.lastSeenAt": -1 });
+accountSchema.index({ "devices.macAddress": 1 });
 
+accountSchema.index({ "devices.lastSeenAt": -1 });
 export default mongoose.model("Account", accountSchema);

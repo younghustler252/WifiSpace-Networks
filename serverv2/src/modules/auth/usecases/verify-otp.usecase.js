@@ -21,18 +21,12 @@ export class VerifyOtp {
 		}
 
 		if (!user.verificationOTP) {
-			throw new ValidationError(
-				"No OTP set. Please request a new one."
-			);
+			throw new ValidationError("No OTP set. Please request a new one.");
 		}
 
 		user.unlockOTPIfExpired();
 
-		// persist auto-unlock if it happened
-		if (
-			user.otpAttempts === 0 &&
-			user.otpLockedUntil === null
-		) {
+		if (user.otpAttempts === 0 && user.otpLockedUntil === null) {
 			await this.userRepository.update(user.id, {
 				otpAttempts: user.otpAttempts,
 				otpLockedUntil: user.otpLockedUntil
@@ -40,31 +34,21 @@ export class VerifyOtp {
 		}
 
 		if (user.isOTPLocked()) {
-			throw new ValidationError(
-				"Too many OTP attempts. Please try again later."
-			);
+			throw new ValidationError("Too many OTP attempts. Please try again later.");
 		}
 
 		if (user.isOTPExpired()) {
-			throw new ValidationError(
-				"OTP expired. Please request a new code."
-			);
+			throw new ValidationError("OTP expired. Please request a new code.");
 		}
 
-		const isValid =
-			await this.passwordService.compare(
-				otp.toString(),
-				user.verificationOTP
-			);
+		const isValid = await this.passwordService.compare(otp.toString(), user.verificationOTP);
 
 		if (!isValid) {
 			user.incrementOTPAttempts();
-
 			await this.userRepository.update(user.id, {
 				otpAttempts: user.otpAttempts,
 				otpLockedUntil: user.otpLockedUntil
 			});
-
 			throw new ValidationError("Invalid OTP");
 		}
 
@@ -78,11 +62,17 @@ export class VerifyOtp {
 			otpLockedUntil: user.otpLockedUntil,
 			lastOtpSentAt: user.lastOtpSentAt
 		});
+
+		const plainUser = typeof user.toObject === "function" ? user.toObject() : JSON.parse(JSON.stringify(user));
+		
+		// Ensure all possible identifier variants are mirrored onto the payload object safely
+		plainUser.id = plainUser._id ? plainUser._id.toString() : plainUser.id;
+		plainUser._id = plainUser.id;
+
 		return {
 			user,
-			accessToken: this.tokenService.generateAccessToken(user),
-			refreshToken: this.tokenService.generateRefreshToken(user)
+			accessToken: this.tokenService.generateAccessToken(plainUser),
+			refreshToken: this.tokenService.generateRefreshToken(plainUser)
 		};
-
 	}
 }
