@@ -6,6 +6,7 @@ import { Search, Plus, Mail, MoreVertical } from "lucide-react";
 import Avatar from "@/components/ui/Avatar";
 import Button from "@/components/ui/Button";
 import Dropdown, { DropdownItem, DropdownDivider } from "@/components/ui/Dropdown";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 import {
 	Table,
@@ -288,7 +289,9 @@ export default function UsersTable({ scope }: Props) {
 									</TableCell>
 
 									<TableCell>
-										<span className="ui-badge">{u.status}</span>
+										<StatusBadge variant={u.status} size="md" withDot>
+											{u.status}
+										</StatusBadge>
 									</TableCell>
 
 									<TableCell>

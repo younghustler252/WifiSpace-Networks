@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/Table";
 
 import Avatar from "@/components/ui/Avatar";
+import StatusBadge from "@/components/ui/StatusBadge";
+
 
 export default function AccountsTable({ accounts, router }: any) {
 	const resolveUser = (user: any) => {
@@ -51,12 +53,12 @@ export default function AccountsTable({ accounts, router }: any) {
 								<TableCell>{a.accountType}</TableCell>
 
 								<TableCell>{a.serviceType}</TableCell>
+									<TableCell>
+										<StatusBadge variant={a.profileStatus === "active" ? "successful" : a.profileStatus === "canceled" ? "failed" : a.profileStatus} size="md" withDot>
+											{a.profileStatus}
+										</StatusBadge>
+									</TableCell>
 
-								<TableCell>
-									<span className="ui-badge">
-										{a.profileStatus}
-									</span>
-								</TableCell>
 
 								{/* ✅ FULL USER CELL RESTORED */}
 								<TableCell>

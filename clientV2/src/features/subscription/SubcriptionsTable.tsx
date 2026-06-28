@@ -8,6 +8,7 @@ import Button from "@/components/ui/Button";
 import Avatar from "@/components/ui/Avatar";
 import Dropdown, { DropdownItem, DropdownDivider } from "@/components/ui/Dropdown";
 import { SubscriptionStatus, MikrotikSyncStatus } from "./subscription.types";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 import {
 	Table,
@@ -206,8 +207,12 @@ export default function SubscriptionsTable({ scope }: Props) {
 
 								{/* STATUS */}
 								<TableCell>
-									<span className="ui-badge">{s.status}</span>
+									<StatusBadge variant={s.status} size="md" withDot>
+										{s.status}
+									</StatusBadge>
 								</TableCell>
+
+
 
 								{/* EXPIRY DATE */}
 								<TableCell>
@@ -252,7 +257,12 @@ export default function SubscriptionsTable({ scope }: Props) {
 							key={s.id}
 							title={s.accountId?.wsnId || "Account"}
 							subtitle={s.userId?.email || s.planId?.name || "-"}
-							badge={<span className="ui-badge">{s.status}</span>}
+							badge={
+								<StatusBadge variant={s.status} size="md" withDot>
+									{s.status}
+								</StatusBadge>
+							}
+
 							fields={[
 								{ label: "Plan", value: s.planId?.name || "-" },
 								{ label: "Price", value: `₦${s.planId?.price || 0}` },

@@ -59,26 +59,25 @@ export default function Login() {
 			<h1 className="text-2xl font-bold text-center">Login</h1>
 
 			{successMessage && (
-				<StatusBadge
-					variant="success"
-					size="md"
-					solid
-					className="mb-4 w-full text-center"
-				>
-					{successMessage}
-				</StatusBadge>
-			)}
+	<StatusBadge
+		variant="successful"
+		size="md"
+		className="mb-4 w-full text-center"
+	>
+		{successMessage}
+	</StatusBadge>
+)}
 
-			{error && (
-				<StatusBadge
-					variant="danger"
-					size="md"
-					solid
-					className="mb-4 w-full text-center"
-				>
-					{error}
-				</StatusBadge>
-			)}
+{error && (
+	<StatusBadge
+		variant="failed"
+		size="md"
+		className="mb-4 w-full text-center"
+	>
+		{error}
+	</StatusBadge>
+)}
+
 
 			<form onSubmit={handleSubmit(onSubmit)} className="ui-stack">
 				<InputField

@@ -1,6 +1,7 @@
 "use client";
 
 import { Wifi } from "lucide-react";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 type Props = {
 	account: any;
@@ -9,20 +10,15 @@ type Props = {
 const AccountHero = ({ account }: Props) => {
 	if (!account) return null;
 
-	const statusBadge = () => {
-		switch (account.profileStatus) {
+	const getMappedVariant = (status: string) => {
+		switch (status) {
 			case "active":
-				return <span className="ui-badge ui-badge-success">Active</span>;
-			case "pending":
-				return (
-					<span className="ui-badge bg-warning/20 text-warning">
-						Pending
-					</span>
-				);
+				return "successful";
 			case "suspended":
-				return <span className="ui-badge ui-badge-danger">Suspended</span>;
+			case "canceled":
+				return "failed";
 			default:
-				return null;
+				return "pending";
 		}
 	};
 
@@ -34,15 +30,14 @@ const AccountHero = ({ account }: Props) => {
 
 			<div className="flex-1 text-center md:text-left">
 				<h2 className="text-2xl font-semibold">{account?.wsnId}</h2>
-				<p className="text-sm text-muted-foreground mt-1">
+				<p className="text-sm text-muted-foreground mt-1 capitalize">
 					{account?.accountType} • {account?.serviceType}
-				</p>
-				<p className="text-xs text-muted-foreground mt-1 capitalize">
-					Status: {account?.profileStatus}
 				</p>
 			</div>
 
-			{statusBadge()}
+			<StatusBadge variant={getMappedVariant(account.profileStatus)} size="md" withDot className="capitalize">
+				{account.profileStatus}
+			</StatusBadge>
 		</div>
 	);
 };

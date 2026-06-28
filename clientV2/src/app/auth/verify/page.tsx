@@ -171,13 +171,13 @@ export default function VerifyOtp() {
 
 			{/* SUCCESS / ERROR */}
 			{success && (
-				<StatusBadge variant="success" solid>
+				<StatusBadge variant="success" >
 					{success}
 				</StatusBadge>
 			)}
 
 			{error && (
-				<StatusBadge variant="danger" solid>
+				<StatusBadge variant="danger" >
 					{error}
 				</StatusBadge>
 			)}

@@ -1,4 +1,5 @@
 import { MobileDataCard } from "@/components/ui/MobileDataCard";
+import StatusBadge from "@/components/ui/StatusBadge";
 
 export default function AccountsMobileList({ accounts, router }: any) {
 	return (
@@ -15,10 +16,11 @@ export default function AccountsMobileList({ accounts, router }: any) {
 						title={`${a.accountType} • ${a.serviceType}`}
 						subtitle={a.wsnId}
 						badge={
-							<span className="ui-badge">
+							<StatusBadge variant={a.profileStatus === "active" ? "successful" : a.profileStatus === "canceled" ? "failed" : a.profileStatus} size="md" withDot>
 								{a.profileStatus}
-							</span>
+							</StatusBadge>
 						}
+
 						fields={[
 							{ label: "WSNID", value: a.wsnId },
 						]}

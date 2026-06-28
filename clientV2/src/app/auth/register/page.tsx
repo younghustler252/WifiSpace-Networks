@@ -66,7 +66,6 @@ export default function Register() {
 				<StatusBadge
 					variant="success"
 					size="md"
-					solid
 					className="mb-4 w-full text-center"
 				>
 					{successMessage}
@@ -77,7 +76,6 @@ export default function Register() {
 				<StatusBadge
 					variant="danger"
 					size="md"
-					solid
 					className="mb-4 w-full text-center"
 				>
 					{error}
