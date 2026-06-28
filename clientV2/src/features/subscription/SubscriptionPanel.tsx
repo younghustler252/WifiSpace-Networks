@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 
@@ -50,9 +51,8 @@ export function useCachedPlans() {
 			const res = await planApi.getAll({ limit: 100 });
 			return res.data;
 		},
-		// 💡 Performance Cache Matrix Config:
-		staleTime: 10 * 60 * 1000, // Consider data fresh for 10 minutes
-		gcTime: 15 * 60 * 1000,    // Keep garbage collection layer alive in cache background
+		staleTime: 10 * 60 * 1000, 
+		gcTime: 15 * 60 * 1000,    
 		select: (data) => data?.data ?? [], // Extract the plans array directly
 	});
 }
@@ -62,6 +62,13 @@ export default function SubscriptionPanel({
 	role,
 }: Props) {
 	const router = useRouter();
+	const searchParams = useSearchParams();
+
+	useEffect(() => {
+		if (searchParams.get("action") === "assign") {
+			setShowAssignModal(true);
+		}
+	}, [searchParams]);
 
 	/* ================= DATA ================= */
 	const {
@@ -739,7 +746,7 @@ export default function SubscriptionPanel({
 				</ModalFooter>
 			</Modal>
 
-						{/* ================= ADMIN ASSIGN SUBSCRIPTION MODAL ================= */}
+			{/* ================= ADMIN ASSIGN SUBSCRIPTION MODAL ================= */}
 			<Modal open={showAssignModal} onClose={() => setShowAssignModal(false)}>
 				<ModalHeader>
 					<div className="flex items-center gap-2">
@@ -753,10 +760,8 @@ export default function SubscriptionPanel({
 							Provisions a brand new network access profile for account identification context <b className="text-neutral-700">{accountId}</b>.
 						</p>
 
-						{/* INPUT CONTROLS GRID */}
 						<div className="grid grid-cols-2 gap-4">
 							
-							{/* CHOOSE CACHED PLAN */}
 							<div className="space-y-1.5 col-span-2 md:col-span-1">
 								<label className="text-xs font-medium text-neutral-600">Select Initial Plan</label>
 								<select
@@ -768,7 +773,7 @@ export default function SubscriptionPanel({
 								>
 									<option value="">Choose service tier...</option>
 									{plans
-										.filter((p: any) => p.status === "active")
+										.filter((p: any) => p.status === "active" )
 										.map((p: any) => (
 											<option key={p.id || p._id} value={p.id || p._id}>
 												{p.name} (₦{p.price?.toLocaleString()} | {p.serviceType.toUpperCase()})
@@ -779,7 +784,6 @@ export default function SubscriptionPanel({
 								{isLoadingPlans && <p className="text-[10px] text-muted-foreground animate-pulse">Loading system plans...</p>}
 							</div>
 
-							{/* CYCLES SELECTION */}
 							<div className="space-y-1.5 col-span-2 md:col-span-1">
 								<label className="text-xs font-medium text-neutral-600">Cycles / Months</label>
 								<input
@@ -793,7 +797,6 @@ export default function SubscriptionPanel({
 							</div>
 						</div>
 
-						{/* TOTAL DUE CALCULATION BOX */}
 						{targetPlanId && (
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-neutral-600">Calculated Plan Provision Value</label>
@@ -806,7 +809,6 @@ export default function SubscriptionPanel({
 							</div>
 						)}
 
-						{/* AUDIT LOG FIELD */}
 						<div className="space-y-1.5">
 							<label className="text-xs font-medium text-neutral-600">Audit / Log Reason</label>
 							<textarea
@@ -821,7 +823,7 @@ export default function SubscriptionPanel({
 				</ModalBody>
 				<ModalFooter>
 					<Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancel</Button>
-						<Button 
+					<Button 
 						variant="accent" 
 						disabled={!targetPlanId}
 						isLoading={actions.adminCreateSubscriptionMutation?.isPending || false}
@@ -831,21 +833,15 @@ export default function SubscriptionPanel({
 									accountId,
 									planId: targetPlanId,
 									cycles: renewCycles,
-									
-									// 🔥 1. Map the User Identification context safely from active panel dataset
 									userId: subscription?.userId, 
-
-									// 🔥 2. Set this to true so admin actions override zombie background records
 									overrideExisting: true, 
-
-									// 🔥 3. Map your state string context to match backend destructuring variable
 									reason: adminReason || "Initial administrative account assignment"
 								},
 								{
 									onSuccess: () => {
 										notify.success("New subscription assigned and activated successfully.");
 										setShowAssignModal(false);
-										refetch(); // Refetches core data so state moves from null to active
+										refetch(); 
 									},
 									onError: (err: any) => notify.error(err?.message || "Failed to create subscription context.")
 								}
@@ -854,7 +850,6 @@ export default function SubscriptionPanel({
 					>
 						Assign & Provision
 					</Button>
-
 				</ModalFooter>
 			</Modal>
 

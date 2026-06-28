@@ -76,7 +76,7 @@ if (error || !subscription) {
 
 					{role !== "customer" ? (
 						<Link
-							href={`/admin/subscriptions/create?accountId=${accountId}`}
+							href={`/admin/subscriptions/${accountId}?action=assign`}
 							className="mt-5"
 						>
 							<Button className="gap-2">
