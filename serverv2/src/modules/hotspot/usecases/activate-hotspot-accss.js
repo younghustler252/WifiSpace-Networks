@@ -14,7 +14,10 @@ export class ActivateHotspotAccess {
 		routerId,
 		macAddress,
 		hostname,
-		ipAddress
+		ipAddress,
+		// 🟩 FIXED: Accept the incoming plan metrics from HotspotActivator
+		routerProfile,
+		limitUptime
 	}) {
 		if (!accountId) throw new Error("Account ID required");
 		if (!macAddress) throw new Error("MAC address required");
@@ -42,10 +45,15 @@ export class ActivateHotspotAccess {
 			});
 		}
 
-		await this.accountRepository.update(account.id, {
-			...account,
-			devices
-		});
+		// 🟩 FIXED: Bind parameters directly to the domain object to ensure data persistence
+		account.devices = devices;
+		account.routerProfile = routerProfile; // Storing the plan profile string name
+		account.limitUptime = limitUptime;     // Storing the numeric total seconds calculation
+		account.profileStatus = "active";
+
+		// ✅ FIXED: Pass the updated account object directly instead of spreading (...account) 
+		// Spreading can break hidden entity getters or mongoose document prototypes.
+		await this.accountRepository.update(account.id, account);
 
 		try {
 			const userExists = await this.mikrotikService.checkUserExists(account, router);

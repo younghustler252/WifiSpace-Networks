@@ -1,3 +1,5 @@
+import { toSeconds } from "../../../shared/utils/formatUptime.js";
+
 export class HotspotActivatior {
 
 	constructor({
@@ -11,11 +13,14 @@ export class HotspotActivatior {
 		plan,
 		metadata
 	}) {
-		console.log("metadata",metadata)
+		console.log("metadata", metadata)
 
-		const macAddress = metadata.macAddress || null;
 		const ipAddress = metadata.ipAddress;
-		const routerId = metadata.routerId;
+		
+		// 🟩 Calculate the total time in seconds using your helper utility
+		const durationValue = Number(plan.durationValue) || 0;
+		const durationUnit = plan.durationUnit || "days";
+		const limitUptimeSeconds = toSeconds(durationValue, durationUnit);
 
 		return await this.activateHotspotAccess.execute({
 			accountId: account.id,
@@ -23,7 +28,9 @@ export class HotspotActivatior {
 			routerId: metadata.routerId,
 			ipAddress: ipAddress,
 			routerProfile: plan.mikrotikProfile,
-			hostname: metadata.hostname || ""
+			hostname: metadata.hostname || "",
+			// 🟩 Pass the numeric seconds directly to ActivateHotspotAccess
+			limitUptime: limitUptimeSeconds
 		});
 	}
 }

@@ -8,7 +8,8 @@ export class HotspotController {
 		startHotspotPurchase,
 		confirmHotspotPurchase,
 		getHotspotPlans,
-		getHotspotSession
+		getHotspotSession,
+		activateHotspotAccess
 	}) {
 
 		this.startHotspotPurchaseUseCase =
@@ -20,6 +21,8 @@ export class HotspotController {
 		this.getHotspotPlansUseCase = getHotspotPlans;
 
 		this.getHotspotSessionUsecase = getHotspotSession;
+
+		this.activateHotspotAccessUsecase = activateHotspotAccess;
 	}
 
 	// -----------------------------
@@ -98,7 +101,7 @@ export class HotspotController {
 	};
 
 	activateHotspot = async (req, res) => {
-		const result = await this.activateHotspotAccessUseCase.execute({
+		const result = await this.activateHotspotAccessUsecase.execute({
 			accountId: req.body.accountId,
 			routerId: req.body.routerId,
 			macAddress: req.body.macAddress,
