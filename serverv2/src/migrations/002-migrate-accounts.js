@@ -1,72 +1,51 @@
 export async function up(db) {
-    console.log("Running migration: 002-migrate-accounts");
+    console.log("Running migration: 003-backfill-router-passwords");
 
-    const users = await db.collection("users").find({}).toArray();
+    // 1. Fetch all accounts currently missing a router password, or where it's null/empty
+    const accounts = await db.collection("accounts").find({
+        $or: [
+            { routerPassword: null },
+            { routerPassword: "" },
+            { routerPassword: { $exists: false } }
+        ]
+    }).toArray();
 
-    let created = 0;
-    let skipped = 0;
+    console.log(`Found ${accounts.length} profiles requiring router password updates.`);
 
-    for (const user of users) {
-        if (!user.wsnId) {
-            skipped++;
-            continue;
+    let updated = 0;
+    let fallbackUsed = 0;
+
+    for (const account of accounts) {
+        // 2. Locate the owner user document to find their phone number
+        const user = await db.collection("users").findOne({ _id: account.userId });
+
+        let targetPassword = "access@C0NN3CT@pppoe123$"; // Secure structural default
+
+        if (user && user.phoneNumber && user.phoneNumber.trim() !== "") {
+            targetPassword = user.phoneNumber.trim();
+        } else {
+            fallbackUsed++;
         }
 
-        const existing = await db.collection("accounts").findOne({
-            userId: user._id,
-        });
+        // 3. Update the specific account record inline
+        await db.collection("accounts").updateOne(
+            { _id: account._id },
+            {
+                $set: {
+                    routerPassword: targetPassword,
+                    updatedAt: new Date()
+                }
+            }
+        );
 
-        if (existing) continue;
-
-        const profileStatus =
-            user.subscriptionStatus === "active"
-                ? "active"
-                : "pending";
-
-        const devices = [];
-
-        if (user.macAddress) {
-            devices.push({
-                macAddress: user.macAddress.toUpperCase(),
-            });
-        }
-
-        await db.collection("accounts").insertOne({
-            userId: user._id,
-
-            accountType: "personal",
-
-            wsnId: user.wsnId,
-
-            routerPassword: user.routerPassword || null,
-
-            routerProfile: user.routerProfile || "default",
-
-            serviceType: "pppoe",
-
-            profileStatus,
-
-            devices,
-
-            routerProvision: {
-                status: user.hotspotSynced
-                    ? "synced"
-                    : "pending",
-
-                lastError: user.hotspotError || null,
-
-                lastAttemptAt: user.lastSyncAt || null,
-            },
-
-            limitUptime: "0",
-
-            createdAt: user.createdAt || new Date(),
-            updatedAt: new Date(),
-        });
-
-        created++;
+        updated++;
     }
 
-    console.log(`Accounts created: ${created}`);
-    console.log(`Skipped users: ${skipped}`);
-}                                                                           
+    console.log(`Successfully completed password backfill.`);
+    console.log(`Total accounts updated: ${updated}`);
+    console.log(`Accounts using default fallback password: ${fallbackUsed}`);
+}
+
+export async function down(db) {
+    console.log("Reverting migration: 003-backfill-router-passwords (No-op to protect current system integrity)");
+}

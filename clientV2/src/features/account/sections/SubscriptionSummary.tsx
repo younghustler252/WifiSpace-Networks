@@ -19,10 +19,12 @@ import Button from "@/components/ui/Button";
 type Props = {
 	accountId: string;
 	role?: "customer" | "superAdmin" | "staff";
+	userId?: string;
 };
 
 export default function SubscriptionSummary({
 	accountId,
+	userId,
 	role = "customer",
 }: Props) {
 
@@ -76,9 +78,10 @@ if (error || !subscription) {
 
 					{role !== "customer" ? (
 						<Link
-							href={`/admin/subscriptions/${accountId}?action=assign`}
+							href={`/admin/subscriptions/${accountId}?action=assign&userId=${userId}`}
 							className="mt-5"
 						>
+
 							<Button className="gap-2">
 								<PlusCircle size={16} />
 								Assign Subscription

@@ -97,7 +97,7 @@ export default function VerifyOtp() {
 			setSuccess("Account verified successfully");
 
 			setTimeout(() => {
-				router.push("/dashboard");
+				router.push("/");
 			}, 800);
 		} catch (err: any) {
 			setUiState("error");

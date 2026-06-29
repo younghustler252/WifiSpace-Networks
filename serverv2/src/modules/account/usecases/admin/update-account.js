@@ -1,72 +1,68 @@
-import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class UpdateAccount {
 
-	constructor({accountRepository, permissionService, auditService}) {
+	constructor({ accountRepository, permissionService, auditService }) {
 		this.accountRepository = accountRepository;
 		this.permissionService = permissionService;
 		this.auditService = auditService;
 	}
 
 	/**
-	 * Update a user's own account
-	 * @param {Object} currentUser - logged-in user
-	 * @param {string} accountId - account to update
-	 * @param {Object} updateData - fields allowed to update
-	 * @param {Object} context - { ip, userAgent } for audit logging
+	 * Administrative update of any network account profile
 	 */
 	async execute(currentUser, accountId, updateData, context = {}) {
 
-		// ----------------------------
-		// Fetch Account
-		// ----------------------------
+		// 2. Fetch target account profile
 		const account = await this.accountRepository.findById(accountId);
-
-		if (!account || account.userId !== currentUser.id) {
-			throw new NotFoundError("Account not found or not owned by user");
+		if (!account) {
+			throw new NotFoundError("Account network profile context not found");
 		}
 
-		// ----------------------------
-		// Allowed fields for user updates
-		// ----------------------------
-		const allowedFields = ["pppoePassword", "routerProfile", "businessName", "taxId", "companyRegistrationNumber"];
-		const updates = {};
+		// 3. ✅ Expanded Allowed Fields Array (Includes all hardware, types, and limits)
+		const allowedFields = [
+			"accountType",
+			"businessName",
+			"companyRegistrationNumber",
+			"taxId",
+			"wsnId",
+			"routerPassword",
+			"routerId",
+			"routerProfile",
+			"devices",
+			"serviceType",
+			"profileStatus",
+			"routerProvision",
+			"limitUptime",
+			"routerPassword" // Inherited from common field options
+		];
 
+		const updates = {};
 		for (const key of Object.keys(updateData)) {
 			if (allowedFields.includes(key)) {
 				updates[key] = updateData[key];
 			} else {
-				throw new ValidationError(`Cannot update field: ${key}`);
+				throw new ValidationError(`Administrative override rejected for field parameter: ${key}`);
 			}
 		}
 
-		// ----------------------------
-		// Apply updates
-		// ----------------------------
+		// 4. Apply schema payload structural changes
 		Object.assign(account, updates);
-
-		// If business account and critical fields missing → PENDING
-		// if (account.isBusinessAccount() && !account.isBusinessComplete()) {
-		// 	account.profileStatus = PROFILE_STATUSES.PENDING;
-		// }
-
 		const updatedAccount = await this.accountRepository.update(account.id, account);
 
-		// ----------------------------
-		// Audit log
-		// ----------------------------
+		// 5. ✅ Administrative Action Audit Logging
 		await this.auditService.log({
 			actorId: currentUser.id,
-			action: "ACCOUNT_UPDATED_SELF",
+			action: "ACCOUNT_UPDATED_BY_ADMIN", // Modified track action label
 			targetId: updatedAccount.id,
 			resource: "Account",
 			metadata: {
 				accountType: updatedAccount.accountType,
 				userId: updatedAccount.userId,
 				wsnId: updatedAccount.wsnId,
-				updatedFields: Object.keys(updates)
+				updatedFields: Object.keys(updates),
+				previousStateSnapshot: updates.profileStatus ? { status: account.profileStatus } : undefined
 			},
 			ip: context.ip,
 			userAgent: context.userAgent

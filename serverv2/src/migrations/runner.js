@@ -25,7 +25,7 @@ async function run() {
         const db = mongoose.connection.db;
 
         // await migration001(db);
-        // await migration002(db);
+        await migration002(db);
         // await migration003(db);
         // await migration004(db);
         // await migration005(db);
@@ -33,7 +33,7 @@ async function run() {
         // await migration007(db); // 👈 Trigger the execution pass
         // await migration008(db); 
         // await migration009(db);
-        await migration010(db);
+        // await migration010(db);
 
         console.log("🎉 All core database migrations and router linkages executed completely!");
         process.exit(0);

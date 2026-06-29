@@ -13,7 +13,6 @@ import { useSubscriptionStatus } from "./hooks/useSubscriptionStatus";
 import { planApi } from "@/lib/api/plan";
 import SubscriptionHero from "./sections/SubscriptionHero";
 import SubscriptionTimeline from "./sections/SubscriptionTimeline";
-import SubscriptionOverview from "./sections/SubscriptionOverview";
 import SubscriptionActions from "./sections/SubscriptionActions";
 import SubscriptionBillingInfo from "./sections/SubscriptionBillingInfo";
 import SubscriptionNetworkInfo from "./sections/SubscriptionNetworkInfo";
@@ -39,6 +38,7 @@ type Role = "customer" | "staff" | "superadmin";
 
 interface Props {
 	accountId: string;
+	userId?: string;
 	role: Role;
 }
 
@@ -60,9 +60,11 @@ export function useCachedPlans() {
 export default function SubscriptionPanel({
 	accountId,
 	role,
+	userId: propUserId,
 }: Props) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
+	const urlUserId = searchParams.get("userId");
 
 	useEffect(() => {
 		if (searchParams.get("action") === "assign") {
@@ -264,90 +266,103 @@ export default function SubscriptionPanel({
 		);
 	}
 
-	if (!subscription) {
-		return (
-			<Card>
-				<CardContent className="py-14 text-center">
-					<AlertTriangle className="mx-auto mb-4 text-warning" />
-					<h3>No Active Subscription</h3>
-					<div className="mt-6 flex justify-center gap-3">
-						<Button variant="outline" onClick={() => refetch()}>Refresh</Button>
-					</div>
-				</CardContent>
-			</Card>
-		);
-	}
-
+	
 	return (
 		<>
-			<div className="grid gap-8 lg:grid-cols-12">
-				{/* LEFT CONTENT */}
-				<div className="space-y-8 lg:col-span-8">
-					<SubscriptionHero subscription={subscription} status={status} />
-					
-					<SubscriptionTimeline
-						progress={metrics.progress}
-						daysLeft={metrics.daysLeft}
-						isExpired={isExpired}
-						startDate={metrics.startDate}
-						endDate={metrics.endDate}
-					/>
-
-					<SubscriptionBillingInfo subscription={subscription} />
-					<SubscriptionNetworkInfo 
-						subscription={subscription} 
-						role={role}
-						onSyncHardware={handleSyncHardwareSubmit}
-						isSyncing={actions.syncHardwareMutation.isPending}
-					/>
-
-
-					{/* <SubscriptionOverview subscription={subscription} /> */}
-				</div>
-
-				{/* RIGHT SIDEBAR ACTIONS */}
-				<div className="lg:col-span-4">
-					<div className="space-y-6 lg:sticky lg:top-6">
-						<SubscriptionActions
-							role={role}
-							hasActiveSubscription={!isExpired}
-							isSuspended={isSuspended}
-							onRenew={openRenewModal}
-							onUpgrade={upgradeSubscription}
-							onAssign={() => {
-								setTargetPlanId(""); 
-								setRenewCycles(1);   
-								setAdminReason("Initial administrative account assignment");
-								setShowAssignModal(true);
-							}}
-							onSuspend={() => setShowSuspendModal(true)}
-							onResume={() => actions.resumeMutation.mutate(undefined, {
-								onSuccess: () => notify.success("Subscription resumed safely."),
-								onError: (err: any) => notify.error(err?.message),
-							})}
-							onExtend={() => setShowExtendModal(true)} 
-							onExpire={() => setShowCancelModal(true)}
-							onAdminRenew={() => {
-								setRenewCycles(1); 
-								setShowAdminRenewModal(true);
-							}}
-							onAdminChangePlan={() => setShowChangePlanModal(true)}
-							onSyncHardware={handleSyncHardwareSubmit}
-
-							loadingStates={{
-								resume: actions.resumeMutation.isPending,
-								extend: actions.extendMutation.isPending,
-								expire: actions.forceExpireMutation.isPending,
-								adminRenew: actions.adminRenewMutation.isPending,
-								adminChangePlan: actions.adminChangePlanMutation.isPending,
-								suspend: actions.suspendMutation.isPending,
-								syncHardware: actions.syncHardwareMutation.isPending 
-							}}
+			{!subscription ? (
+				/* ================= BLANK STATE UI (NEW USER) ================= */
+				<Card className="max-w-md mx-auto my-12">
+					<CardContent className="py-14 text-center">
+						<AlertTriangle className="mx-auto mb-4 text-warning" />
+						<h3>No Active Subscription</h3>
+						<p className="text-xs text-muted-foreground mt-2 max-w-xs mx-auto">
+							This account does not have a network access profile provisioned yet.
+						</p>
+						<div className="mt-6 flex justify-center gap-3">
+							<Button 
+								variant="accent" 
+								onClick={() => {
+									setTargetPlanId(""); 
+									setRenewCycles(1);   
+									setAdminReason("Initial administrative account assignment");
+									setShowAssignModal(true);
+								}}
+							>
+								Assign Subscription
+							</Button>
+							<Button variant="outline" onClick={() => refetch()}>Refresh</Button>
+						</div>
+					</CardContent>
+				</Card>
+			) : (
+				<div className="grid gap-8 lg:grid-cols-12">
+					{/* LEFT CONTENT */}
+					<div className="space-y-8 lg:col-span-8">
+						<SubscriptionHero subscription={subscription} status={status} />
+						
+						<SubscriptionTimeline
+							progress={metrics.progress}
+							daysLeft={metrics.daysLeft}
+							isExpired={isExpired}
+							startDate={metrics.startDate}
+							endDate={metrics.endDate}
 						/>
+
+						<SubscriptionBillingInfo subscription={subscription} />
+						<SubscriptionNetworkInfo 
+							subscription={subscription} 
+							role={role}
+							onSyncHardware={handleSyncHardwareSubmit}
+							isSyncing={actions.syncHardwareMutation.isPending}
+						/>
+
+
+						{/* <SubscriptionOverview subscription={subscription} /> */}
+					</div>
+
+					{/* RIGHT SIDEBAR ACTIONS */}
+					<div className="lg:col-span-4">
+						<div className="space-y-6 lg:sticky lg:top-6">
+							<SubscriptionActions
+								role={role}
+								hasActiveSubscription={!isExpired}
+								isSuspended={isSuspended}
+								onRenew={openRenewModal}
+								onUpgrade={upgradeSubscription}
+								onAssign={() => {
+									setTargetPlanId(""); 
+									setRenewCycles(1);   
+									setAdminReason("Initial administrative account assignment");
+									setShowAssignModal(true);
+								}}
+								onSuspend={() => setShowSuspendModal(true)}
+								onResume={() => actions.resumeMutation.mutate(undefined, {
+									onSuccess: () => notify.success("Subscription resumed safely."),
+									onError: (err: any) => notify.error(err?.message),
+								})}
+								onExtend={() => setShowExtendModal(true)} 
+								onExpire={() => setShowCancelModal(true)}
+								onAdminRenew={() => {
+									setRenewCycles(1); 
+									setShowAdminRenewModal(true);
+								}}
+								onAdminChangePlan={() => setShowChangePlanModal(true)}
+								onSyncHardware={handleSyncHardwareSubmit}
+
+								loadingStates={{
+									resume: actions.resumeMutation.isPending,
+									extend: actions.extendMutation.isPending,
+									expire: actions.forceExpireMutation.isPending,
+									adminRenew: actions.adminRenewMutation.isPending,
+									adminChangePlan: actions.adminChangePlanMutation.isPending,
+									suspend: actions.suspendMutation.isPending,
+									syncHardware: actions.syncHardwareMutation.isPending 
+								}}
+							/>
+						</div>
 					</div>
 				</div>
-			</div>
-
+			)}
 
 			{/* ================= USER RENEW MODAL (PAYMENT CHANNELS) ================= */}
 			<Modal 
@@ -747,6 +762,8 @@ export default function SubscriptionPanel({
 			</Modal>
 
 			{/* ================= ADMIN ASSIGN SUBSCRIPTION MODAL ================= */}
+
+
 			<Modal open={showAssignModal} onClose={() => setShowAssignModal(false)}>
 				<ModalHeader>
 					<div className="flex items-center gap-2">
@@ -833,7 +850,7 @@ export default function SubscriptionPanel({
 									accountId,
 									planId: targetPlanId,
 									cycles: renewCycles,
-									userId: subscription?.userId, 
+									userId: subscription?.userId || urlUserId || "", 
 									overrideExisting: true, 
 									reason: adminReason || "Initial administrative account assignment"
 								},
@@ -852,8 +869,8 @@ export default function SubscriptionPanel({
 					</Button>
 				</ModalFooter>
 			</Modal>
-
-
+			
 		</>
+
 	);
 }

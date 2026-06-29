@@ -184,7 +184,7 @@ export default function HotspotSuccessClient() {
                     <div className="rounded-xl border bg-background/80 p-4 space-y-3 text-sm mx-2">
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Plan ID</span>
-                            <span className="font-mono font-medium text-xs text-neutral-800 break-all">{payment?.planId || "Hotspot"}</span>
+                            <span className="font-mono font-medium text-xs text-neutral-800 break-all">{payment?.planId.name || "Hotspot"}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Amount paid</span>

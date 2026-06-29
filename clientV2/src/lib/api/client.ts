@@ -54,6 +54,23 @@ export const API: AxiosInstance = axios.create({
 });
 
 // ================================
+// ⏳ RACE CONDITION PROOF QUEUE VARIABLES
+// ================================
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+	failedQueue.forEach((prom) => {
+		if (error) {
+			prom.reject(error);
+		} else {
+			prom.resolve(token);
+		}
+	});
+	failedQueue = [];
+};
+
+// ================================
 // TOKEN HELPERS
 // ================================
 
@@ -84,6 +101,8 @@ const clearAuthStorage = (): void => {
 		localStorage.removeItem("accessToken");
 		localStorage.removeItem("refreshToken");
 		localStorage.removeItem("user");
+		// Redirecting to login prevents white-screens when tokens vanish
+		window.location.href = "/login?session=expired";
 	}
 };
 
@@ -109,10 +128,7 @@ API.interceptors.request.use(
 // ================================
 const isAuthRoute = (url?: string) => {
 	if (!url) return false;
-
-	return (
-		url.includes("/auth/")
-	);
+	return url.includes("/auth/");
 };
 
 API.interceptors.response.use(
@@ -142,7 +158,23 @@ API.interceptors.response.use(
 		// HANDLE TOKEN EXPIRY ONLY
 		// ================================
 		if (status === 401 && originalRequest && !originalRequest._retry) {
+			
+			// 🛑 Catch subsequent parallel queries if refresh token task is active
+			if (isRefreshing) {
+				return new Promise((resolve, reject) => {
+					failedQueue.push({ resolve, reject });
+				})
+					.then((token) => {
+						if (originalRequest.headers) {
+							originalRequest.headers.Authorization = `Bearer ${token}`;
+						}
+						return API(originalRequest);
+					})
+					.catch((err) => Promise.reject(err));
+			}
+
 			originalRequest._retry = true;
+			isRefreshing = true;
 
 			try {
 				const refreshToken = getRefreshToken();
@@ -155,8 +187,8 @@ API.interceptors.response.use(
 					});
 				}
 
+				// Fetch refresh payload
 				const resData = await authApi.refresh(refreshToken);
-
 				const newAccessToken = resData.data.accessToken;
 
 				if (!newAccessToken) {
@@ -169,19 +201,22 @@ API.interceptors.response.use(
 
 				setAccessToken(newAccessToken);
 
-			
-
 				if (resData?.data?.refreshToken) {
 					setRefreshToken(resData.data.refreshToken);
 				}
 
 				if (originalRequest.headers) {
-					originalRequest.headers.Authorization =
-						`Bearer ${newAccessToken}`;
+					originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
 				}
+
+				// ✅ Flush queue variables & resolve pending queries
+				processQueue(null, newAccessToken);
+				isRefreshing = false;
 
 				return API(originalRequest);
 			} catch (refreshError) {
+				processQueue(refreshError, null);
+				isRefreshing = false;
 				clearAuthStorage();
 
 				return Promise.reject({

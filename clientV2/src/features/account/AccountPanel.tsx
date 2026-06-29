@@ -86,6 +86,7 @@ const AccountPanel = ({
 
 						<SubscriptionSummary
 							accountId={account.id}
+							userId={account.userId}
 							role={role}
 						/>
 

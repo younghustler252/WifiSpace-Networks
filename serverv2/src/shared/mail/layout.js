@@ -19,7 +19,7 @@ export default function mailLayout ({ content, title = "Wifispace" }) {
                         <tr>
                             <td align="center" style="padding:20px;background:#111827;">
                                 <img 
-                                    src="https://wifispace.netlify.app/wifispaceDark.png" 
+                                    src="https://wifispace.netlify.app/wifispace.png" 
                                     alt="Company Logo" 
                                     width="150"
                                     style="display:block;"
