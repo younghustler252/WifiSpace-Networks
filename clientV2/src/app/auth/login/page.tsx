@@ -36,7 +36,7 @@ export default function Login() {
 
 		try {
 			const response = await login(data);
-			console.log("Login response:", response);
+			// console.log("Login response:", response);
 
 			
 

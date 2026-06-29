@@ -2,7 +2,7 @@ import { ValidationError } from "../../../shared/errors/validation-error.js";
 import { User } from "../../user/domain/user.entity.js";
 
 export class RegisterUser {
-	constructor({userRepository, passwordService, auditService, mailService , tokenService}) {
+	constructor({userRepository, passwordService, auditService, mailService, tokenService}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;
@@ -16,7 +16,6 @@ export class RegisterUser {
 			throw new ValidationError("All required fields must be provided");
 		}
 
-
 		const existingUser = await this.userRepository.findByEmail(email);
 		if (existingUser) {
 			throw new ValidationError("Email already registered");
@@ -27,7 +26,10 @@ export class RegisterUser {
 		const otp = Math.floor(100000 + Math.random() * 900000);
 		const hashedOtp = await this.passwordService.hash(otp.toString());
 
-		// 5️⃣ Create user entity
+		// ✅ FIXED: Using a real Date object to guarantee smooth database engine mapping
+		const otpExpiryDate = new Date(Date.now() + 10 * 60 * 1000);
+
+		// Create user entity
 		const userEntity = new User({
 			firstName,
 			lastName,
@@ -39,13 +41,13 @@ export class RegisterUser {
 			phone,
 			permissions: [],
 			verificationOTP: hashedOtp,
-			otpExpiresAt: Date.now() + 10 * 60 * 1000 // OTP valid for 10 minutes
+			otpExpiresAt: otpExpiryDate
 		});
 
-		// 6️⃣ Persist user
+		// Persist user
 		const createdUser = await this.userRepository.create(userEntity);
 
-		// 7️⃣ Audit log (safe)
+		// Audit log (safe catch)
 		if (this.auditService) {
 			try {
 				await this.auditService.log({
@@ -55,11 +57,11 @@ export class RegisterUser {
 					metadata: { email, ip, userAgent }
 				});
 			} catch (err) {
-				console.error("AuditService failed:", err);
+				console.error("AuditService failed:", err.message);
 			}
 		}
 
-		// 8️⃣ Send OTP email (safe)
+		// Send OTP email (safe catch)
 		let verificationSent = false;
 		let mailError = null;
 

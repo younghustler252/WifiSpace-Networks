@@ -40,7 +40,6 @@ export function PaymentSummary({ accountId }: Props) {
 	// console.log(data)
 	const payments: Payment[] =
 		data?.data?.data ?? [];
-	// console.log(payments)
 
 	return (
 		<>

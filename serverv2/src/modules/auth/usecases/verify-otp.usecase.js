@@ -24,14 +24,8 @@ export class VerifyOtp {
 			throw new ValidationError("No OTP set. Please request a new one.");
 		}
 
+		// Sync code lockouts in memory first
 		user.unlockOTPIfExpired();
-
-		if (user.otpAttempts === 0 && user.otpLockedUntil === null) {
-			await this.userRepository.update(user.id, {
-				otpAttempts: user.otpAttempts,
-				otpLockedUntil: user.otpLockedUntil
-			});
-		}
 
 		if (user.isOTPLocked()) {
 			throw new ValidationError("Too many OTP attempts. Please try again later.");
@@ -45,6 +39,8 @@ export class VerifyOtp {
 
 		if (!isValid) {
 			user.incrementOTPAttempts();
+			
+			// Persist the lock/attempt state on failure
 			await this.userRepository.update(user.id, {
 				otpAttempts: user.otpAttempts,
 				otpLockedUntil: user.otpLockedUntil
@@ -52,22 +48,33 @@ export class VerifyOtp {
 			throw new ValidationError("Invalid OTP");
 		}
 
+		// ✅ Mutates entity memory state: sets isVerified=true, clear OTP values to prevent reuse
 		user.verify();
 
+		// ✅ FIXED: Explicitly map all attributes including null values to clear them from database storage completely
 		await this.userRepository.update(user.id, {
-			isVerified: user.isVerified,
-			verificationOTP: user.verificationOTP,
-			otpExpiresAt: user.otpExpiresAt,
-			otpAttempts: user.otpAttempts,
-			otpLockedUntil: user.otpLockedUntil,
+			isVerified: true,
+			verificationOTP: null,     // Overwrite old hash values securely
+			otpExpiresAt: null,        // Overwrite expiry timestamps securely
+			otpAttempts: 0,
+			otpLockedUntil: null,
 			lastOtpSentAt: user.lastOtpSentAt
 		});
 
+		// Create safe object formatting payload matching your architecture profile
 		const plainUser = typeof user.toObject === "function" ? user.toObject() : JSON.parse(JSON.stringify(user));
-		
-		// Ensure all possible identifier variants are mirrored onto the payload object safely
 		plainUser.id = plainUser._id ? plainUser._id.toString() : plainUser.id;
 		plainUser._id = plainUser.id;
+
+		// Audit Log Tracking Hook
+		if (this.auditService) {
+			await this.auditService.log({
+				actorId: user.id,
+				action: "OTP_VERIFIED",
+				resource: "User",
+				metadata: { ip }
+			}).catch((err) => console.error("Verification audit failed:", err.message));
+		}
 
 		return {
 			user,

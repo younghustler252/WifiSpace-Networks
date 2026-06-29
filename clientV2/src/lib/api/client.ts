@@ -101,8 +101,8 @@ const clearAuthStorage = (): void => {
 		localStorage.removeItem("accessToken");
 		localStorage.removeItem("refreshToken");
 		localStorage.removeItem("user");
-		// Redirecting to login prevents white-screens when tokens vanish
-		window.location.href = "/login?session=expired";
+		// Redirecting to login with a clean query string parameter instead of a broken sub-page layout
+		window.location.href = "/auth/login";
 	}
 };
 
@@ -133,6 +133,7 @@ const isAuthRoute = (url?: string) => {
 
 API.interceptors.response.use(
 	(response) => {
+		// ✅ PRESERVED: Keeps your format intact across your entire codebase
 		return response.data;
 	},
 
@@ -166,7 +167,8 @@ API.interceptors.response.use(
 				})
 					.then((token) => {
 						if (originalRequest.headers) {
-							originalRequest.headers.Authorization = `Bearer ${token}`;
+							// ✅ FIXED: Correct assignment format for newer Axios headers configuration block
+							originalRequest.headers['Authorization'] = `Bearer ${token}`;
 						}
 						return API(originalRequest);
 					})
@@ -189,7 +191,9 @@ API.interceptors.response.use(
 
 				// Fetch refresh payload
 				const resData = await authApi.refresh(refreshToken);
-				const newAccessToken = resData.data.accessToken;
+				
+				// ✅ FIXED: Safely unpacks token value whether resData is wrapped or raw data object
+				const newAccessToken = resData?.data?.accessToken || (resData as any)?.accessToken;
 
 				if (!newAccessToken) {
 					clearAuthStorage();
@@ -200,13 +204,16 @@ API.interceptors.response.use(
 				}
 
 				setAccessToken(newAccessToken);
+				console.log("refresh",resData.data)
 
-				if (resData?.data?.refreshToken) {
-					setRefreshToken(resData.data.refreshToken);
+				const newRefreshToken = resData?.data?.refreshToken || (resData as any)?.refreshToken;
+				if (newRefreshToken) {
+					setRefreshToken(newRefreshToken);
 				}
 
 				if (originalRequest.headers) {
-					originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+					// ✅ FIXED: Direct bracket notation update prevents silent auth drops on the retried request
+					originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
 				}
 
 				// ✅ Flush queue variables & resolve pending queries

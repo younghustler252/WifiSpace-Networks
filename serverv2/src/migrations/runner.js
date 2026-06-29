@@ -25,9 +25,9 @@ async function run() {
         const db = mongoose.connection.db;
 
         // await migration001(db);
-        await migration002(db);
+        // await migration002(db);
         // await migration003(db);
-        // await migration004(db);
+        await migration004(db);
         // await migration005(db);
         // await migration006(db);
         // await migration007(db); // 👈 Trigger the execution pass

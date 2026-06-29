@@ -47,16 +47,17 @@ export class ActivateHotspotAccess {
 			devices
 		});
 
-		// try {
-		// 	const userExists = await this.mikrotikService.checkUserExists(account, router);
-		// 	if (userExists) {
-		// 		await this.mikrotikService.updateAccount(account, router);
-		// 	} else {
-		// 		await this.mikrotikService.createAccount(account, router);
-		// 	}
-		// } catch (dbError) {
-		// 	throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
-		// }
+		try {
+			const userExists = await this.mikrotikService.checkUserExists(account, router);
+			if (userExists) {
+				await this.mikrotikService.changePassword(account, router, account.routerPassword);
+				await this.mikrotikService.updateAccount(account, router);
+			} else {
+				await this.mikrotikService.createAccount(account, router);
+			}
+		} catch (dbError) {
+			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
+		}
 
 		try {
 			return await this.mikrotikService.provisionAccess(

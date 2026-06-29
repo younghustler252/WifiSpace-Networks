@@ -3,20 +3,20 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 export class CreateRouterAccount {
 	constructor({
 		accountRepository,
+		userRepository,
 		routerRepository,
 		mikrotikService,
 		auditService,
 	}) {
 		this.accountRepository = accountRepository;
+		this.userRepository = userRepository;
 		this.routerRepository = routerRepository;
 		this.mikrotikService = mikrotikService;
 		this.auditService = auditService;
 	}
 
 	async execute(accountId, context = {}) {
-
-		const account =
-			await this.accountRepository.findById(accountId);
+		const account = await this.accountRepository.findById(accountId);
 
 		if (!account)
 			throw new ValidationError("Account not found");
@@ -25,16 +25,32 @@ export class CreateRouterAccount {
 			throw new ValidationError("No router assigned to account");
 
 		// ----------------------------
-		// SAFE PASSWORD FALLBACK
+		// OPTIMIZED PASSWORD LOOKUP (CHECK CONTEXT / EXISTING / FALLBACK)
 		// ----------------------------
-		const routerPassword =
-			account.routerPassword || "C0NN3CT@pppoe123$";
+		let routerPassword = context.routerPassword || account.routerPassword;
 
-		// IMPORTANT: ensure consistency in memory
+		if (!routerPassword) {
+			console.log(`[CreateRouterAccount] Password missing. Fetching user record...`);
+			
+			try {
+				const user = await this.userRepository.findById(account.userId.toString());
+				const userPhone = user?.phone;
+
+				if (account.serviceType === "hotspot") {
+					routerPassword = userPhone || "Access123";
+				} else {
+					routerPassword = userPhone || "C0NN3CT@pppoe123$";
+				}
+			} catch (dbErr) {
+				console.error("User lookup failed in router provisioning:", dbErr.message);
+				routerPassword = account.serviceType === "hotspot" ? "Access123" : "C0NN3CT@pppoe123$";
+			}
+		}
+
+		// Ensure consistency in memory
 		account.routerPassword = routerPassword;
 
-		const router =
-			await this.routerRepository.findById(account.routerId);
+		const router = await this.routerRepository.findById(account.routerId);
 
 		if (!router)
 			throw new ValidationError("Router not found");
@@ -44,12 +60,11 @@ export class CreateRouterAccount {
 		}
 
 		try {
-			// prevent duplicate provisioning
-			const exists =
-				await this.mikrotikService.checkUserExists(
-					account,
-					router
-				);
+			// Prevent duplicate provisioning
+			const exists = await this.mikrotikService.checkUserExists(
+				account,
+				router
+			);
 
 			if (!exists) {
 				await this.mikrotikService.createAccount(
@@ -59,65 +74,38 @@ export class CreateRouterAccount {
 				);
 			}
 
-			account.routerProvision =
-				account.routerProvision || {};
-
+			account.routerProvision = account.routerProvision || {};
 			account.routerProvision.status = "synced";
 			account.routerProvision.lastError = null;
-			account.routerProvision.lastAttemptAt =
-				new Date();
+			account.routerProvision.lastAttemptAt = new Date();
 
-			const updatedAccount =
-				await this.accountRepository.update(
-					account.id,
-					account
-				);
-
-			await this.routerRepository.incrementSessions(
-				router.id
+			// Persist the updated state and password string
+			const updatedAccount = await this.accountRepository.update(
+				account.id,
+				account
 			);
 
-			// if (this.auditService) {
-			// 	await this.auditService.log({
-			// 		actorId: context.actorId,
-			// 		action: "ROUTER_PROVISIONED",
-			// 		targetId: updatedAccount.id,
-			// 		resource: "Account",
-			// 		metadata: {
-			// 			wsnId: updatedAccount.wsnId,
-			// 			routerCode: router.code,
-			// 		},
-			// 	});
-			// }
+			await this.routerRepository.incrementSessions(router.id);
 
 			return {
 				success: true,
 				code: "ROUTER_PROVISIONED",
-				message:
-					"Account successfully provisioned on router",
+				message: "Account successfully provisioned on router",
 				data: updatedAccount,
 			};
 
 		} catch (error) {
-
-			account.routerProvision =
-				account.routerProvision || {};
-
+			account.routerProvision = account.routerProvision || {};
 			account.routerProvision.status = "failed";
-			account.routerProvision.lastError =
-				error.message;
-
-			account.routerProvision.lastAttemptAt =
-				new Date();
+			account.routerProvision.lastError = error.message;
+			account.routerProvision.lastAttemptAt = new Date();
 
 			await this.accountRepository.update(
 				account.id,
 				account
 			);
 
-			throw new Error(
-				`Provisioning failed: ${error.message}`
-			);
+			throw new Error(`Provisioning failed: ${error.message}`);
 		}
 	}
 }

@@ -39,7 +39,8 @@ export class ResendOtp {
 			100000 + Math.random() * 900000
 		);
 
-		const otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 mins
+		// ✅ FIXED: Standardized on Native Date objects for unified database consistency
+		const otpExpiryDate = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
 
 		const hashedOtp = await this.passwordService.hash(
 			otp.toString()
@@ -48,8 +49,12 @@ export class ResendOtp {
 		// -----------------------------
 		// Update domain entity
 		// -----------------------------
-		user.setVerificationOTP(hashedOtp, otpExpiresAt);
+		user.setVerificationOTP(hashedOtp, otpExpiryDate);
 		user.markOtpSent();
+		
+		// ✅ FIXED: Clear out old code brute-force lockout states for this new delivery cycle
+		user.otpAttempts = 0;
+		user.otpLockedUntil = null;
 
 		// -----------------------------
 		// Persist to DB
@@ -57,30 +62,42 @@ export class ResendOtp {
 		await this.userRepository.update(user.id, {
 			verificationOTP: user.verificationOTP,
 			otpExpiresAt: user.otpExpiresAt,
-			otpAttempts: user.otpAttempts,
-			otpLockedUntil: user.otpLockedUntil,
+			otpAttempts: 0,
+			otpLockedUntil: null,
 			lastOtpSentAt: user.lastOtpSentAt,
 		});
 
 		// -----------------------------
-		// Send email
+		// Send email (Safe Network Handling)
 		// -----------------------------
-		await this.mailService.sendOTP({
-			to: user.email,
-			name: user.getFullName(),
-			otp,
-			expiresIn: 10,
-		});
+		if (this.mailService) {
+			try {
+				await this.mailService.sendOTP({
+					to: user.email,
+					name: user.getFullName(),
+					otp,
+					expiresIn: 10,
+				});
+			} catch (mailErr) {
+				// Log the issue clearly but don't let it ruin the response flow if the DB update succeeded
+				console.error("[ResendOtp] Email gateway delivery failed:", mailErr.message);
+			}
+		}
 
 		// -----------------------------
 		// Frontend-ready response
 		// -----------------------------
-		const nextResendAt = user.lastOtpSentAt + 60 * 1000;
+		// ✅ FIXED: Safely handles conversion whether lastOtpSentAt is a raw timestamp or native Date object
+		const sentTimeMs = user.lastOtpSentAt instanceof Date 
+			? user.lastOtpSentAt.getTime() 
+			: new Date(user.lastOtpSentAt).getTime();
+
+		const nextResendAt = new Date(sentTimeMs + 60 * 1000);
 
 		return {
 			message: "OTP resent successfully",
-			otpExpiresAt,
-			nextResendAt,
+			otpExpiresAt: user.otpExpiresAt,
+			nextResendAt: nextResendAt,
 			canResend: true,
 			resendCooldownSeconds: 60,
 		};

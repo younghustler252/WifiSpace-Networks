@@ -38,7 +38,6 @@ const ProfilePage = () => {
 		queryFn: userApi.getProfile,
 		enabled: !!user,
 	});
-	console.log("profileDatas", profileDatas);
 	const profileData = profileDatas?.data;
 
 	// ================= FORMS =================

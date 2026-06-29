@@ -15,7 +15,6 @@ export class LoginUser {
 		if (!user) {
 			throw new UnauthorizedError("Invalid credentials", "INVALID_CREDENTIALS");
 		}
-		// console.log("user id", user.id)
 		
 		if (!user.isActive()) throw new ForbiddenError("Account is not active", "ACCOUNT_INACTIVE");
 		if (user.isLocked()) throw new ForbiddenError("Account temporarily locked", "ACCOUNT_LOCKED");
@@ -55,15 +54,6 @@ export class LoginUser {
 			};
 		}
 		
-		// if (this.auditService) {
-		// 	await this.auditService.log({
-		// 		actorId: null,
-		// 		action: "LOGIN_FAILED",
-		// 		resource: "User",
-		// 		metadata: { email, reason: "USER_NOT_FOUND", ip, userAgent }
-		// 	});
-		// }
-		// ✅ Reset failed attempts + last login
 		user.resetLoginAttempts();
 		await this.userRepository.updateSecurityState(user.id, {
 			failedLoginAttempts: 0,
@@ -72,13 +62,15 @@ export class LoginUser {
 		});
 
 		// 🔑 Generate access & refresh tokens
-		let accessToken, refreshToken;
+		let accessToken = null;
+		let refreshToken = null;
+		
 		if (this.tokenService) {
-			accessToken = this.tokenService.generateAccessToken({ sub: user.id, role: user.role });
-			refreshToken = this.tokenService.generateRefreshToken({ sub: user.id });
+			// ✅ FIXED: Pass the raw user instance object directly so TokenService extracts properties correctly
+			accessToken = this.tokenService.generateAccessToken(user);
+			refreshToken = this.tokenService.generateRefreshToken(user);
 		}
 
-		// 📝 Audit successful login
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId: user.id,

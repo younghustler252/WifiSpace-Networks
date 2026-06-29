@@ -36,7 +36,7 @@ export default function Dashboard() {
 
 	// ================= DATA (ONLY WHEN ACCOUNT EXISTS) =================
 	const { data } = useUsage(accountId);
-	console.log("Usage Data:", data);
+	// console.log("Usage Data:", data);
 	const usage = data?.data;
 
 	const { subscription } = useSubscription(accountId ?? "");

@@ -1,16 +1,17 @@
 export async function up(db) {
-    console.log("Running migration: 003-backfill-router-passwords");
+    console.log("Running migration: 003-backfill-router-passwords (Updated Rule Matcher)");
 
-    // 1. Fetch all accounts currently missing a router password, or where it's null/empty
+    // 1. Find accounts missing a password OR holding the old invalid default string fallback parameter
     const accounts = await db.collection("accounts").find({
         $or: [
             { routerPassword: null },
             { routerPassword: "" },
-            { routerPassword: { $exists: false } }
+            { routerPassword: { $exists: false } },
+            { routerPassword: "access@C0NN3CT@pppoe123$" }
         ]
     }).toArray();
 
-    console.log(`Found ${accounts.length} profiles requiring router password updates.`);
+    console.log(`Found ${accounts.length} profiles requiring password realignment.`);
 
     let updated = 0;
     let fallbackUsed = 0;
@@ -19,15 +20,26 @@ export async function up(db) {
         // 2. Locate the owner user document to find their phone number
         const user = await db.collection("users").findOne({ _id: account.userId });
 
-        let targetPassword = "access@C0NN3CT@pppoe123$"; // Secure structural default
+        let targetPassword = "";
+        let rawPhone = user?.phoneNumber ?? user?.phone ?? "";
 
-        if (user && user.phoneNumber && user.phoneNumber.trim() !== "") {
-            targetPassword = user.phoneNumber.trim();
+        // ✅ FIX: Force convert the phone to a string first to prevent number format crashes
+        const userPhone = String(rawPhone).trim();
+
+        // Ensure it's not just an empty string container or "undefined" text representation
+        if (userPhone && userPhone !== "" && userPhone !== "undefined" && userPhone !== "null") {
+            targetPassword = userPhone;
         } else {
+            // 3. Apply the exact matching fallback strings based on service type layout
+            if (account.serviceType === "hotspot") {
+                targetPassword = "Access123";
+            } else {
+                targetPassword = "C0NN3CT@pppoe123$";
+            }
             fallbackUsed++;
         }
 
-        // 3. Update the specific account record inline
+        // 4. Update the specific account record inline
         await db.collection("accounts").updateOne(
             { _id: account._id },
             {
@@ -41,9 +53,9 @@ export async function up(db) {
         updated++;
     }
 
-    console.log(`Successfully completed password backfill.`);
+    console.log(`Successfully completed password realignment backfill.`);
     console.log(`Total accounts updated: ${updated}`);
-    console.log(`Accounts using default fallback password: ${fallbackUsed}`);
+    console.log(`Accounts using new default split-service type fallback string parameters: ${fallbackUsed}`);
 }
 
 export async function down(db) {

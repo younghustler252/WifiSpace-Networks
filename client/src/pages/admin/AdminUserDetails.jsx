@@ -96,7 +96,6 @@ const AdminUserDetails = () => {
 
 	const user = data.user;
 	const subscription = data.subscription || null;
-    console.log("sub", subscription )
 	const usage = data.usage || null;
 	const payments = data.recentPayments || [];
 
