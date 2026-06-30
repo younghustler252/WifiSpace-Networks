@@ -71,36 +71,69 @@ const processQueue = (error: any, token: string | null = null) => {
 };
 
 // ================================
-// TOKEN HELPERS
+// 🛡️ CAPTIVE PORTAL STORAGE CHECK
+// ================================
+const isStorageAvailable = (): boolean => {
+	if (typeof window === "undefined") return false;
+	try {
+		// Checks if storage exists and is not nullified by restricted phone sandboxes
+		return !!window.localStorage && window.localStorage !== null;
+	} catch (e) {
+		return false;
+	}
+};
+
+// ================================
+// TOKEN HELPERS (SAFE VERSION)
 // ================================
 
-const getAccessToken = (): string | null =>
-	typeof window !== "undefined"
-		? localStorage.getItem("accessToken")
-		: null;
+const getAccessToken = (): string | null => {
+	if (!isStorageAvailable()) return null;
+	try {
+		return localStorage.getItem("accessToken");
+	} catch (e) {
+		return null;
+	}
+};
 
-const getRefreshToken = (): string | null =>
-	typeof window !== "undefined"
-		? localStorage.getItem("refreshToken")
-		: null;
+const getRefreshToken = (): string | null => {
+	if (!isStorageAvailable()) return null;
+	try {
+		return localStorage.getItem("refreshToken");
+	} catch (e) {
+		return null;
+	}
+};
 
 const setAccessToken = (token: string): void => {
-	if (typeof window !== "undefined") {
+	if (!isStorageAvailable()) return;
+	try {
 		localStorage.setItem("accessToken", token);
+	} catch (e) {
+		console.warn("Storage write blocked by captive portal");
 	}
 };
 
 const setRefreshToken = (token: string): void => {
-	if (typeof window !== "undefined") {
+	if (!isStorageAvailable()) return;
+	try {
 		localStorage.setItem("refreshToken", token);
+	} catch (e) {
+		console.warn("Storage write blocked by captive portal");
 	}
 };
 
 const clearAuthStorage = (): void => {
 	if (typeof window !== "undefined") {
-		localStorage.removeItem("accessToken");
-		localStorage.removeItem("refreshToken");
-		localStorage.removeItem("user");
+		if (isStorageAvailable()) {
+			try {
+				localStorage.removeItem("accessToken");
+				localStorage.removeItem("refreshToken");
+				localStorage.removeItem("user");
+			} catch (e) {
+				console.warn("Storage clean skipped");
+			}
+		}
 		// Redirecting to login with a clean query string parameter instead of a broken sub-page layout
 		window.location.href = "/auth/login";
 	}
@@ -204,7 +237,7 @@ API.interceptors.response.use(
 				}
 
 				setAccessToken(newAccessToken);
-				console.log("refresh",resData.data)
+				console.log("refresh", resData.data);
 
 				const newRefreshToken = resData?.data?.refreshToken || (resData as any)?.refreshToken;
 				if (newRefreshToken) {
