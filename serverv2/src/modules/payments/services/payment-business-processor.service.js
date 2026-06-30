@@ -60,6 +60,7 @@ export class PaymentBusinessProcessor {
 
 		return {
 			success: activation?.success !== false,
+			autoConnected: activation?.autoConnected ?? false, 
 			account,
 			subscription,
 			activation

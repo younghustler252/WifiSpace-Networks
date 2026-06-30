@@ -16,6 +16,8 @@ interface ApiErrorResponse {
 }
 
 export default function HotspotSuccessClient() {
+
+    
     const params = useSearchParams();
     const router = useRouter();
     const reference = params.get("reference");
@@ -40,6 +42,7 @@ export default function HotspotSuccessClient() {
             const data = res?.data;
             setPayment(data?.payment);
             setAutoConnected(data?.autoConnected ?? false);
+            
             setStatus("success");
         },
         onError: (error: AxiosError<ApiErrorResponse>) => {

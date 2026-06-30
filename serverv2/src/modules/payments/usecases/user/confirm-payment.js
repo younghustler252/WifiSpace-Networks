@@ -28,7 +28,6 @@ export class ConfirmPaymentUseCase {
 		// VALIDATION
 		// --------------------------------------------------
 		if (!reference) {
-
 			throw new ValidationError(
 				"Payment reference is required"
 			);
@@ -42,14 +41,13 @@ export class ConfirmPaymentUseCase {
 				.findByGatewayReference(reference);
 
 		if (!existingPayment) {
-
 			throw new NotFoundError(
 				"Payment not found"
 			);
 		}
 
 		// --------------------------------------------------
-		// VERIFY PAYMENT
+		// VERIFY PAYMENT WITH GATEWAY
 		// --------------------------------------------------
 		const {
 			payment,
@@ -60,73 +58,58 @@ export class ConfirmPaymentUseCase {
 				.verifyPayment(reference);
 
 		// --------------------------------------------------
-		// IDEMPOTENCY
+		// ✅ FIXED IDEMPOTENCY PATHS: Keep user logged in on page reloads
 		// --------------------------------------------------
-		if (alreadyProcessed) {
-
+		if (alreadyProcessed || payment.businessProcessed) {
 			return {
 				success: true,
 				payment,
 				gatewayResponse,
-				alreadyProcessed: true
+				alreadyProcessed: true,
+				autoConnected: true 
 			};
 		}
 
 		// --------------------------------------------------
-		// FAILED PAYMENT
+		// FAILED PAYMENT HANDLING
 		// --------------------------------------------------
 		if (!payment.isSuccessful()) {
-
 			return {
 				success: false,
 				payment,
 				gatewayResponse,
-				alreadyProcessed: false
+				alreadyProcessed: false,
+				autoConnected: false
 			};
 		}
 
 		// --------------------------------------------------
-		// BUSINESS ALREADY PROCESSED
-		// --------------------------------------------------
-		if (payment.businessProcessed) {
-
-			return {
-				success: true,
-				payment,
-				gatewayResponse,
-				alreadyProcessed: true
-			};
-		}
-
-		// --------------------------------------------------
-		// PROCESS BUSINESS FLOW
+		// PROCESS BUSINESS FLOW (PROVISION ACCESS TIER)
 		// --------------------------------------------------
 		const result =
 			await this.paymentBusinessProcessor
 				.process(payment);
 
 		// --------------------------------------------------
-		// RELOAD PAYMENT
+		// RELOAD REFRESHED PAYMENT DATA FROM DATABASE
 		// --------------------------------------------------
 		const updatedPayment =
 			await this.paymentRepository
 				.findById(payment.id);
 
+		// ✅ FIXED: Safely unpacks from the root level of your updated PaymentBusinessProcessor
+		const autoConnectedStatus = result?.autoConnected ?? false;
+
 		// --------------------------------------------------
-		// RESPONSE
+		// UNIFIED ROOT LEVEL RESPONSE FOR NEXT.JS
 		// --------------------------------------------------
 		return {
 			success: true,
-
-			payment:
-				updatedPayment,
-
+			payment: updatedPayment,
 			gatewayResponse,
-
-			alreadyProcessed:
-				false,
-
-			result
+			alreadyProcessed: false,
+			result,
+			autoConnected: autoConnectedStatus 
 		};
 	}
 }

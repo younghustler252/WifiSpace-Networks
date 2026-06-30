@@ -15,7 +15,6 @@ export class ActivateHotspotAccess {
 		macAddress,
 		hostname,
 		ipAddress,
-		// 🟩 FIXED: Accept the incoming plan metrics from HotspotActivator
 		routerProfile,
 		limitUptime
 	}) {
@@ -45,14 +44,11 @@ export class ActivateHotspotAccess {
 			});
 		}
 
-		// 🟩 FIXED: Bind parameters directly to the domain object to ensure data persistence
 		account.devices = devices;
 		account.routerProfile = routerProfile; // Storing the plan profile string name
 		account.limitUptime = limitUptime;     // Storing the numeric total seconds calculation
 		account.profileStatus = "active";
 
-		// ✅ FIXED: Pass the updated account object directly instead of spreading (...account) 
-		// Spreading can break hidden entity getters or mongoose document prototypes.
 		await this.accountRepository.update(account.id, account);
 
 		try {
@@ -67,8 +63,9 @@ export class ActivateHotspotAccess {
 			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
 		}
 
+				// Locate the second try block at the bottom of your file and update it:
 		try {
-			return await this.mikrotikService.provisionAccess(
+			const provisionResult = await this.mikrotikService.provisionAccess(
 				account,
 				router,
 				{
@@ -78,8 +75,17 @@ export class ActivateHotspotAccess {
 					ipAddress
 				}
 			);
+
+			return {
+				success: true,
+				autoConnected: provisionResult?.autoConnected ?? false,
+				method: provisionResult?.method || "unknown",
+				data: provisionResult
+			};
+			
 		} catch (err) {
 			throw new Error("Hotspot session activation failed: " + err.message);
 		}
+
 	}
 }
