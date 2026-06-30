@@ -297,7 +297,7 @@ export class HotspotIntegration {
     // MAIN FLOW
     // ==================================================
 
-    async provisionAccess(router, { username, password, macAddress, ipAddress }) {
+       async provisionAccess(router, { username, password, macAddress, ipAddress }) {
         if (macAddress) {
             await this.setMacOnUser(router, { username, macAddress });
         }
@@ -329,15 +329,29 @@ export class HotspotIntegration {
             };
 
         } catch (err) {
-            console.warn("API login failed:", err.message);
+            console.warn("API login failed, attempting hardware MAC reconnection fallback:", err.message);
+            
+            try {
+                // Execute the fallback network bypass configuration
+                await this.forceReconnect(router, macAddress);
+
+                return {
+                    success: true,
+                    method: "mac-reconnect",
+                    // ✅ FIXED: Changed to true because forceReconnect successfully put them online!
+                    autoConnected: true 
+                };
+            } catch (reconnectErr) {
+                console.error("❌ Both API login and MAC reconnection failed:", reconnectErr.message);
+                
+                // Only return false if BOTH login strategies completely fail
+                return {
+                    success: false,
+                    method: "failed",
+                    autoConnected: false
+                };
+            }
         }
-
-        await this.forceReconnect(router, macAddress);
-
-        return {
-            success: true,
-            method: "mac-reconnect",
-            autoConnected: false
-        };
     }
+
 }
