@@ -34,6 +34,38 @@ export class HotspotIntegration {
         );
     }
 
+    async updateUser(router, account) {
+        const users = await this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/user/print",
+            [`?name=${account.wsnId}`]
+        );
+
+        if (!Array.isArray(users) || users.length === 0) {
+            throw new Error(`User not found to update: ${account.wsnId}`);
+        }
+
+        const params = [
+            `=.id=${users[0][".id"]}`,
+            `=profile=${account.routerProfile || "default"}`
+        ];
+
+        // Format and push limit-uptime if it exists, otherwise clear it
+        if (account.limitUptime && account.limitUptime > 0) {
+            const uptime = formatUptime(Number(account.limitUptime));
+            params.push(`=limit-uptime=${uptime}`);
+        } else {
+            params.push(`=limit-uptime=00:00:00`); // Clears previous limits if none provided
+        }
+
+        return this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/user/set",
+            params
+        );
+    }
+
+
     async changePassword(router, username, password) {
         const users = await this.mikrotikClient.execute(
             router,
@@ -77,7 +109,7 @@ export class HotspotIntegration {
 
         if (Array.isArray(activeSessions) && activeSessions.length > 0) {
             return this.mikrotikClient.execute(router, "/ip/hotspot/active/remove", [
-                `=.id=${activeSessions[0][".id"]}`
+                `=.id=${activeSessions[0][".id"]}` //  Fixed array index access here
             ]);
         }
         

@@ -56,12 +56,22 @@ export class ActivateHotspotAccess {
 			if (userExists) {
 				await this.mikrotikService.changePassword(account, router, account.routerPassword);
 				await this.mikrotikService.updateAccount(account, router);
+				
+				// 🚀 FIX: Kick the user session so MikroTik forces them to pick up the new plan profile and limitUptime!
+				try {
+					console.log(`[RENEWAL] Dropping active session for ${account.wsnId} to apply updates.`);
+					await this.mikrotikService.disconnectAccount(account, router);
+				} catch (sessionErr) {
+					console.warn("Could not clear active session (user likely already offline):", sessionErr.message);
+				}
+				
 			} else {
 				await this.mikrotikService.createAccount(account, router);
 			}
 		} catch (dbError) {
 			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
 		}
+
 
 				// Locate the second try block at the bottom of your file and update it:
 		try {

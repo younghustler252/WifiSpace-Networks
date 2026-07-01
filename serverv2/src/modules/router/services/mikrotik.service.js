@@ -103,6 +103,19 @@ export class MikrotikService {
         return integration.getActiveSessions(router);
     }
 
+    async removeActiveSession(account, router, macAddress) {
+        const integration = this._integration(account);
+        if (integration.removeActiveSession) {
+            return integration.removeActiveSession(router, { 
+                username: account.wsnId, 
+                macAddress 
+            });
+        }
+        // Fallback to disconnectUser if specific session removal isn't built yet
+        return integration.disconnectUser?.(router, account.wsnId);
+    }
+
+
     async getActiveUser(account, router) {
         const integration = this._integration(account);
         return integration.getActiveUser?.(router, account.wsnId);
