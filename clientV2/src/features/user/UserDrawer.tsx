@@ -215,9 +215,27 @@ export default function UserDrawer({
 								</p>
 							</div>
 
-							<span className="ui-badge ui-badge-success">
-								Active
-							</span>
+							<div className="flex flex-col items-end gap-2">
+								<span
+									className={
+										user?.status === "active"
+											? "ui-badge ui-badge-success"
+											: "ui-badge ui-badge-danger"
+									}
+								>
+									{user?.status}
+								</span>
+
+								<span
+									className={
+										user?.isVerified
+											? "ui-badge ui-badge-success"
+											: "ui-badge ui-badge-warning"
+									}
+								>
+									{user?.isVerified ? "Verified" : "Not Verified"}
+								</span>
+							</div>
 						</CardContent>
 					</Card>
 

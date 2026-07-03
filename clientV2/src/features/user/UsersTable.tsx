@@ -8,6 +8,10 @@ import Button from "@/components/ui/Button";
 import Dropdown, { DropdownItem, DropdownDivider } from "@/components/ui/Dropdown";
 import StatusBadge from "@/components/ui/StatusBadge";
 
+import { usePathname } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+
 import {
 	Table,
 	TableHeader,
@@ -43,21 +47,34 @@ interface Props {
 
 export default function UsersTable({ scope }: Props) {
 	const { user: currentUser } = useAuth();
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 
 	// ================= ROLE FLAGS =================
 	const isSuperAdmin = currentUser?.role === "superadmin";
 	const isStaff = currentUser?.role === "staff";
 
 	// ================= STATE =================
-	const [search, setSearch] = useState("");
+	const [search, setSearch] = useState(searchParams.get("search") ?? "");
+
 	const [debouncedSearch, setDebouncedSearch] = useState("");
-
-	const [roleFilter, setRoleFilter] = useState<Role>("");
-	const [statusFilter, setStatusFilter] = useState("");
-	const [sort, setSort] = useState<"az" | "za" | "newest" | "oldest">("az");
-
-	const [page, setPage] = useState(1);
-	const [limit, setLimit] = useState(10);
+	const [roleFilter, setRoleFilter] = useState<Role>(
+		(searchParams.get("role") as Role) ?? ""
+	);
+	const [statusFilter, setStatusFilter] = useState(
+		searchParams.get("status") ?? ""
+	);
+	
+	const [sort, setSort] = useState<"az" | "za" | "newest" | "oldest">(
+		(searchParams.get("sort") as any) ?? "az"
+	);
+	const [page, setPage] = useState(
+		Number(searchParams.get("page") ?? 1)
+	);
+	const [limit, setLimit] = useState(
+		Number(searchParams.get("limit") ?? 10)
+	);
 
 	const [selectedUser, setSelectedUser] = useState<any | null>(null);
 	const [openCreate, setOpenCreate] = useState(false);
@@ -68,6 +85,39 @@ export default function UsersTable({ scope }: Props) {
 
 	// ================= INLINE STATUS =================
 	const [statusMsg, setStatusMsg] = useState<string | null>(null);
+
+	useEffect(() => {
+		const params = new URLSearchParams(searchParams.toString());
+
+		if (debouncedSearch) params.set("search", debouncedSearch);
+		else params.delete("search");
+
+		if (roleFilter) params.set("role", roleFilter);
+		else params.delete("role");
+
+		if (statusFilter) params.set("status", statusFilter);
+		else params.delete("status");
+
+		if (sort !== "az") params.set("sort", sort);
+		else params.delete("sort");
+
+		if (page !== 1) params.set("page", String(page));
+		else params.delete("page");
+
+		if (limit !== 10) params.set("limit", String(limit));
+		else params.delete("limit");
+
+		router.replace(`${pathname}?${params.toString()}`, {
+			scroll: false,
+		});
+	}, [
+		debouncedSearch,
+		roleFilter,
+		statusFilter,
+		sort,
+		page,
+		limit,
+	]);
 
 	// ================= DEBOUNCE =================
 	useEffect(() => {

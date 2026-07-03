@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, MoreVertical, Plus } from "lucide-react";
 
 import Button from "@/components/ui/Button";
@@ -32,24 +32,71 @@ interface Props {
 export default function SubscriptionsTable({ scope }: Props) {
 	const { user: currentUser } = useAuth();
 	const router = useRouter();
+	const searchParams = useSearchParams();
+	const pathname = usePathname();
 
 	const isStaff = currentUser?.role === "staff";
 	const isSuperAdmin = currentUser?.role === "superadmin";
 
 	// ================= STATE =================
-	const [search, setSearch] = useState("");
 	const [debouncedSearch, setDebouncedSearch] = useState("");
+	const [search, setSearch] = useState(
+		searchParams.get("search") ?? ""
+	);
 
-	const [status, setStatus] = useState<SubscriptionStatus | undefined>(undefined);
-	const [autoRenew, setAutoRenew] = useState("");
-	const [page, setPage] = useState(1);
-	const [limit, setLimit] = useState(10);
+	const [status, setStatus] = useState<SubscriptionStatus | undefined>(
+		(searchParams.get("status") as SubscriptionStatus) ?? undefined
+	);
 
+	const [autoRenew, setAutoRenew] = useState(
+		searchParams.get("autoRenew") ?? ""
+	);
+
+	const [page, setPage] = useState(
+		Number(searchParams.get("page") ?? 1)
+	);
+
+	const [limit, setLimit] = useState(
+		Number(searchParams.get("limit") ?? 10)
+	);
 	const [selected, setSelected] = useState<any | null>(null);
 
 	const handleRowClick = (subscription: any) => {
 		router.push(`subscriptions/${subscription?.accountId._id}`);
 	};
+
+	useEffect(() => {
+		const params = new URLSearchParams(searchParams.toString());
+
+		// search
+		if (debouncedSearch) params.set("search", debouncedSearch);
+		else params.delete("search");
+
+		// status
+		if (status) params.set("status", status);
+		else params.delete("status");
+
+		// auto renew
+		if (autoRenew !== "") params.set("autoRenew", autoRenew);
+		else params.delete("autoRenew");
+
+		// pagination
+		if (page !== 1) params.set("page", String(page));
+		else params.delete("page");
+
+		if (limit !== 10) params.set("limit", String(limit));
+		else params.delete("limit");
+
+		router.replace(`${pathname}?${params.toString()}`, {
+			scroll: false,
+		});
+	}, [
+		debouncedSearch,
+		status,
+		autoRenew,
+		page,
+		limit,
+	]);
 
 	// ================= DEBOUNCE =================
 	useEffect(() => {

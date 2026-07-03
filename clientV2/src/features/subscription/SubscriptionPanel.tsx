@@ -269,7 +269,7 @@ export default function SubscriptionPanel({
 	
 	return (
 		<>
-			{!subscription ? (
+			{!subscription? (
 				/* ================= BLANK STATE UI (NEW USER) ================= */
 				<Card className="max-w-md mx-auto my-12">
 					<CardContent className="py-14 text-center">
@@ -279,17 +279,27 @@ export default function SubscriptionPanel({
 							This account does not have a network access profile provisioned yet.
 						</p>
 						<div className="mt-6 flex justify-center gap-3">
-							<Button 
-								variant="accent" 
-								onClick={() => {
-									setTargetPlanId(""); 
-									setRenewCycles(1);   
-									setAdminReason("Initial administrative account assignment");
-									setShowAssignModal(true);
-								}}
-							>
-								Assign Subscription
-							</Button>
+							{role === "customer" ? (
+								<Button
+									variant="accent"
+									onClick={() => router.push("/customer/plans")}
+								>
+									View Plans
+								</Button>
+							) : role === "superadmin" ? (
+								<Button
+									variant="accent"
+									onClick={() => {
+										setTargetPlanId("");
+										setRenewCycles(1);
+										setAdminReason("Initial administrative account assignment");
+										setShowAssignModal(true);
+									}}
+								>
+									Assign Subscription
+								</Button>
+							) : null}
+
 							<Button variant="outline" onClick={() => refetch()}>Refresh</Button>
 						</div>
 					</CardContent>

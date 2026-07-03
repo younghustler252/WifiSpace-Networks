@@ -187,15 +187,25 @@ export class User {
 		address,
 		gender,
 		dateOfBirth,
-		nin
+		nin,
+		theme,
+		isVerified,
 	} = {}) {
-		if (firstName) this.firstName = firstName;
-		if (lastName) this.lastName = lastName;
-		if (phone) this.phone = phone;
-		if (nin) this.nin = nin;
-		if (address) this.address = address;
-		if (gender) this.gender = gender;
-		if (dateOfBirth) this.dateOfBirth = dateOfBirth;
+		if (firstName !== undefined) this.firstName = firstName;
+		if (lastName !== undefined) this.lastName = lastName;
+		if (phone !== undefined) this.phone = phone;
+		if (nin !== undefined) this.nin = nin;
+		if (address !== undefined) this.address = address;
+		if (gender !== undefined) this.gender = gender;
+		if (dateOfBirth !== undefined) this.dateOfBirth = dateOfBirth;
+		if (theme !== undefined) this.theme = theme;
+
+		if (typeof data.isVerified === "boolean") {
+			user.setVerificationStatus(data.isVerified);
+		}
+	}
+	setVerificationStatus(isVerified) {
+		this.isVerified = isVerified;
 	}
 
 	// ----------------------------

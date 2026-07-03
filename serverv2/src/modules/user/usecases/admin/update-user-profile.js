@@ -38,6 +38,7 @@ export class UpdateUserProfile {
 			nin: user.nin,
 			dateOfBirth: user.dateOfBirth,
 			theme: user.theme,
+			isVerified: user.isVerified,
 		});
 
 		// Audit the change

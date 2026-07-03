@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
 
 import { accountApi } from "@/lib/api/account";
@@ -11,30 +11,78 @@ import AccountsTable from "../sections/AccountTable";
 import AccountsMobileList from "../sections/AccountMobileList";
 
 export default function AdminAccountsPage() {
+	const searchParams = useSearchParams();
 	const router = useRouter();
+	const pathname = usePathname();
 
-	// ================= STATE =================
-	const [search, setSearch] = useState("");
-	const [debouncedSearch, setDebouncedSearch] = useState("");
+	const [search, setSearch] = useState(searchParams.get("search") ?? "");
 
 	const [accountType, setAccountType] = useState<
 		"" | "personal" | "business"
-	>("");
+	>((searchParams.get("type") as any) ?? "");
 
 	const [serviceType, setServiceType] = useState<
 		"" | "pppoe" | "hotspot"
-	>("");
+	>((searchParams.get("service") as any) ?? "");
 
 	const [profileStatus, setProfileStatus] = useState<
 		"" | "pending" | "active" | "suspended" | "canceled"
-	>("");
+	>((searchParams.get("status") as any) ?? "");
 
 	const [sort, setSort] = useState<
 		"wsnid_desc" | "wsnid_asc" | "newest" | "oldest"
-	>("wsnid_desc");
+	>((searchParams.get("sort") as any) ?? "wsnid_desc");
 
-	const [page, setPage] = useState(1);
-	const [limit, setLimit] = useState(10);
+	const [page, setPage] = useState(
+		Number(searchParams.get("page") ?? 1)
+	);
+
+	const [limit, setLimit] = useState(
+		Number(searchParams.get("limit") ?? 10)
+	);
+	
+	const [debouncedSearch, setDebouncedSearch] = useState("");
+
+	useEffect(() => {
+		const params = new URLSearchParams(searchParams.toString());
+
+		// search
+		if (debouncedSearch) params.set("search", debouncedSearch);
+		else params.delete("search");
+
+		// filters
+		if (accountType) params.set("type", accountType);
+		else params.delete("type");
+
+		if (serviceType) params.set("service", serviceType);
+		else params.delete("service");
+
+		if (profileStatus) params.set("status", profileStatus);
+		else params.delete("status");
+
+		// sort
+		if (sort !== "wsnid_desc") params.set("sort", sort);
+		else params.delete("sort");
+
+		// pagination
+		if (page !== 1) params.set("page", String(page));
+		else params.delete("page");
+
+		if (limit !== 10) params.set("limit", String(limit));
+		else params.delete("limit");
+
+		router.replace(`${pathname}?${params.toString()}`, {
+			scroll: false,
+		});
+	}, [
+		debouncedSearch,
+		accountType,
+		serviceType,
+		profileStatus,
+		sort,
+		page,
+		limit,
+	]);
 
 	// ================= DEBOUNCE =================
 	useEffect(() => {

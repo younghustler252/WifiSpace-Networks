@@ -24,7 +24,7 @@ export default function Page() {
 
 	return (
 		<>
-			<PageHeader title="Account Subscription" />
+			<PageHeader title="Account Subscription"  />
 
 			<div className="p-6">
 				<SubscriptionPanel

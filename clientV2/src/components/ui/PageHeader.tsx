@@ -1,13 +1,15 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 interface PageHeaderProps {
 	title: string;
 	subtitle?: string;
 	actions?: React.ReactNode;
-	backButton?: React.ReactNode;
+	backButton?: React.ReactNode; // optional override
 	className?: string;
 }
 
@@ -18,6 +20,18 @@ const PageHeader = ({
 	backButton,
 	className = "",
 }: PageHeaderProps) => {
+	const router = useRouter();
+
+	const defaultBackButton = (
+		<button
+			onClick={() => router.back()}
+			className="p-2 rounded-md hover:bg-muted transition-colors"
+			aria-label="Go back"
+		>
+			<ArrowLeft className="w-5 h-5 text-muted-foreground" />
+		</button>
+	);
+
 	return (
 		<div
 			className={cn(
@@ -30,12 +44,10 @@ const PageHeader = ({
 		>
 			{/* LEFT */}
 			<div className="flex items-start gap-3 min-w-0">
-				{/* Optional Back Button */}
-				{backButton && (
-					<div className="flex-shrink-0 pt-0.5">
-						{backButton}
-					</div>
-				)}
+				{/* ALWAYS SHOW BACK BUTTON (or override) */}
+				<div className="flex-shrink-0 pt-0.5">
+					{backButton ?? defaultBackButton}
+				</div>
 
 				<div className="flex flex-col gap-1.5 min-w-0">
 					<h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground truncate">

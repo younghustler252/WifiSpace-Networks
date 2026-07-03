@@ -27,6 +27,7 @@ type UserFormData = {
 	nin?: string;
 	theme?: "light" | "dark" | "system";
 	password?: string;
+	isVerified?: boolean;
 };
 
 interface Props {
@@ -65,6 +66,7 @@ export default function UserForm({
 			dateOfBirth: "",
 			nin: "",
 			theme: "light",
+			isVerified: false,
 			...defaultValues,
 		},
 	});
@@ -259,6 +261,25 @@ export default function UserForm({
 						<option value="system">System</option>
 					</select>
 				</div>
+
+				{isEdit && (
+					<div className="col-span-2">
+						<label className="flex items-center gap-3 rounded-lg border border-border p-3 cursor-pointer hover:bg-muted/40">
+							<input
+								type="checkbox"
+								className="h-4 w-4 rounded border-border"
+								{...register("isVerified")}
+							/>
+
+							<div>
+								<p className="font-medium text-sm">Verified User</p>
+								<p className="text-xs text-muted-foreground">
+									Mark this user as identity verified.
+								</p>
+							</div>
+						</label>
+					</div>
+				)}
 
 			</div>
 

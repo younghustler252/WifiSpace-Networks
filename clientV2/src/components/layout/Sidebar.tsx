@@ -57,13 +57,13 @@ const Sidebar = ({
 
 			{/* ================= SIDEBAR ================= */}
 			<aside
-				className={cn(
-					"fixed md:static z-50 top-0 left-0 h-screen w-64 flex flex-col",
+				 className={cn(
+					"fixed md:static z-50 top-0 left-0 h-dvh md:h-screen w-64 flex flex-col",
 					"bg-card border-r border-border",
 					"transition-transform duration-300 ease-in-out",
 					mobileOpen
-						? "translate-x-0"
-						: "-translate-x-full md:translate-x-0",
+					? "translate-x-0"
+					: "-translate-x-full md:translate-x-0",
 					className
 				)}
 			>
