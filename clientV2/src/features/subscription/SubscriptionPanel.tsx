@@ -108,6 +108,8 @@ export default function SubscriptionPanel({
 	const [showExtendModal, setShowExtendModal] = useState(false);
 	const [showChangePlanModal, setShowChangePlanModal] = useState(false);
 	const [showAssignModal, setShowAssignModal] = useState(false);
+	const [startsAt, setStartsAt] = useState<string | undefined>(undefined);
+
 
 	/* ================= ADMIN FORM STATES ================= */
 	const [suspendReason, setSuspendReason] = useState("");
@@ -787,7 +789,8 @@ export default function SubscriptionPanel({
 							Provisions a brand new network access profile for account identification context <b className="text-neutral-700">{accountId}</b>.
 						</p>
 
-						<div className="grid grid-cols-2 gap-4">
+						{/* Clean 3-column layout on desktop */}
+						<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
 							
 							<div className="space-y-1.5 col-span-2 md:col-span-1">
 								<label className="text-xs font-medium text-neutral-600">Select Initial Plan</label>
@@ -809,6 +812,17 @@ export default function SubscriptionPanel({
 									}
 								</select>
 								{isLoadingPlans && <p className="text-[10px] text-muted-foreground animate-pulse">Loading system plans...</p>}
+							</div>
+
+							{/* Optional Effective Start Date Field */}
+							<div className="space-y-1.5 col-span-2 md:col-span-1">
+								<label className="text-xs font-medium text-neutral-600">Effective Start Date (Optional)</label>
+								<input
+									type="date"
+									className="ui-input w-full h-[38px]" 
+									value={startsAt || ""}
+									onChange={(e) => setStartsAt(e.target.value || undefined)}
+								/>
 							</div>
 
 							<div className="space-y-1.5 col-span-2 md:col-span-1">
@@ -852,6 +866,7 @@ export default function SubscriptionPanel({
 					<Button variant="outline" onClick={() => setShowAssignModal(false)}>Cancel</Button>
 					<Button 
 						variant="accent" 
+						// Guard updated: only targetPlanId is strictly required
 						disabled={!targetPlanId}
 						isLoading={actions.adminCreateSubscriptionMutation?.isPending || false}
 						onClick={() => {
@@ -859,6 +874,8 @@ export default function SubscriptionPanel({
 								{
 									accountId,
 									planId: targetPlanId,
+									// Only send it if the admin explicitly picked a date string
+									...(startsAt ? { startsAt } : {}), 
 									cycles: renewCycles,
 									userId: subscription?.userId || urlUserId || "", 
 									overrideExisting: true, 
@@ -879,6 +896,7 @@ export default function SubscriptionPanel({
 					</Button>
 				</ModalFooter>
 			</Modal>
+
 			
 		</>
 

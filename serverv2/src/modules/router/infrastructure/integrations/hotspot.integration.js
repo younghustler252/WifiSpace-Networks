@@ -239,54 +239,56 @@ export class HotspotIntegration {
     // ==================================================
 
    async apiLogin(router, { username, password, macAddress, ipAddress }) {
-    let targetIp = ipAddress;
+        let targetIp = ipAddress;
 
-    // DYNAMIC FALLBACK: If IP is missing, lookup the IP directly from the MikroTik Host List
-    if ((!targetIp || targetIp === "0.0.0.0") && macAddress) {
-        console.log(`[API LOGIN] IP missing or invalid. querying MikroTik host table for MAC: ${macAddress}`);
-        
-        try {
-            // Ask MikroTik to find the host matching this specific MAC address
-            const hosts = await this.mikrotikClient.execute(
-                router,
-                "/ip/hotspot/host/print",
-                [`?mac-address=${macAddress}`]
-            );
+        // DYNAMIC FALLBACK: If IP is missing, lookup the IP directly from the MikroTik Host List
+        if ((!targetIp || targetIp === "0.0.0.0") && macAddress) {
+            console.log(`[API LOGIN] IP missing or invalid. querying MikroTik host table for MAC: ${macAddress}`);
+            
+            try {
+                // Ask MikroTik to find the host matching this specific MAC address
+                const hosts = await this.mikrotikClient.execute(
+                    router,
+                    "/ip/hotspot/host/print",
+                    [`?mac-address=${macAddress}`]
+                );
 
-            // MikroTik returns an array. If found, pull the active IP address
-            if (hosts && hosts.length > 0) {
-                // Some clients return an array of objects, verify structure
-                const hostEntry = hosts[0]; 
-                if (hostEntry && hostEntry.ip) {
-                    targetIp = hostEntry.ip;
-                    console.log(`[API LOGIN] Successfully recovered active IP from MikroTik: ${targetIp}`);
+                // MikroTik returns an array. If found, pull the active IP address
+                if (hosts && hosts.length > 0) {
+                    // Some clients return an array of objects, verify structure
+                    const hostEntry = hosts[0]; 
+                    if (hostEntry && hostEntry.ip) {
+                        targetIp = hostEntry.ip;
+                        console.log(`[API LOGIN] Successfully recovered active IP from MikroTik: ${targetIp}`);
+                    }
                 }
+            } catch (lookupError) {
+                console.warn("[API LOGIN] Failed to fetch IP via MAC from MikroTik:", lookupError.message);
             }
-        } catch (lookupError) {
-            console.warn("[API LOGIN] Failed to fetch IP via MAC from MikroTik:", lookupError.message);
         }
+
+
+        // Strict validation check before execution
+        if (!targetIp || targetIp === "0.0.0.0") {
+            throw new Error(`Cannot perform API login: IP address could not be resolved for MAC ${macAddress}`);
+        }
+
+        // Build standard, clean parameters (Remember: DO NOT include mac-address here)
+        const params = [
+            `=user=${username}`,
+            `=password=${password}`,
+            `=ip=${targetIp}`
+        ];
+
+        console.log(`[API LOGIN] Sending final login payload to MikroTik:`, params);
+
+        return this.mikrotikClient.execute(
+            router,
+            "/ip/hotspot/active/login",
+            params
+        );
     }
-
-    // Strict validation check before execution
-    if (!targetIp || targetIp === "0.0.0.0") {
-        throw new Error(`Cannot perform API login: IP address could not be resolved for MAC ${macAddress}`);
-    }
-
-    // Build standard, clean parameters (Remember: DO NOT include mac-address here)
-    const params = [
-        `=user=${username}`,
-        `=password=${password}`,
-        `=ip=${targetIp}`
-    ];
-
-    console.log(`[API LOGIN] Sending final login payload to MikroTik:`, params);
-
-    return this.mikrotikClient.execute(
-        router,
-        "/ip/hotspot/active/login",
-        params
-    );
-}
+    
 
 
     // ==================================================

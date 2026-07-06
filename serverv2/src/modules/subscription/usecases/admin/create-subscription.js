@@ -8,7 +8,7 @@ export class AdminCreateSubscriptionUseCase {
 		subscriptionRepository,
 		planRepository,
 		adminRecordPayment,
-		subscriptionQueue // 🔥 FIXED: Injected shared Redis queue service instead of direct execution
+		subscriptionQueue
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
@@ -23,31 +23,41 @@ export class AdminCreateSubscriptionUseCase {
 		status = "active",
 		cycles = 1,
 		overrideExisting = false,
-		startsAt = new Date(),
+		startsAt,
 		manualAdjustmentDays = 0,
 		autoRenewEnabled = false,
 		adminId,
 		reason,
-		paymentAmount, // { total, base, discount }
+		paymentAmount,
 		paymentChannel = "bank_transfer",
 		currency = "NGN",
 		adminNote = null,
-		context = {} // Added support for downstream context overrides
+		context = {}
 	}) {
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
 		if (!accountId) throw new ValidationError("accountId is required");
+		if (!userId) throw new ValidationError("userId is required");
 		if (!planId) throw new ValidationError("planId is required");
 		if (cycles < 1) throw new ValidationError("cycles must be at least 1");
 
 		const allowedStatuses = ["active", "expired", "suspended", "canceled"];
-		if (!allowedStatuses.includes(status)) throw new ValidationError("Invalid subscription status");
+		if (!allowedStatuses.includes(status)) {
+			throw new ValidationError("Invalid subscription status");
+		}
+
+		const startDate = startsAt ? new Date(startsAt) : new Date();
+
+		if (isNaN(startDate.getTime())) {
+			throw new ValidationError("Invalid startsAt");
+		}
 
 		// -----------------------------
 		// PREVENT DUPLICATE ACTIVE SUBSCRIPTION
 		// -----------------------------
 		const existing = await this.subscriptionRepository.findActiveByAccount(accountId);
+
 		if (existing && status === "active" && !overrideExisting) {
 			throw new ValidationError("Account already has an active subscription");
 		}
@@ -56,12 +66,16 @@ export class AdminCreateSubscriptionUseCase {
 		// FETCH PLAN
 		// -----------------------------
 		const plan = await this.planRepository.findById(planId);
-		if (!plan) throw new NotFoundError("Plan not found");
+
+		if (!plan) {
+			throw new NotFoundError("Plan not found");
+		}
 
 		// -----------------------------
-		// RECORD PAYMENT (if provided)
+		// RECORD PAYMENT (OPTIONAL)
 		// -----------------------------
 		let savedPayment = null;
+
 		if (paymentAmount) {
 			savedPayment = await this.adminRecordPayment.execute({
 				userId,
@@ -75,21 +89,32 @@ export class AdminCreateSubscriptionUseCase {
 		}
 
 		// -----------------------------
-		// BILLING CALCULATION
+		// BILLING
 		// -----------------------------
 		const billing = PlanBillingCalculator.calculate(plan, cycles);
-		const expiresAt = new Date(startsAt.getTime() + (billing.totalDays + manualAdjustmentDays) * 86400000);
+
+		const expiresAt = PlanBillingCalculator.calculateExpiryDate(
+			plan,
+			cycles,
+			startDate,
+			manualAdjustmentDays
+		);
+
 		const graceEndsAt = plan.gracePeriodDays
-			? new Date(expiresAt.getTime() + plan.gracePeriodDays * 24 * 60 * 60 * 1000)
+			? new Date(
+					expiresAt.getTime() +
+					plan.gracePeriodDays * 24 * 60 * 60 * 1000
+			  )
 			: null;
 
 		// -----------------------------
-		// CREATE SUBSCRIPTION ENTITY
+		// CREATE SUBSCRIPTION
 		// -----------------------------
 		const subscription = new Subscription({
 			accountId,
 			userId,
 			planId,
+
 			planSnapshot: {
 				name: plan.name,
 				serviceType: plan.serviceType,
@@ -101,22 +126,25 @@ export class AdminCreateSubscriptionUseCase {
 				devicesAllowed: plan.devicesAllowed,
 				gracePeriodDays: plan.gracePeriodDays
 			},
+
 			status,
 			cycles,
 			totalAmount: plan.price * cycles,
-			startsAt,
+
+			startsAt: startDate,
 			expiresAt,
 			graceEndsAt,
+
 			bonusDays: billing.bonusDays,
 			manualAdjustmentDays,
 			autoRenewEnabled,
-			activatedAt: status === "active" ? new Date() : null,
+
+			activatedAt: status === "active" ? startDate : null,
+
 			lastPaymentId: savedPayment?.id || null,
-			lastPaymentDate: savedPayment ? new Date() : null,
+			lastPaymentDate: savedPayment ? startDate : null,
 			lastPaymentAmount: savedPayment ? savedPayment.amount.total : null,
-			
-			// 🔥 RETRY & SYNC FLAGS INITIALIZATION
-			// Set flag to pending on document creation if status is active so background queues track it
+
 			mikrotikStatus: status === "active" ? "pending" : "none",
 			mikrotikError: null,
 
@@ -135,19 +163,22 @@ export class AdminCreateSubscriptionUseCase {
 						bonusDays: billing.bonusDays,
 						manualAdjustmentDays,
 						overrideExisting,
-						paymentId: savedPayment?.id || null
+						paymentId: savedPayment?.id || null,
+						startsAt: startDate,
+						expiresAt
 					}
 				}
 			]
 		});
 
 		// -----------------------------
-		// SAVE SUBSCRIPTION
+		// SAVE
 		// -----------------------------
-		const savedSubscription = await this.subscriptionRepository.create(subscription);
+		const savedSubscription =
+			await this.subscriptionRepository.create(subscription);
 
 		// -----------------------------
-		// 🔥 DISPATCH PROVISIONING TASK TO BULLMQ REDIS QUEUE
+		// QUEUE NETWORK PROVISIONING
 		// -----------------------------
 		if (status === "active") {
 			try {
@@ -160,11 +191,9 @@ export class AdminCreateSubscriptionUseCase {
 				});
 			} catch (queueErr) {
 				console.error(
-					"[AdminCreateSubscriptionUseCase] Failed to dispatch job context to Redis queue:",
+					"[AdminCreateSubscriptionUseCase] Failed to dispatch provisioning job:",
 					queueErr.message
 				);
-				// Remains safely in 'pending' status inside MongoDB. If Redis drops,
-				// the system handles it gracefully since workers parse 'pending' states.
 			}
 		}
 

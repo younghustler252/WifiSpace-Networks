@@ -54,10 +54,19 @@ export class ActivateHotspotAccess {
 		try {
 			const userExists = await this.mikrotikService.checkUserExists(account, router);
 			if (userExists) {
-				await this.mikrotikService.changePassword(account, router, account.routerPassword);
-				await this.mikrotikService.updateAccount(account, router);
 				
-				// 🚀 FIX: Kick the user session so MikroTik forces them to pick up the new plan profile and limitUptime!
+				// 🚀 FIX FOR STOPPED ACCOUNTS: Delete the old user from MikroTik to reset used uptime counters back to 0!
+				console.log(`[STOPPED ACCOUNT FIX] Wiping user ${account.wsnId} to clear old used uptime metrics.`);
+				try {
+					await this.mikrotikService.deleteAccount(account, router);
+				} catch (deleteErr) {
+					console.warn("Could not delete user from MikroTik, attempting to continue:", deleteErr.message);
+				}
+
+				// Re-create the user from scratch so MikroTik tracks the fresh limitUptime accurately
+				await this.mikrotikService.createAccount(account, router);
+				
+				// Kick any old active session hanging on the router
 				try {
 					console.log(`[RENEWAL] Dropping active session for ${account.wsnId} to apply updates.`);
 					await this.mikrotikService.disconnectAccount(account, router);
@@ -72,8 +81,6 @@ export class ActivateHotspotAccess {
 			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
 		}
 
-
-				// Locate the second try block at the bottom of your file and update it:
 		try {
 			const provisionResult = await this.mikrotikService.provisionAccess(
 				account,

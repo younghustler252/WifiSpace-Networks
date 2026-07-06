@@ -2,10 +2,8 @@ export class PlanBillingCalculator {
 	static calculate(plan, cycles = 1) {
 		const baseDays = this.convertToDays(plan);
 
-		let totalDays = baseDays * cycles;
-
+		const totalDays = baseDays * cycles;
 		const bonusDays = this.calculateBonus(plan, cycles);
-
 		const graceDays = plan.gracePeriodDays || 0;
 
 		return {
@@ -38,23 +36,70 @@ export class PlanBillingCalculator {
 		switch (durationUnit) {
 			case "minutes":
 				return durationValue / (60 * 24);
+
 			case "hours":
 				return durationValue / 24;
+
 			case "days":
 				return durationValue;
+
 			case "months":
 				return durationValue * 30;
+
 			default:
 				return durationValue;
 		}
 	}
 
-	static calculateExpiryDate(plan, cycles = 1, fromDate = new Date()) {
-		const result = this.calculate(plan, cycles);
+	static calculateExpiryDate(
+		plan,
+		cycles = 1,
+		fromDate = new Date(),
+		manualAdjustmentDays = 0
+	) {
+		const expiry = new Date(fromDate);
 
-		return new Date(
-			fromDate.getTime() +
-			result.expiresInDays * 86400000
-		);
+		const bonusDays = this.calculateBonus(plan, cycles);
+
+		switch (plan.durationUnit) {
+			case "minutes":
+				expiry.setMinutes(
+					expiry.getMinutes() + (plan.durationValue * cycles)
+				);
+				break;
+
+			case "hours":
+				expiry.setHours(
+					expiry.getHours() + (plan.durationValue * cycles)
+				);
+				break;
+
+			case "days":
+				expiry.setDate(
+					expiry.getDate() + (plan.durationValue * cycles)
+				);
+				break;
+
+			case "months":
+				expiry.setMonth(
+					expiry.getMonth() + (plan.durationValue * cycles)
+				);
+				break;
+
+			default:
+				throw new Error(`Unsupported duration unit: ${plan.durationUnit}`);
+		}
+
+		// Apply bonus days
+		if (bonusDays) {
+			expiry.setDate(expiry.getDate() + bonusDays);
+		}
+
+		// Apply manual adjustment days
+		if (manualAdjustmentDays) {
+			expiry.setDate(expiry.getDate() + manualAdjustmentDays);
+		}
+		
+		return expiry;
 	}
 }
