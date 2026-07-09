@@ -33,23 +33,15 @@ export function useHotspotSession(
 	const [selectedPlan, setSelectedPlan] = useState<HotspotPlan | null>(null);
 	const [paymentResult, setPaymentResult] = useState<any>(null);
 	const [error, setError] = useState("");
-	const [history, setHistory] = useState<State[]>(["LOADING"]);
 
 
-	const navigate = (next: State) => {
-		setHistory((prev) => [...prev, next]);
-		setState(next);
-	};
+	const canGoBack =
+		state === "IDENTITY_LOOKUP" ||
+		state === "REGISTER_USER";
 
 	const goBack = () => {
-		setHistory((prev) => {
-			if (prev.length <= 1) return prev;
-
-			const newHistory = prev.slice(0, -1);
-			setState(newHistory[newHistory.length - 1]);
-
-			return newHistory;
-		});
+		setError("");
+		setState("SELECT_PLAN");
 	};
 
 	const loadSession = async () => {
@@ -81,6 +73,7 @@ export function useHotspotSession(
 
 	const lookupAccount = async (userEmail: string) => {
 		try {
+			setError("");
 			setState("LOADING");
 
 			const { data: session } = await hotspotApi.getSession({
@@ -193,6 +186,7 @@ export function useHotspotSession(
 		lookupAccount,
 
 		showIdentity: () => {
+			setError("");
 			setState("IDENTITY_LOOKUP");
 		},
 
@@ -214,6 +208,7 @@ export function useHotspotSession(
 
 	return {
 		state,
+		canGoBack,
 		error,
 		session,
 		plans,

@@ -44,6 +44,7 @@ export default function HotspotPage() {
     return (
         <HotspotRenderer
             state={state}
+            macAddress={macAddress}
             session={session}
             plans={plans}
             paymentResult={paymentResult}
