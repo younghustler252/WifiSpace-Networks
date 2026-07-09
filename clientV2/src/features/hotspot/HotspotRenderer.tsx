@@ -26,6 +26,8 @@ interface Props {
 	paymentResult: any;
 	error: string;
 	actions: any;
+	macAddress?: string;
+
 }
 
 export function HotspotRenderer({
@@ -35,10 +37,19 @@ export function HotspotRenderer({
 	paymentResult,
 	error,
 	actions,
+	macAddress,
+
 }: Props) {
 	const account = session?.accounts?.[0]?.account;
 	const subscription = session?.accounts?.[0]?.subscription;
 	const plan = session?.accounts?.[0]?.plan;
+	const deviceMac = macAddress || account?.macAddress || "Unknown Device";
+
+	const canGoBack = [
+		"IDENTITY_LOOKUP",
+		"REGISTER_USER",
+		"SELECT_PLAN",
+	].includes(state);
 
 	return (
 		<main className="min-h-screen bg-background px-4 py-8 flex flex-col items-center">
@@ -48,9 +59,30 @@ export function HotspotRenderer({
 				<p className="mt-3 text-sm text-muted-foreground">
 					Fast and reliable internet access
 				</p>
+
+				<div className="mt-5 inline-flex items-center gap-2 rounded-full border bg-muted/40 px-4 py-2">
+					<span className="text-xs text-muted-foreground">
+						Connected Device
+					</span>
+
+					<span className="font-mono text-xs font-semibold uppercase">
+						{deviceMac}
+					</span>
+				</div>
 			</header>
 
 			<section className="w-full max-w-4xl">
+				{canGoBack && (
+					<div className="mb-6">
+						<button
+							onClick={actions.goBack}
+							className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+						>
+							← Back
+						</button>
+					</div>
+				)}
+
 				{state === "LOADING" && (
 					<CenterLoader label="Connecting to hotspot..." />
 				)}
@@ -115,7 +147,7 @@ export function HotspotRenderer({
 										{account?.macAddress && (
 											<div className="flex justify-between items-center text-xs pt-2 border-t border-dashed">
 												<span className="text-muted-foreground font-medium">
-													MAC Address
+													Registered Device
 												</span>
 
 												<span className="font-mono text-neutral-700 font-medium uppercase">

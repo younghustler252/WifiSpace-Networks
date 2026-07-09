@@ -33,6 +33,24 @@ export function useHotspotSession(
 	const [selectedPlan, setSelectedPlan] = useState<HotspotPlan | null>(null);
 	const [paymentResult, setPaymentResult] = useState<any>(null);
 	const [error, setError] = useState("");
+	const [history, setHistory] = useState<State[]>(["LOADING"]);
+
+
+	const navigate = (next: State) => {
+		setHistory((prev) => [...prev, next]);
+		setState(next);
+	};
+
+	const goBack = () => {
+		setHistory((prev) => {
+			if (prev.length <= 1) return prev;
+
+			const newHistory = prev.slice(0, -1);
+			setState(newHistory[newHistory.length - 1]);
+
+			return newHistory;
+		});
+	};
 
 	const loadSession = async () => {
 		try {
@@ -161,7 +179,6 @@ export function useHotspotSession(
 					plan
 				);
 			}
-
 			setState("REGISTER_USER");
 		},
 
@@ -188,6 +205,7 @@ export function useHotspotSession(
 		dashboard: () => {
 			window.location.href = "/dashboard";
 		},
+		goBack,
 	};
 
 	useEffect(() => {
