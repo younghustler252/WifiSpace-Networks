@@ -238,7 +238,7 @@ export class HotspotIntegration {
     // API LOGIN
     // ==================================================
 
-   async apiLogin(router, { username, password, macAddress, ipAddress }) {
+    async apiLogin(router, { username, password, macAddress, ipAddress }) {
         let targetIp = ipAddress;
 
         // DYNAMIC FALLBACK: If IP is missing, lookup the IP directly from the MikroTik Host List
@@ -255,7 +255,6 @@ export class HotspotIntegration {
 
                 // MikroTik returns an array. If found, pull the active IP address
                 if (hosts && hosts.length > 0) {
-                    // Some clients return an array of objects, verify structure
                     const hostEntry = hosts[0]; 
                     if (hostEntry && hostEntry.ip) {
                         targetIp = hostEntry.ip;
@@ -266,7 +265,6 @@ export class HotspotIntegration {
                 console.warn("[API LOGIN] Failed to fetch IP via MAC from MikroTik:", lookupError.message);
             }
         }
-
 
         // Strict validation check before execution
         if (!targetIp || targetIp === "0.0.0.0") {
@@ -288,6 +286,7 @@ export class HotspotIntegration {
             params
         );
     }
+  
     
 
 
@@ -331,17 +330,28 @@ export class HotspotIntegration {
     // MAIN FLOW
     // ==================================================
 
-       async provisionAccess(router, { username, password, macAddress, ipAddress }) {
+    async provisionAccess(router, { username, password, macAddress, ipAddress }) {
+        // Safe MAC update on user profile
         if (macAddress) {
-            await this.setMacOnUser(router, { username, macAddress });
+            try {
+                await this.setMacOnUser(router, { username, macAddress });
+            } catch (macErr) {
+                // If it fails because of concurrent adjustments, log it and keep going
+                console.warn(`[PROVISION] setMacOnUser warning for ${username}:`, macErr.message);
+            }
         }
 
+        // Safe MAC Binding operation
         if (macAddress) {
             try {
                 await this.bindMac(router, { macAddress, wsnId: username });
             } catch (err) {
-                if (!err.message?.includes("already exists")) {
+                const errMsg = err.message?.toLowerCase() || "";
+                // Catching both variants of standard MikroTik duplicate errors
+                if (!errMsg.includes("already exists") && !errMsg.includes("already exist")) {
                     console.warn("bindMac warning:", err.message);
+                } else {
+                    console.log(`[PROVISION] MAC ${macAddress} is already bound on MikroTik. Proceeding safely.`);
                 }
             }
         }
@@ -363,6 +373,18 @@ export class HotspotIntegration {
             };
 
         } catch (err) {
+            const errMsg = err.message?.toLowerCase() || "";
+            
+            // 🚨 CRITICAL FIX: If the user is ALREADY logged in actively, treat it as a complete success!
+            if (errMsg.includes("already logged in") || errMsg.includes("already active")) {
+                console.log(`[PROVISION] User ${username} is already active on the network. Session verified.`);
+                return {
+                    success: true,
+                    method: "api-login-already-active",
+                    autoConnected: true
+                };
+            }
+
             console.warn("API login failed, attempting hardware MAC reconnection fallback:", err.message);
             
             try {
@@ -372,13 +394,11 @@ export class HotspotIntegration {
                 return {
                     success: true,
                     method: "mac-reconnect",
-                    // ✅ FIXED: Changed to true because forceReconnect successfully put them online!
                     autoConnected: true 
                 };
             } catch (reconnectErr) {
                 console.error("❌ Both API login and MAC reconnection failed:", reconnectErr.message);
                 
-                // Only return false if BOTH login strategies completely fail
                 return {
                     success: false,
                     method: "failed",
@@ -387,5 +407,6 @@ export class HotspotIntegration {
             }
         }
     }
+
 
 }

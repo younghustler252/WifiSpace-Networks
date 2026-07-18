@@ -29,6 +29,7 @@ export class ActivateHotspotAccess {
 			: await this.routerRepository.findById(account.routerId);
 		if (!router) throw new Error("Router not found");
 
+		// 1. Update internal database records first
 		const devices = account.devices || [];
 		const existing = devices.find(d => d.macAddress === macAddress);
 
@@ -45,42 +46,51 @@ export class ActivateHotspotAccess {
 		}
 
 		account.devices = devices;
-		account.routerProfile = routerProfile; // Storing the plan profile string name
-		account.limitUptime = limitUptime;     // Storing the numeric total seconds calculation
+		account.routerProfile = routerProfile; 
+		account.limitUptime = limitUptime;     
 		account.profileStatus = "active";
 
 		await this.accountRepository.update(account.id, account);
 
+		// 2. Synchronize Router Database State
 		try {
 			const userExists = await this.mikrotikService.checkUserExists(account, router);
+			
 			if (userExists) {
-				
-				// 🚀 FIX FOR STOPPED ACCOUNTS: Delete the old user from MikroTik to reset used uptime counters back to 0!
 				console.log(`[STOPPED ACCOUNT FIX] Wiping user ${account.wsnId} to clear old used uptime metrics.`);
 				try {
 					await this.mikrotikService.deleteAccount(account, router);
 				} catch (deleteErr) {
 					console.warn("Could not delete user from MikroTik, attempting to continue:", deleteErr.message);
 				}
+			}
 
-				// Re-create the user from scratch so MikroTik tracks the fresh limitUptime accurately
+			// Safe Creation: Catch structural "already exists" errors gracefully to prevent crashes
+			try {
 				await this.mikrotikService.createAccount(account, router);
-				
-				// Kick any old active session hanging on the router
+			} catch (createErr) {
+				if (createErr.message.toLowerCase().includes("already exist")) {
+					console.warn(`[IDEMPOTENCY] User ${account.wsnId} was already created by a concurrent request.`);
+				} else {
+					throw createErr;
+				}
+			}
+
+			// If it was a renewal/re-creation, terminate any active stray router sessions
+			if (userExists) {
 				try {
 					console.log(`[RENEWAL] Dropping active session for ${account.wsnId} to apply updates.`);
 					await this.mikrotikService.disconnectAccount(account, router);
 				} catch (sessionErr) {
 					console.warn("Could not clear active session (user likely already offline):", sessionErr.message);
 				}
-				
-			} else {
-				await this.mikrotikService.createAccount(account, router);
 			}
-		} catch (dbError) {
-			throw new Error(`Failed to establish user credentials on router database table: ${dbError.message}`);
+
+		} catch (routerDbError) {
+			throw new Error(`Failed to establish user credentials on router database table: ${routerDbError.message}`);
 		}
 
+		// 3. Provision Actual Live Network Access
 		try {
 			const provisionResult = await this.mikrotikService.provisionAccess(
 				account,
@@ -101,9 +111,11 @@ export class ActivateHotspotAccess {
 			};
 			
 		} catch (err) {
+			// If provision fails because it tries to remake the user, check if we can bypass safely
+			if (err.message.toLowerCase().includes("already exist")) {
+				return { success: true, autoConnected: true, method: "bypass_fallback" };
+			}
 			throw new Error("Hotspot session activation failed: " + err.message);
 		}
-
 	}
 }
-	
