@@ -1,72 +1,141 @@
 import { API } from "./client";
 import { ApiResponse } from "./types";
+// ================================
+// ENUM TYPES
+// ================================
+
+export type RouterStatus =
+	| "online"
+	| "offline"
+	| "maintenance";
+
+export type SupportedService =
+	| "pppoe"
+	| "hotspot";
+
+export type ConnectionType =
+	| "direct"
+	| "agent"
+	| "vpn";
+
+export type AgentStatus =
+	| "online"
+	| "offline";
 
 // ================================
-// ROUTER TYPES
+// ROUTER
 // ================================
 
 export interface Router {
 	id: string;
+
+	// Identity
 	name: string;
 	code: string;
+
+	// Access
 	host: string;
 	port: number;
 	username: string;
 	ssl: boolean;
-	routerType: "pppoe" | "hotspot" | "mixed";
+	routerUid?: string;
+
+	// Capabilities
+	supportedServices: SupportedService[];
+
+	// Location
 	location?: string;
+	siteCode?: string;
 	popName?: string;
-	status: "online" | "offline" | "maintenance";
+
+	// Operational
+	status: RouterStatus;
 	lastError?: string | null;
 	isEnabled: boolean;
 	apiEnabled: boolean;
 	lastSeenAt?: string;
 	lastProvisionSyncAt?: string;
+
+	// Connection
+	connectionType: ConnectionType;
+	connectorId?: string | null;
+
+	// Capacity
 	maxSessions: number;
 	currentSessions: number;
+
+	agentStatus: AgentStatus;
+	agentLastSeenAt?: string;
+
+	// RouterOS
 	routerOsVersion?: string;
 	routerBoard?: string;
 	systemIdentity?: string;
+
+	// Failover
 	priority: number;
 	isDefaultRouter: boolean;
+
+	// Timestamps
 	createdAt: string;
 	updatedAt: string;
 }
 
 // ================================
-// CREATE / UPDATE DTOs
+// CREATE DTO
 // ================================
 
 export interface CreateRouterDto {
+	// Identity
 	name: string;
 	code: string;
+
+	// Access
 	host: string;
 	port?: number;
 	username: string;
 	password: string;
 	ssl?: boolean;
-	routerType?: "pppoe" | "hotspot" | "mixed";
+
+	// Capability
+	supportedServices?: SupportedService[];
+
+	// Location
 	location?: string;
+	siteCode?: string;
 	popName?: string;
-	status?: "online" | "offline" | "maintenance";
+
+	// Operational
 	isEnabled?: boolean;
 	apiEnabled?: boolean;
+
+	// Connection
+	connectionType?: ConnectionType;
+	connectorId?: string | null;
+
+	// Capacity
 	maxSessions?: number;
+
+	// Failover
 	priority?: number;
 	isDefaultRouter?: boolean;
 }
 
-export interface UpdateRouterDto extends Partial<CreateRouterDto> {}
+// ================================
+// UPDATE DTO
+// ================================
+
+export interface UpdateRouterDto
+	extends Partial<CreateRouterDto> {}
 
 // ================================
-// ROUTER LIST RESPONSE
+// RESPONSES
 // ================================
 
 export interface RouterListResponse {
 	data: Router[];
 	total: number;
 }
-
 // ================================
 // ROUTER API
 // ================================
@@ -80,14 +149,14 @@ export const routerApi = {
 	create: (
 		data: CreateRouterDto
 	): Promise<ApiResponse<Router>> =>
-		API.post("/admin", data),
+		API.post("routers/admin", data),
 
 	// UPDATE ROUTER
 	update: (
 		id: string,
 		data: UpdateRouterDto
 	): Promise<ApiResponse<Router>> =>
-		API.put(`/admin/${id}`, data),
+		API.put(`routers/admin/${id}`, data),
 
 	// DELETE ROUTER
 	remove: (
@@ -96,8 +165,10 @@ export const routerApi = {
 		API.delete(`/admin/${id}`),
 
 	// LIST ALL ROUTERS
-	getAll: (): Promise<ApiResponse<Router[]>> => API.get("routers/admin"),
-
+	getAll: async (): Promise<Router[]> => {
+		const response = await API.get("routers/admin");
+		return response.data;
+	},
 	// ============================
 	// ROUTER DEVICE ACTIONS
 	// ============================
