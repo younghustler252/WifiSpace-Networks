@@ -105,13 +105,10 @@ export default function PlanForm({
 	// GET ROUTERS (ONLY NAME USED IN UI)
 	// ----------------------------
 	const { data: routers = [], isLoading: loadingRouters } =
-		useQuery({
-			queryKey: ["routers"],
-			queryFn: async () => {
-				const res = await routerApi.getAll();
-				return res.data || [];
-			},
-		});
+	useQuery({
+		queryKey: ["routers"],
+		queryFn: routerApi.getAll,
+	});
 
 	// ----------------------------
 	// GET MIKROTIK PROFILES
