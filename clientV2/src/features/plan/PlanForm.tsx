@@ -129,7 +129,7 @@ export default function PlanForm({
 			enabled: !!routerId,
 		});
 
-		console.log("Profiles:", profiles);
+		// console.log("Profiles:", profiles);
 	// ----------------------------
 	// SUBMIT
 	// ----------------------------
@@ -159,7 +159,7 @@ export default function PlanForm({
 		<form onSubmit={handleSubmit(submit)} className="ui-stack">
 			{/* ERROR */}
 			{error && (
-				<div className="rounded-md bg-red-500/10 text-red-500 px-3 py-2 text-sm">
+				<div className="px-3 py-2 text-sm text-red-500 rounded-md bg-red-500/10">
 					{error}
 				</div>
 			)}
@@ -180,7 +180,7 @@ export default function PlanForm({
 
 				<select
 					{...register("routerId", { required: true })}
-					className="ui-input mt-1"
+					className="mt-1 ui-input"
 				>
 					<option value="">
 						{loadingRouters ? "Loading routers..." : "Select router"}
@@ -194,7 +194,7 @@ export default function PlanForm({
 				</select>
 
 				{errors.routerId && (
-					<p className="text-xs text-red-500 mt-1">
+					<p className="mt-1 text-xs text-red-500">
 						Router is required
 					</p>
 				)}
@@ -206,7 +206,7 @@ export default function PlanForm({
 					Service Type
 				</label>
 
-				<select {...register("serviceType")} className="ui-input mt-1">
+				<select {...register("serviceType")} className="mt-1 ui-input">
 					<option value="pppoe">PPPoE</option>
 					<option value="hotspot">Hotspot</option>
 				</select>
@@ -219,7 +219,7 @@ export default function PlanForm({
 						Account Type
 					</label>
 
-					<select {...register("accountType")} className="ui-input mt-1">
+					<select {...register("accountType")} className="mt-1 ui-input">
 						<option value="personal">Personal</option>
 						<option value="business">Business</option>
 					</select>
@@ -232,7 +232,7 @@ export default function PlanForm({
 					Status
 				</label>
 
-				<select {...register("status")} className="ui-input mt-1">
+				<select {...register("status")} className="mt-1 ui-input">
 					<option value="active">Active</option>
 					<option value="inactive">Inactive</option>
 				</select>
@@ -269,7 +269,7 @@ export default function PlanForm({
 					})}
 				/>
 
-				<select {...register("durationUnit")} className="ui-input mt-6">
+				<select {...register("durationUnit")} className="mt-6 ui-input">
 					<option value="minutes">Minutes</option>
 					<option value="hours">Hours</option>
 					<option value="days">Days</option>
@@ -305,7 +305,7 @@ export default function PlanForm({
 
 				<select
 					{...register("mikrotikProfile", { required: true })}
-					className="ui-input mt-1"
+					className="mt-1 ui-input"
 				>
 					<option value="">
 						{loadingProfiles ? "Loading..." : "Select profile"}
@@ -327,7 +327,7 @@ export default function PlanForm({
 
 				<textarea
 					{...register("features")}
-					className="ui-textarea mt-1"
+					className="mt-1 ui-textarea"
 				/>
 			</div>
 

@@ -82,7 +82,7 @@ export default function AccountForm({
 		},
 	});
 
-	const routers = routerResponse?.data ?? [];
+	const routers = routerResponse ?? [];
 
 	// ================= WATCHERS =================
 	const serviceType = watch("serviceType");
@@ -144,10 +144,10 @@ export default function AccountForm({
 	};
 
 	return (
-		<form onSubmit={handleSubmit(submit)} className="space-y-8 max-w-5xl mx-auto">
+		<form onSubmit={handleSubmit(submit)} className="max-w-5xl mx-auto space-y-8">
 
 			{/* ================= ACCOUNT ================= */}
-			<section className="ui-card space-y-6 p-6 rounded-2xl">
+			<section className="p-6 space-y-6 ui-card rounded-2xl">
 				<div>
 					<h3 className="text-base font-semibold">Account Information</h3>
 					<p className="text-sm text-muted-foreground">
@@ -155,7 +155,7 @@ export default function AccountForm({
 					</p>
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+				<div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
 					{isStaff && (
 						<InputField
@@ -190,7 +190,7 @@ export default function AccountForm({
 			</section>
 
 			{/* ================= ROUTER ================= */}
-			<section className="ui-card space-y-6 p-6 rounded-2xl">
+			<section className="p-6 space-y-6 ui-card rounded-2xl">
 				<div>
 					<h3 className="text-base font-semibold">Router Configuration</h3>
 					<p className="text-sm text-muted-foreground">
@@ -198,7 +198,7 @@ export default function AccountForm({
 					</p>
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+				<div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
 					<SelectField
 						label="Router"
@@ -248,7 +248,7 @@ export default function AccountForm({
 
 			{/* ================= BUSINESS ================= */}
 			{isBusiness && (
-				<section className="ui-card space-y-6 p-6 rounded-2xl">
+				<section className="p-6 space-y-6 ui-card rounded-2xl">
 					<div>
 						<h3 className="text-base font-semibold">
 							Business Information
@@ -258,7 +258,7 @@ export default function AccountForm({
 						</p>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+					<div className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
 						<InputField
 							label="Business Name"
@@ -322,7 +322,7 @@ const SelectField = ({
 
 			<div className="relative">
 				{leftIcon && (
-					<div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+					<div className="absolute -translate-y-1/2 pointer-events-none left-3 top-1/2">
 						{leftIcon}
 					</div>
 				)}
