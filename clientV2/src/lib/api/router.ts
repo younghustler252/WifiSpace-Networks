@@ -233,5 +233,15 @@ export const routerApi = {
 	): Promise<ApiResponse<any>> =>
 		API.post("routers/account/resume", {
 			accountId
-		})
+		}),
+
+	
+
+	// ============================
+	// ROUTER SYNC OPERATIONS
+	// ============================
+
+	// SYNC ALL ROUTERS
+	syncAllRouters: (): Promise<ApiResponse<any>> =>
+		API.post("/routers/admin/sync-all"),
 };

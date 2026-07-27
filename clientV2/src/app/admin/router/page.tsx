@@ -9,7 +9,7 @@ import Card, { CardHeader, CardContent } from "@/components/ui/Card";
 import Modal, { ModalHeader, ModalBody, ModalFooter } from "@/components/ui/Modal";
 import { InputField } from "@/components/ui/InputField";
 import PageHeader from "@/components/ui/PageHeader";
-
+import { useSyncAllRouters } from "@/features/router/hooks/useRouterSync";
 import { routerApi, Router, UpdateRouterDto,CreateRouterDto } from "@/lib/api/router";
 
 export default function RoutersPage() {
@@ -124,6 +124,11 @@ const updateMutation = useMutation({
 	},
 });
 
+const {
+    mutate: syncAllRouters,
+    isPending: isSyncing,
+} = useSyncAllRouters();
+
 // ================= HANDLERS =================
 
 const handleSelect = (router: Router) => {
@@ -222,10 +227,20 @@ useEffect(() => {
 			<PageHeader
 				title="Routers"
 				actions={
-					<Button onClick={() => setCreateOpen(true)}>
-						<Plus className="w-4 h-4 mr-2" />
-						New Router
-					</Button>
+					<div className="flex gap-2">
+						<Button
+							onClick={() => syncAllRouters()}
+							disabled={isSyncing}
+							variant="outline"
+						>
+							{isSyncing ? "Syncing..." : "Sync All"}
+						</Button>
+
+						<Button onClick={() => setCreateOpen(true)}>
+							<Plus className="w-4 h-4 mr-2" />
+							New Router
+						</Button>
+					</div>
 				}
 			/>
 
@@ -239,12 +254,12 @@ useEffect(() => {
 									{selected.name}
 								</p>
 
-								<div className="mt-1 flex flex-wrap gap-2 text-xs">
-									<span className="rounded bg-muted px-2 py-1">
+								<div className="flex flex-wrap gap-2 mt-1 text-xs">
+									<span className="px-2 py-1 rounded bg-muted">
 										{selected.code}
 									</span>
 
-									<span className="rounded bg-muted px-2 py-1">
+									<span className="px-2 py-1 rounded bg-muted">
 										{selected.host}:{selected.port}
 									</span>
 
@@ -284,7 +299,7 @@ useEffect(() => {
 							</div>
 						</CardHeader>
 
-						<CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
 
 							{/* Identity */}
 							{isEditing ? (
@@ -400,7 +415,7 @@ useEffect(() => {
 							{/* Connection Type */}
 							{isEditing ? (
 								<select
-									className="border rounded-md p-2 bg-background"
+									className="p-2 border rounded-md bg-background"
 									value={editForm.connectionType ?? "direct"}
 									onChange={(e) =>
 										setEditForm((p) => ({
@@ -507,7 +522,7 @@ useEffect(() => {
 					Available Routers
 				</p>
 
-				<div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+				<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 					{routers.map((r) => (
 						<Card
 							key={r.id}
@@ -561,7 +576,7 @@ useEffect(() => {
 									{r.supportedServices?.map((service) => (
 										<span
 											key={service}
-											className="text-xs rounded bg-muted px-2 py-1"
+											className="px-2 py-1 text-xs rounded bg-muted"
 										>
 											{service}
 										</span>
@@ -584,7 +599,7 @@ useEffect(() => {
 
 								<div className="flex items-center justify-between">
 									{r.isDefaultRouter ? (
-										<span className="text-xs text-primary font-medium">
+										<span className="text-xs font-medium text-primary">
 											Default Router
 										</span>
 									) : (
@@ -622,7 +637,7 @@ useEffect(() => {
 function Info({ label, value }: { label: string; value: any }) {
 	return (
 		<div className="text-sm">
-			<p className="text-muted-foreground text-xs">{label}</p>
+			<p className="text-xs text-muted-foreground">{label}</p>
 			<p className="font-medium">{value}</p>
 		</div>
 	);
