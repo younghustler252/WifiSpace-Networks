@@ -66,14 +66,6 @@ export default function routerAdminRoutes({
         )
     );
 
-    router.post(
-        "/:id/reboot",
-        auth(["staff", "superadmin"]),
-        requirePermission(PERMISSION.ROUTER.REBOOT, permissionService),
-        asyncHandler((req, res, next) =>
-            routerAdminController.reboot(req, res, next)
-        )
-    );
 
     router.post(
         "/:id/sync",
@@ -81,6 +73,15 @@ export default function routerAdminRoutes({
         requirePermission(PERMISSION.ROUTER.UPDATE, permissionService),
         asyncHandler((req, res, next) =>
             routerAdminController.sync(req, res, next)
+        )
+    );
+
+    router.post(
+        "/sync-all",
+        auth(["superadmin"]),
+        requirePermission(PERMISSION.ROUTER.UPDATE, permissionService),
+        asyncHandler((req, res, next) =>
+            routerAdminController.syncAll(req, res, next)
         )
     );
 

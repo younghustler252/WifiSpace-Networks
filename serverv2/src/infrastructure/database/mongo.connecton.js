@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { databaseConfig } from '../../../config/database.js';
+import { databaseConfig } from '../../config/database.js';
 
 export const connectDatabase = async () => {
 	try {

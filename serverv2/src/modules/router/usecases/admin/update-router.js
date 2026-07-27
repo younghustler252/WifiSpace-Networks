@@ -1,5 +1,5 @@
 export class UpdateRouter {
-	constructor(routerRepository, auditService) {
+	constructor({routerRepository, auditService}) {
 		this.routerRepository = routerRepository;
 		this.auditService = auditService;
 	}
@@ -10,7 +10,7 @@ export class UpdateRouter {
 
 		const updated = await this.routerRepository.update(routerId, updateData);
 
-		await this.auditService.log('update-router', { routerId });
+		// await this.auditService.log('update-router', { routerId });
 
 		return updated;
 	}

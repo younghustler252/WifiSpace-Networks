@@ -30,6 +30,7 @@ export class SyncRouterInfo {
             });
 
         } catch (error) {
+            console.error(error)
             return await this.routerRepository.update(routerId, {
                 status: "offline",
                 lastError: error.message

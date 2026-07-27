@@ -9,6 +9,7 @@ export class RouterAdminController {
         checkRouterStatus,
         rebootRouter,
         syncRouterInfo,
+        syncAllRouters,
     }) {
         this.createRouter = createRouter;
         this.updateRouter = updateRouter;
@@ -17,6 +18,8 @@ export class RouterAdminController {
         this.checkRouterStatus = checkRouterStatus;
         this.rebootRouter = rebootRouter;
         this.syncRouterInfo = syncRouterInfo;
+        this.syncAllRouters = syncAllRouters;
+
     }
 
     // ==================================================
@@ -178,4 +181,22 @@ export class RouterAdminController {
             next(error);
         }
     }
+    // ==================================================
+// Sync All Routers
+// ==================================================
+async syncAll(req, res, next) {
+    try {
+        const result = await this.syncAllRouters.execute();
+
+        return successResponse({
+            res,
+            data: result,
+            message: "All routers synced successfully",
+            code: "ROUTERS_SYNCED",
+            statusCode: 200,
+        });
+    } catch (error) {
+        next(error);
+    }
+}
 }

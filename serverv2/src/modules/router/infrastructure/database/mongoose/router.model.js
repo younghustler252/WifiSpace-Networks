@@ -220,7 +220,6 @@
 
 	routerSchema.index({ status: 1 });
 
-	routerSchema.index({ routerType: 1 });
 
 	routerSchema.index({ location: 1 });
 
