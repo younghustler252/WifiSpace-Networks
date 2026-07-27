@@ -1,11 +1,8 @@
-// infrastructure/queue/connection.js
+// infrastructure/jobs/connection.js
 
 import IORedis from "ioredis";
 import { redisConfig } from "../../config/redis.js";
 
-export const connection = new IORedis({
-    host: redisConfig.host,
-    port: redisConfig.port,
-    password: redisConfig.password,
+export const connection = new IORedis(redisConfig.url, {
     maxRetriesPerRequest: null,
 });
