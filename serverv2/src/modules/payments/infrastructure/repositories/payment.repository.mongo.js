@@ -246,21 +246,31 @@ export class PaymentRepositoryMongo {
 	// PENDING
 	// =================================
 
-	async findPendingPayments() {
+	async findExpiredPendingPayments(cutoffDate) {
+		const docs = await PaymentModel.find({
+			status: "pending",
+			createdAt: {
+				$lte: cutoffDate
+			}
+		});
 
-		const docs =
-			await PaymentModel.find({
-				status: "pending"
-			})
-				.sort({
-					paymentDate: 1
-				});
-
-		return docs.map(
-			PaymentMapper.toDomain
-		);
+		return docs.map(PaymentMapper.toDomain);
 	}
 
+	async expirePayments(ids) {
+		return PaymentModel.updateMany(
+			{
+				_id: { $in: ids }
+			},
+			{
+				$set: {
+					status: "expired",
+					failedAt: new Date(),
+					failureReason: "Payment session expired"
+				}
+			}
+		);
+	}
 	// =================================
 	// AUTO RENEW
 	// =================================

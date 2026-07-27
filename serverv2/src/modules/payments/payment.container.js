@@ -22,6 +22,8 @@ import { GetPaymentByIdUseCase } from "./usecases/shared/get-payment.js";
 
 import { HandleWebhookUseCase } from "./usecases/user/handle-webhook.js";
 
+import { ExpirePendingPaymentsUseCase } from "./usecases/system/expire-pending-payment.js";
+
 // CONTROLLERS
 import { PaymentController } from "./controllers/payment.controller.js";
 import { PaymentAdminController } from "./controllers/admin.controller.js";
@@ -58,6 +60,9 @@ export function registerPayment(container) {
 		handleWebhook: asClass(HandleWebhookUseCase).scoped(),
 
 		paymentProcessorResolver: asClass(PaymentProcessorResolver).scoped(),
+
+		expirePendingPayments: asClass(ExpirePendingPaymentsUseCase).scoped(),
+
 
 		// -----------------------------
 		// CONTROLLERS (FULL AWILIX)
