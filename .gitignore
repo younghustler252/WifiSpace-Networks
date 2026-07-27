@@ -3,8 +3,10 @@ node_modules/
 
 # Env files
 .env
+.env.*
 server/.env
 client/.env
+serverv2/.env.production
 
 # Logs
 *.log
