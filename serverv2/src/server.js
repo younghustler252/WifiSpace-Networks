@@ -5,7 +5,7 @@ import { connectDatabase } from "./infrastructure/database/mongo.connecton.js";
 import redisClient from "./config/redisClient.js";
 
 // // New jobs bootstrap
-// import { startJobs } from "./infrastructure/jobs/index.js";
+import { startJobs } from "./infrastructure/jobs/index.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -18,12 +18,8 @@ const startServer = async () => {
         await connectDatabase();
 		await redisClient.ping();
 		
-        // Existing infrastructure (temporary)
-        // await startWorkers();
-        // await startCrons();
-
         // New BullMQ jobs
-        // await startJobs();
+        await startJobs();
 
         console.log("✅ All connections and scheduling handlers initialized");
 
