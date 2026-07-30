@@ -1,150 +1,72 @@
 export class HotspotCheckoutFlow {
-
 	constructor({
 		userRepository,
+		planRepository,
 		accountResolver,
-		createAccount
+		createAccount,
+		createPayment
 	}) {
 		this.userRepository = userRepository;
+		this.planRepository = planRepository;
 		this.accountResolver = accountResolver;
 		this.createAccount = createAccount;
+		this.createPayment = createPayment;
 	}
 
+	async execute({ userId, planId, metadata = {} }) {
+		if (!userId) throw new Error("userId is required");
+		if (!planId) throw new Error("planId is required");
 
-	async execute({
-		userId,
-		plan,
-		metadata = {}
-	}) {
+		const user = await this.userRepository.findById(userId);
+		if (!user) throw new Error("User not found");
 
+		const plan = await this.planRepository.findById(planId);
+		if (!plan) throw new Error("Plan not found");
 
-		if (!userId) {
-			throw new Error("userId is required");
+		if (plan.serviceType !== "hotspot") {
+			throw new Error("Selected plan is not a hotspot plan");
 		}
 
-		if (!plan) {
-			throw new Error("plan is required");
-		}
+		const resolution = await this.accountResolver.resolve({ user, plan, metadata });
 
-
-
-		const user =
-			await this.userRepository.findById(userId);
-
-
-		if (!user) {
-			throw new Error("User not found");
-		}
-
-
-
-		const serviceType = "hotspot";
-
-
-
-		const resolution =
-			await this.accountResolver.resolve({
-				user,
-
-				plan:{
-					...plan,
-					serviceType
-				},
-
-				metadata
-			});
-
-
-
-		let account =
-			resolution.account;
-
-
-		// =====================================================
-// 3. CREATE ACCOUNT IF NEEDED
-// =====================================================
-
+		let account = resolution.account;
 		let createdAccount = false;
 
-
 		if (!account && resolution.needsCreation) {
+			const result = await this.createAccount.execute({
+				userId: user.id,
+				accountType: "personal",
+				serviceType: "hotspot",
+				routerId: metadata.routerId,
+				routerProfile: plan.mikrotikProfile,
+				limitUptime: plan.limitUptime
+			});
 
-
-			const result =
-				await this.createAccount.execute({
-
-					userId: user.id,
-
-					accountType: "personal",
-
-					serviceType,
-
-					routerId:
-						metadata.routerId || null,
-
-
-					routerPassword:
-						metadata.phone || null,
-
-
-					routerProfile:
-						plan.mikrotikProfile || null,
-
-
-					limitUptime:
-						plan.limitUptime || null
-				});
-
-
-			account =
-				result.account || result;
-
-
+			account = result.account ?? result;
 			createdAccount = true;
 		}
 
+		if (!account) throw new Error("Unable to resolve hotspot account");
 
-
-		if(!account){
-			throw new Error(
-				"Could not resolve hotspot account"
-			);
-		}
-
-
-
-
-		const paymentDraft = {
-
-			userId:user.id,
-
-			accountId:account.id,
-
-			planId:plan.id,
-
-
-			metadata:{
+		const payment = await this.createPayment.execute({
+			userId: user.id,
+			accountId: account.id,
+			planId: plan.id,
+			
+			callbackUrl: `${process.env.FRONTEND_URL}/hotspot/callback`,
+			metadata: {
 				...metadata,
-
-				serviceType,
-
-				accountId:account.id
+				serviceType: "hotspot",
+				accountId: account.id
 			}
-		};
-
-
+		});
 
 		return {
-
-			status:
-				createdAccount
-					? "CREATED_ACCOUNT"
-					: "READY",
-
-
+			status: createdAccount ? "CREATED_ACCOUNT" : "READY",
+			user,
 			account,
-
-			paymentDraft
+			plan,
+			payment
 		};
 	}
 }

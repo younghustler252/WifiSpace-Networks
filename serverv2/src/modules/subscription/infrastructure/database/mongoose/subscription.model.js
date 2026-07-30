@@ -56,6 +56,10 @@ const SubscriptionSchema = new mongoose.Schema({
 	mikrotikStatus: { type: String, enum: ["pending","synced","failed"], default: "pending", index: true },
 	mikrotikLastSyncAt: Date,
 	mikrotikError: String,
+	remindersSent: {
+		type: [Number],
+		default: []
+	},
 
 	events: [
 		{

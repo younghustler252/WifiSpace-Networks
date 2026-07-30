@@ -3,200 +3,384 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
 import { Subscription } from "../../domain/subscription.entity.js";
 
+
 export class AdminCreateSubscriptionUseCase {
+
 	constructor({
 		subscriptionRepository,
 		planRepository,
 		adminRecordPayment,
-		subscriptionQueue
+		networkService
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.adminRecordPayment = adminRecordPayment;
-		this.subscriptionQueue = subscriptionQueue;
+		this.networkService = networkService;
 	}
 
+
 	async execute({
+
 		accountId,
 		userId,
 		planId,
+
 		status = "active",
 		cycles = 1,
+
 		overrideExisting = false,
+
 		startsAt,
+
 		manualAdjustmentDays = 0,
+
 		autoRenewEnabled = false,
+
 		adminId,
+
 		reason,
+
 		paymentAmount,
+
 		paymentChannel = "bank_transfer",
+
 		currency = "NGN",
+
 		adminNote = null,
+
 		context = {}
+
 	}) {
+
+
 		// -----------------------------
 		// VALIDATION
 		// -----------------------------
-		if (!accountId) throw new ValidationError("accountId is required");
-		if (!userId) throw new ValidationError("userId is required");
-		if (!planId) throw new ValidationError("planId is required");
-		if (cycles < 1) throw new ValidationError("cycles must be at least 1");
 
-		const allowedStatuses = ["active", "expired", "suspended", "canceled"];
-		if (!allowedStatuses.includes(status)) {
-			throw new ValidationError("Invalid subscription status");
+		if (!accountId) {
+			throw new ValidationError(
+				"accountId is required"
+			);
 		}
 
-		const startDate = startsAt ? new Date(startsAt) : new Date();
+		if (!userId) {
+			throw new ValidationError(
+				"userId is required"
+			);
+		}
+
+		if (!planId) {
+			throw new ValidationError(
+				"planId is required"
+			);
+		}
+
+		if (cycles < 1) {
+			throw new ValidationError(
+				"cycles must be at least 1"
+			);
+		}
+
+
+
+		const allowedStatuses = [
+			"active",
+			"expired",
+			"suspended",
+			"canceled"
+		];
+
+
+		if (!allowedStatuses.includes(status)) {
+			throw new ValidationError(
+				"Invalid subscription status"
+			);
+		}
+
+
+
+		const startDate =
+			startsAt
+				? new Date(startsAt)
+				: new Date();
+
 
 		if (isNaN(startDate.getTime())) {
-			throw new ValidationError("Invalid startsAt");
+			throw new ValidationError(
+				"Invalid startsAt"
+			);
 		}
 
-		// -----------------------------
-		// PREVENT DUPLICATE ACTIVE SUBSCRIPTION
-		// -----------------------------
-		const existing = await this.subscriptionRepository.findActiveByAccount(accountId);
 
-		if (existing && status === "active" && !overrideExisting) {
-			throw new ValidationError("Account already has an active subscription");
+
+		// -----------------------------
+		// EXISTING SUBSCRIPTION CHECK
+		// -----------------------------
+
+		const existing =
+			await this.subscriptionRepository.findActiveByAccount(
+				accountId
+			);
+
+
+		if (
+			existing &&
+			status === "active" &&
+			!overrideExisting
+		) {
+			throw new ValidationError(
+				"Account already has an active subscription"
+			);
 		}
 
+
+
 		// -----------------------------
-		// FETCH PLAN
+		// PLAN
 		// -----------------------------
-		const plan = await this.planRepository.findById(planId);
+
+		const plan =
+			await this.planRepository.findById(
+				planId
+			);
+
 
 		if (!plan) {
-			throw new NotFoundError("Plan not found");
+			throw new NotFoundError(
+				"Plan not found"
+			);
 		}
 
+
+
 		// -----------------------------
-		// RECORD PAYMENT (OPTIONAL)
+		// PAYMENT
 		// -----------------------------
+
 		let savedPayment = null;
 
+
 		if (paymentAmount) {
-			savedPayment = await this.adminRecordPayment.execute({
-				userId,
-				accountId,
-				planId,
-				amount: paymentAmount,
-				currency,
-				paymentChannel,
-				adminNote
-			});
+
+			savedPayment =
+				await this.adminRecordPayment.execute({
+
+					userId,
+
+					accountId,
+
+					planId,
+
+					amount: paymentAmount,
+
+					currency,
+
+					paymentChannel,
+
+					adminNote
+				});
 		}
+
+
 
 		// -----------------------------
 		// BILLING
 		// -----------------------------
-		const billing = PlanBillingCalculator.calculate(plan, cycles);
 
-		const expiresAt = PlanBillingCalculator.calculateExpiryDate(
-			plan,
-			cycles,
-			startDate,
-			manualAdjustmentDays
-		);
+		const billing =
+			PlanBillingCalculator.calculate(
+				plan,
+				cycles
+			);
 
-		const graceEndsAt = plan.gracePeriodDays
-			? new Date(
+
+		const expiresAt =
+			PlanBillingCalculator.calculateExpiryDate(
+				plan,
+				cycles,
+				startDate,
+				manualAdjustmentDays
+			);
+
+
+
+		const graceEndsAt =
+			plan.gracePeriodDays
+				? new Date(
 					expiresAt.getTime() +
-					plan.gracePeriodDays * 24 * 60 * 60 * 1000
-			  )
-			: null;
+					plan.gracePeriodDays *
+					24 *
+					60 *
+					60 *
+					1000
+				)
+				: null;
+
+
 
 		// -----------------------------
-		// CREATE SUBSCRIPTION
+		// CREATE SUBSCRIPTION ENTITY
 		// -----------------------------
-		const subscription = new Subscription({
-			accountId,
-			userId,
-			planId,
 
-			planSnapshot: {
-				name: plan.name,
-				serviceType: plan.serviceType,
-				price: plan.price,
-				durationValue: plan.durationValue,
-				durationUnit: plan.durationUnit,
-				speedRate: plan.speedRate,
-				mikrotikProfile: plan.mikrotikProfile,
-				devicesAllowed: plan.devicesAllowed,
-				gracePeriodDays: plan.gracePeriodDays
-			},
+		const subscription =
+			new Subscription({
 
-			status,
-			cycles,
-			totalAmount: plan.price * cycles,
+				accountId,
 
-			startsAt: startDate,
-			expiresAt,
-			graceEndsAt,
+				userId,
 
-			bonusDays: billing.bonusDays,
-			manualAdjustmentDays,
-			autoRenewEnabled,
+				planId,
 
-			activatedAt: status === "active" ? startDate : null,
 
-			lastPaymentId: savedPayment?.id || null,
-			lastPaymentDate: savedPayment ? startDate : null,
-			lastPaymentAmount: savedPayment ? savedPayment.amount.total : null,
+				planSnapshot: {
 
-			mikrotikStatus: status === "active" ? "pending" : "none",
-			mikrotikError: null,
+					name: plan.name,
 
-			events: [
-				{
-					type: "created",
-					date: new Date(),
-					metadata: {
-						source: "admin",
-						adminId,
-						reason,
-						planName: plan.name,
-						price: plan.price,
-						status,
-						cycles,
-						bonusDays: billing.bonusDays,
-						manualAdjustmentDays,
-						overrideExisting,
-						paymentId: savedPayment?.id || null,
-						startsAt: startDate,
-						expiresAt
+					serviceType: plan.serviceType,
+
+					price: plan.price,
+
+					durationValue: plan.durationValue,
+
+					durationUnit: plan.durationUnit,
+
+					speedRate: plan.speedRate,
+
+					mikrotikProfile: plan.mikrotikProfile,
+
+					devicesAllowed: plan.devicesAllowed,
+
+					gracePeriodDays:
+						plan.gracePeriodDays
+				},
+
+
+				status,
+
+				cycles,
+
+				totalAmount:
+					plan.price * cycles,
+
+
+				startsAt: startDate,
+
+				expiresAt,
+
+				graceEndsAt,
+
+
+				bonusDays:
+					billing.bonusDays,
+
+
+				manualAdjustmentDays,
+
+				autoRenewEnabled,
+
+
+				activatedAt:
+					status === "active"
+						? startDate
+						: null,
+
+
+				lastPaymentId:
+					savedPayment?.id || null,
+
+
+				lastPaymentDate:
+					savedPayment
+						? startDate
+						: null,
+
+
+				lastPaymentAmount:
+					savedPayment
+						? savedPayment.amount.total
+						: null,
+
+
+				events: [
+					{
+						type: "created",
+
+						date: new Date(),
+
+						metadata: {
+
+							source: "admin",
+
+							adminId,
+
+							reason,
+
+							planName: plan.name,
+
+							price: plan.price,
+
+							status,
+
+							cycles,
+
+							bonusDays:
+								billing.bonusDays,
+
+							manualAdjustmentDays,
+
+							overrideExisting,
+
+							paymentId:
+								savedPayment?.id || null,
+
+							startsAt: startDate,
+
+							expiresAt
+						}
 					}
-				}
-			]
-		});
+				]
+			});
 
-		// -----------------------------
-		// SAVE
-		// -----------------------------
+
+
 		const savedSubscription =
-			await this.subscriptionRepository.create(subscription);
+			await this.subscriptionRepository.create(
+				subscription
+			);
+
+
 
 		// -----------------------------
-		// QUEUE NETWORK PROVISIONING
+		// ACTIVATE NETWORK
 		// -----------------------------
+
+		let activation = null;
+
+
 		if (status === "active") {
-			try {
-				await this.subscriptionQueue.add("provision-network", {
-					subscriptionId: savedSubscription.id,
-					context: {
+
+			activation =
+				await this.networkService.activate(
+					savedSubscription,
+					{
 						...context,
-						actorId: adminId || "SYSTEM_ADMIN_PROVISIONER"
+						actorId:
+							adminId ||
+							"SYSTEM_ADMIN_PROVISIONER"
 					}
-				});
-			} catch (queueErr) {
-				console.error(
-					"[AdminCreateSubscriptionUseCase] Failed to dispatch provisioning job:",
-					queueErr.message
 				);
-			}
 		}
 
-		return savedSubscription;
+
+
+		return {
+
+			subscription: savedSubscription,
+
+			payment: savedPayment,
+
+			activation
+
+		};
 	}
 }

@@ -5,15 +5,7 @@ import { asClass } from "awilix";
 // REPOSITORIES
 import { RouterRepositoryMongo } from "./infrastructure/repositories/router.repository.mongo.js";
 
-// SERVICES
-import { MikrotikService } from "./services/mikrotik.service.js";
-import { AgentService } from "./services/agent.service.js";
 
-// USE CASES - ACCOUNT
-import { CreateRouterAccount } from "./usecases/account/create-router-account.js";
-import { ProvisionNetworkAccount } from "./usecases/account/provision-network-account.js";
-import { SuspendNetworkAccount } from "./usecases/account/suspend-network-account.js";
-import { ResumeNetworkAccount } from "./usecases/account/resume-network.js";
 import { CheckRouterStatus } from "./usecases/account/check-router-status.js";
 import { RebootRouter } from "./usecases/account/reboot-router.js";
 
@@ -26,14 +18,7 @@ import { GetRouterProfiles } from "./usecases/account/get-router-profiles.js";
 import { SyncRouterInfo } from "./usecases/admin/sync-router-info.js";
 import { SyncAllRouters } from "./usecases/admin/syncAllRouter.js";
 
-import { RouterAdminController } from "./presentation/controller/admin.controller.js";
-import { RouterProvisioningController } from "./presentation/controller/provisioning.controller.js";
-import { AgentController } from "./presentation/controller/agent.controller.js";
-
-import {MikrotikClient} from "./infrastructure/client/mikrotik.client.js";
-import { PppoeIntegration } from "./infrastructure/integrations/pppoe.integration.js";
-import { HotspotIntegration } from "./infrastructure/integrations/hotspot.integration.js";
-import { RouterIntegration } from "./infrastructure/integrations/router.integration.js";
+import { RouterController } from "./presentation/controller/router.controller.js";
 
 export function registerRouter(container) {
 
@@ -41,29 +26,14 @@ export function registerRouter(container) {
 	// REPOSITORY
 	// -------------------------
 	container.register({
-		mikrotikClient: asClass(MikrotikClient).singleton(),
 		routerRepository: asClass(RouterRepositoryMongo).singleton()
 	});
 
-	// -------------------------
-	// SERVICES
-	// -------------------------
-	container.register({
-		mikrotikService: asClass(MikrotikService).singleton(),
-		agentService: asClass(AgentService).singleton(),
-		pppoeIntegration: asClass(PppoeIntegration).singleton(),
-		hotspotIntegration: asClass(HotspotIntegration).singleton(),
-		routerIntegration: asClass(RouterIntegration).singleton()
-	});
 
 	// -------------------------
 	// USE CASES - ACCOUNT
 	// -------------------------
 	container.register({
-		createRouterAccount: asClass(CreateRouterAccount).scoped(),
-		provisionNetworkAccount: asClass(ProvisionNetworkAccount).scoped(),
-		suspendNetworkAccount: asClass(SuspendNetworkAccount).scoped(),
-		resumeNetworkAccount: asClass(ResumeNetworkAccount).scoped(),
 		checkRouterStatus: asClass(CheckRouterStatus).scoped(),
 		rebootRouter: asClass(RebootRouter).scoped()
 	});
@@ -86,8 +56,7 @@ export function registerRouter(container) {
 	// CONTROLLERS
 	// -------------------------
 	container.register({
-		routerAdminController: asClass(RouterAdminController).scoped(),
-		routerProvisioningController: asClass(RouterProvisioningController).scoped(),
-		agentController: asClass(AgentController).scoped()
+		routerController: asClass(RouterController).scoped(),
+		// routerProvisioningController: asClass(RouterProvisioningController).scoped(),
 	})
 }

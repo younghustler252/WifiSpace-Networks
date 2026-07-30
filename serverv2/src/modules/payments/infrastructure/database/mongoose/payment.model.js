@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import {
 	PAYMENT_STATUSES,
-	PAYMENT_CHANNELS,
 	PAYMENT_GATEWAYS,
 	PAYMENT_ACTIONS
 } from "../../../domain/payment.enum.js";
@@ -21,7 +20,7 @@ const PaymentSchema = new mongoose.Schema(
 		accountId: {
 			type: mongoose.Schema.Types.ObjectId,
 			ref: "Account",
-			// required: true,
+			required: true,
 			index: true
 		},
 
@@ -35,7 +34,7 @@ const PaymentSchema = new mongoose.Schema(
 		// ===========================
 		actionType: {
 			type: String,
-			enum: PAYMENT_ACTIONS,
+			enum: PAYMENT_ACTIONS, // now includes "downgrade"
 			required: true
 		},
 
@@ -74,9 +73,10 @@ const PaymentSchema = new mongoose.Schema(
 			index: true
 		},
 
+		
 		paymentChannel: {
 			type: String,
-			enum: PAYMENT_CHANNELS,
+			trim: true,
 			default: null
 		},
 
@@ -98,13 +98,11 @@ const PaymentSchema = new mongoose.Schema(
 		// ===========================
 		idempotencyKey: {
 			type: String,
-		},
-
-		isWebhookProcessed: {
-			type: Boolean,
-			default: false,
+			unique: true,
+			sparse: true,
 			index: true
 		},
+
 		businessProcessed: {
 			type: Boolean,
 			default: false
@@ -152,6 +150,5 @@ const PaymentSchema = new mongoose.Schema(
 // ===========================
 PaymentSchema.index({ userId: 1, status: 1 });
 PaymentSchema.index({ accountId: 1, createdAt: -1 });
-PaymentSchema.index({ idempotencyKey: 1 });
 
 export default mongoose.model("Payment", PaymentSchema);

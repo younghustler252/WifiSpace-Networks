@@ -58,6 +58,7 @@ export class SubscriptionMapper {
 			mikrotikError: doc.mikrotikError,
 
 			events: doc.events,
+			remindersSent: doc.remindersSent || [],
 
 			createdAt: doc.createdAt,
 			updatedAt: doc.updatedAt
@@ -114,8 +115,9 @@ export class SubscriptionMapper {
 			mikrotikStatus: entity.mikrotikStatus,
 			mikrotikLastSyncAt: entity.mikrotikLastSyncAt,
 			mikrotikError: entity.mikrotikError,
-
+			remindersSent: entity.remindersSent,
 			events: entity.events
+
 		};
 	}
 
@@ -174,6 +176,7 @@ export class SubscriptionMapper {
 			mikrotikError: doc.mikrotikError,
 
 			events: doc.events,
+			remindersSent: doc.remindersSent,
 
 			createdAt: doc.createdAt,
 			updatedAt: doc.updatedAt

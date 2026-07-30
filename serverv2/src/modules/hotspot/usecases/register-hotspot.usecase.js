@@ -1,52 +1,137 @@
+import { ValidationError } from "../../../shared/errors/validation-error.js";
 import { User } from "../../user/domain/user.entity.js";
 
 export class RegisterHotspotUser {
-	constructor({ userRepository, passwordService, auditService }) {
+
+	constructor({
+		userRepository,
+		passwordService,
+		auditService,
+		mailService
+	}) {
 		this.userRepository = userRepository;
 		this.passwordService = passwordService;
 		this.auditService = auditService;
+		this.mailService = mailService;
 	}
 
-	async execute({ firstName, email, phone }) {
-		// 1. Check existing user
-		let user = await this.userRepository.findByEmail(email);
 
-		if (!user) {
-			// 2. hash phone (temporary password)
-			const hashedPassword = await this.passwordService.hash(phone);
+	async execute({
+		firstName,
+		lastName,
+		email,
+		phone
+	}) {
 
-			// 3. CREATE ENTITY (same as RegisterUser)
-			const userEntity = new User({
+		if (!firstName) {
+			throw new ValidationError(
+				"First name is required"
+			);
+		}
+
+
+		if (!lastName) {
+			throw new ValidationError(
+				"Last name is required"
+			);
+		}
+
+
+		if (!email) {
+			throw new ValidationError(
+				"Email is required"
+			);
+		}
+
+
+		if (!phone) {
+			throw new ValidationError(
+				"Phone is required"
+			);
+		}
+
+
+		const normalizedEmail =
+			email.toLowerCase().trim();
+
+
+		const existingUser =
+			await this.userRepository.findByEmail(
+				normalizedEmail
+			);
+
+
+		if (existingUser) {
+			throw new ValidationError(
+				"An account already exists with this email. Please sign in to continue."
+			);
+		}
+
+
+
+		// phone becomes initial password
+		const hashedPassword =
+			await this.passwordService.hash(phone);
+
+
+
+		const userEntity =
+			new User({
 				firstName,
-				lastName: "Guest",
-				email,
-				hashedPassword, // ✅ IMPORTANT: match entity, NOT DB
+				lastName,
+				email: normalizedEmail,
+				phone,
+				hashedPassword,
 				role: "customer",
 				status: "active",
 				isVerified: true,
-				phone,
 				permissions: []
 			});
 
-			// 4. persist via repository (mapper handles DB conversion)
-			user = await this.userRepository.create(userEntity);
 
-			// 5. audit
-			await this.auditService.log({
-				actorId: user.id,
-				action: "HOTSPOT_AUTO_REGISTER",
-				resource: "User",
-				metadata: {
-					email,
-					phone,
-					method: "Paystack_Silent"
-				}
-			});
-		} else {
-			if (!user.phone && phone) {
-				await this.userRepository.update(user.id, { phone });
+		const user =
+			await this.userRepository.create(
+				userEntity
+			);
+
+
+
+		// Send login details
+		await this.mailService.sendNotification({
+			to: normalizedEmail,
+			name: firstName,
+			subject: "Your WiFiSpace account has been created",
+			message: `
+				Welcome ${firstName}.
+
+				Your account has been created successfully.
+
+				Login email:
+				${normalizedEmail}
+
+				Your temporary password is your phone number.
+
+				Please login and change your password after accessing your account.
+			`
+		});
+
+
+
+		await this.auditService.log({
+
+			actorId:user.id,
+
+			action:"HOTSPOT_AUTO_REGISTER",
+
+			resource:"User",
+
+			metadata:{
+				email:normalizedEmail,
+				method:"HOTSPOT_PORTAL"
 			}
-		}
+
+		});
+
 
 		return user;
 	}

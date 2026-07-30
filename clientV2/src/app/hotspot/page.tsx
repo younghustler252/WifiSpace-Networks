@@ -1,55 +1,112 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { HotspotRenderer } from "@/features/hotspot/HotspotRenderer";
-import { useHotspotSession } from "@/features/hotspot/hooks/useHotspotSession";
 
-function normalizeMac(mac?: string | null) {
-    if (!mac) return undefined;
+import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/useHotspot";
+import { HotspotLoading } from "@/features/hotspot/components/hotspot-loading";
+import { HotspotLanding } from "@/features/hotspot/components/hotspot-landing";
+import { HotspotConnected } from "@/features/hotspot/components/hotspot-connected";
+import { HotspotPlanSelect } from "@/features/hotspot/components/hotspot-plan-select";
+import { HotspotLogin } from "@/features/hotspot/components/hotspot-login";
 
-    try {
-        return decodeURIComponent(
-            decodeURIComponent(mac)
-        );
-    } catch {
-        return mac;
-    }
+// CHANGED: no HotspotLayout import/wrap here anymore — app/hotspot/layout.tsx
+// already applies to every page under app/hotspot/* automatically per
+// Next.js App Router convention. This file returns content only.
+
+interface RouterContext {
+	macAddress: string | null;
+	ipAddress: string | null;
+	identity: string | null;
+	servername: string | null;
+	hostname: string | null;
 }
 
-export default function HotspotPage() {
-    const params = useSearchParams();
+type View = "landing" | "login" | "plans" | "connected";
 
-    const macAddress = normalizeMac(
-        params.get("mac")
-    );
+export default function HotspotPortalPage() {
+	const searchParams = useSearchParams();
 
-    const ipAddress = params.get("ip") || undefined;
+	const routerContext: RouterContext = useMemo(() => ({
+		macAddress: searchParams.get("mac"),
+		ipAddress: searchParams.get("ip"),
+		identity: searchParams.get("identity"),
+		servername: searchParams.get("servername"),
+		hostname: searchParams.get("hostname")
+	}), [searchParams]);
 
-    const email =
-        params.get("email") || "";
+	const [view, setView] = useState<View>("landing");
+	const [loginPrefillEmail, setLoginPrefillEmail] = useState<string | undefined>(undefined);
 
-    const {
-        state,
-        session,
-        plans,
-        paymentResult,
-        error,
-        actions,
-    } = useHotspotSession(
-        macAddress,
-        email,
-        ipAddress
-    );
+	const sessionQuery = useHotspotSession({
+		macAddress: routerContext.macAddress ?? undefined
+	});
+	const revoke = useRevokeHotspotSession();
 
-    return (
-        <HotspotRenderer
-            state={state}
-            macAddress={macAddress}
-            session={session}
-            plans={plans}
-            paymentResult={paymentResult}
-            error={error}
-            actions={actions}
-        />
-    );
+	if (!routerContext.macAddress) {
+		return (
+			<div className="ui-card !p-4 text-sm text-muted-foreground">
+				We couldn't detect your device. Please reconnect to the WifiSpace
+				network and try again.
+			</div>
+		);
+	}
+
+	if (sessionQuery.isLoading) {
+		return <HotspotLoading />;
+	}
+
+	const session = sessionQuery.data;
+	if (session?.trustedDevice && session.hasActiveSubscription) {
+		return (
+			<HotspotConnected
+				account={session.account}
+				subscription={session.subscription}
+				plan={session.plan}
+				isLoggingOut={revoke.isPending}
+				onLogout={() => {
+					if (!session.identity?.id) return;
+					revoke.mutate({ token: session.identity.id });
+				}}
+			/>
+		);
+	}
+
+	const effectiveView: View =
+		session?.trustedDevice && !session.hasActiveSubscription ? "plans" : view;
+
+	return (
+		<>
+			{effectiveView === "landing" && (
+				<HotspotLanding
+					routerName={routerContext.identity}
+					onGetStarted={() => setView("plans")}
+					onSignIn={() => setView("login")}
+				/>
+			)}
+
+			{effectiveView === "login" && (
+				<HotspotLogin
+					routerContext={routerContext}
+					prefillEmail={loginPrefillEmail}
+					onAuthenticated={() => sessionQuery.refetch()}
+				/>
+			)}
+
+			{effectiveView === "plans" && (
+				<HotspotPlanSelect
+					routerContext={{
+						macAddress: routerContext.macAddress,
+						ipAddress: routerContext.ipAddress,
+						identity: routerContext.identity
+					}}
+					knownUser={session?.user ?? null}
+					onRequiresLogin={(email) => {
+						setLoginPrefillEmail(email);
+						setView("login");
+					}}
+				/>
+			)}
+		</>
+	);
 }

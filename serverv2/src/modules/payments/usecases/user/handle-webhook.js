@@ -1,20 +1,23 @@
+
+
+
 export class HandleWebhookUseCase {
-	constructor({ paystackPaymentService, confirmPayment }) {
-		this.paystackPaymentService = paystackPaymentService;
+	constructor({ paymentService, confirmPayment }) { // CHANGED: was paystackPaymentService
+		this.paymentService = paymentService;
 		this.confirmPayment = confirmPayment;
 	}
 
-  	async execute({ payload, signature, rawBody }) {
-		// 🔥 delegate ALL webhook handling to service
-		const payment = await this.paystackPaymentService.handleWebhook({
+	async execute({ payload, signature, rawBody, gateway = "paystack" }) {
+		const payment = await this.paymentService.handleWebhook({
 			payload,
 			signature,
-			rawBody
+			rawBody,
+			gateway
 		});
 
 		if (!payment) return null;
 
-		// optional extra business logic
+	
 		await this.confirmPayment.execute({
 			reference: payment.gatewayReference
 		});

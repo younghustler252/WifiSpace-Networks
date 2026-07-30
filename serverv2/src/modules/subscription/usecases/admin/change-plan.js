@@ -6,12 +6,15 @@ export class ChangePlanUseCase {
 	constructor({
 		subscriptionRepository,
 		planRepository,
+		networkService,
 		analyticsTracker
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
+		this.networkService = networkService;
 		this.analyticsTracker = analyticsTracker;
 	}
+
 
 	async execute({
 		accountId,
@@ -20,85 +23,152 @@ export class ChangePlanUseCase {
 		adminId,
 		paymentAdjustment = 0
 	}) {
-		if (!accountId)
-			throw new ValidationError("accountId is required");
 
-		if (!newPlanId)
-			throw new ValidationError("newPlanId is required");
+		if (!accountId) {
+			throw new ValidationError(
+				"accountId is required"
+			);
+		}
 
-		// 🔥 get subscription (active or suspended)
+
+		if (!newPlanId) {
+			throw new ValidationError(
+				"newPlanId is required"
+			);
+		}
+
+
 		const subscription =
 			await this.subscriptionRepository.findByAccount(
 				accountId
 			);
 
-		if (!subscription)
+
+		if (!subscription) {
 			throw new NotFoundError(
 				"Subscription not found"
 			);
+		}
 
-		// 🔥 get plans
+
 		const newPlan =
-			await this.planRepository.findById(newPlanId);
+			await this.planRepository.findById(
+				newPlanId
+			);
 
-		if (!newPlan)
-			throw new NotFoundError("New plan not found");
+
+		if (!newPlan) {
+			throw new NotFoundError(
+				"New plan not found"
+			);
+		}
+
 
 		const oldPlan =
 			await this.planRepository.findById(
 				subscription.planId
 			);
 
-		if (!oldPlan)
-			throw new NotFoundError("Old plan not found");
+
+		if (!oldPlan) {
+			throw new NotFoundError(
+				"Old plan not found"
+			);
+		}
+
 
 		const now = new Date();
 
+
 		// -----------------------------
-		// 🔥 RESET MODEL (SAFE APPROACH)
+		// UPDATE PLAN REFERENCE
 		// -----------------------------
+
 		subscription.planId = newPlanId;
 
+
+		// Keep snapshot as source of truth
 		subscription.planSnapshot = {
 			name: newPlan.name,
+			serviceType: newPlan.serviceType,
 			price: newPlan.price,
-			durationDays: newPlan.durationDays,
+			durationValue: newPlan.durationValue,
+			durationUnit: newPlan.durationUnit,
 			speedRate: newPlan.speedRate,
-			devicesAllowed: newPlan.devicesAllowed
+			mikrotikProfile: newPlan.mikrotikProfile,
+			devicesAllowed: newPlan.devicesAllowed,
+			gracePeriodDays: newPlan.gracePeriodDays
 		};
 
-		// 🔥 reset timeline (admin override)
-		subscription.startDate = now;
 
-		const newBaseEndDate = new Date(now);
-		newBaseEndDate.setDate(
-			newBaseEndDate.getDate() +
-				newPlan.durationDays
-		);
-
-		subscription.baseEndDate = newBaseEndDate;
-		subscription.endDate = newBaseEndDate;
 
 		// -----------------------------
-		// 🔥 billing adjustments
+		// RESET BILLING PERIOD
 		// -----------------------------
-		subscription.totalAmount += paymentAdjustment;
+
+		subscription.startsAt = now;
+
+
+		const expiresAt = new Date(now);
+
+
+		if (newPlan.durationUnit === "days") {
+
+			expiresAt.setDate(
+				expiresAt.getDate() +
+				newPlan.durationValue
+			);
+
+		} else if (newPlan.durationUnit === "months") {
+
+			expiresAt.setMonth(
+				expiresAt.getMonth() +
+				newPlan.durationValue
+			);
+
+		}
+
+
+		subscription.expiresAt = expiresAt;
+
+
+		subscription.totalAmount =
+			newPlan.price +
+			paymentAdjustment;
+
 
 		subscription.cycles = 1;
 
+
+
 		// -----------------------------
-		// 🔥 clear suspension if any
+		// RESTORE ACTIVE STATE
 		// -----------------------------
+
 		subscription.status = "active";
 		subscription.suspendedAt = null;
 		subscription.suspensionReason = null;
 
+
 		// -----------------------------
-		// 🔥 audit event (VERY IMPORTANT)
+		// NETWORK SYNC REQUIRED
 		// -----------------------------
+
+		subscription.mikrotikStatus = "pending";
+		subscription.mikrotikError = null;
+
+
+
+		// -----------------------------
+		// AUDIT EVENT
+		// -----------------------------
+
 		subscription.events.push({
+
 			type: "admin_plan_changed",
+
 			date: now,
+
 			metadata: {
 				adminId,
 				from: oldPlan.name,
@@ -108,18 +178,32 @@ export class ChangePlanUseCase {
 			}
 		});
 
-		// -----------------------------
-		// 🔥 persist
-		// -----------------------------
+
+
 		await this.subscriptionRepository.update(
 			subscription.id,
 			subscription
 		);
 
+
+
 		// -----------------------------
-		// ✅ analytics
+		// APPLY NEW NETWORK PROFILE
 		// -----------------------------
+
+		const networkResult =
+			await this.networkService.activate(
+				subscription
+			);
+
+
+
+		// -----------------------------
+		// ANALYTICS
+		// -----------------------------
+
 		try {
+
 			await this.analyticsTracker.track(
 				ANALYTICS_EVENTS.SUBSCRIPTION_ADMIN_CHANGED,
 				{
@@ -129,10 +213,21 @@ export class ChangePlanUseCase {
 					adminId
 				}
 			);
+
 		} catch (err) {
-			console.error("Analytics failed:", err.message);
+
+			console.error(
+				"Analytics failed:",
+				err.message
+			);
+
 		}
 
-		return subscription;
+
+
+		return {
+			subscription,
+			networkResult
+		};
 	}
 }

@@ -1,165 +1,70 @@
 export class GetHotspotSession {
-
-	constructor({
-		accountRepository,
-		userRepository,
-		subscriptionRepository,
-		planRepository
-	}) {
-		this.accountRepository = accountRepository;
-		this.userRepository = userRepository;
-		this.subscriptionRepository = subscriptionRepository;
-		this.planRepository = planRepository;
+	constructor({ resolveHotspotSession }) {
+		this.resolveHotspotSession = resolveHotspotSession;
 	}
 
+	async execute({ macAddress }) {
+		if (!macAddress) {
+			return this._emptyResponse();
+		}
 
-	async execute({ macAddress, email }) {
+		const resolved = await this.resolveHotspotSession.execute({ macAddress });
 
+		if (!resolved) {
+			return this._emptyResponse();
+		}
 
-		if (!macAddress && !email) {
+		const { session, user, account, subscription, plan } = resolved;
 
+		const isTrusted = !!session?.trustedDevice && session.status === "authenticated";
+
+		return {
+			user,
+			account,
+			subscription,
+			plan: plan ?? subscription?.planSnapshot ?? null,
+
+			// Matches HotspotIdentity in hotspot.types.ts
+			identity: session ? {
+				id: session.id,
+				macAddress: session.macAddress,
+				status: session.status,
+				trusted: session.trustedDevice,
+				lastSeenAt: session.lastSeenAt
+			} : null,
+
+			hasUser: true,
+			hasHotspotAccount: true,
+			hasActiveSubscription: subscription?.status === "active",
+
+			trustedDevice: isTrusted,
+			requiresLogin: !isTrusted,
+			needsIdentity: false,
+
+			// CHANGED: was account.profileStatus, which no longer exists on
+			// Account — subscription.status is the single source of truth for
+			// lifecycle state now.
+			accountStatus: subscription?.status ?? null
+		};
+	}
+
+	_emptyResponse() {
 		return {
 			user: null,
+			account: null,
+			subscription: null,
+			plan: null,
+			identity: null,
+
 			hasUser: false,
 			hasHotspotAccount: false,
-			accounts: [],
-			needsIdentity: true
-		};
+			hasActiveSubscription: false,
 
-}
+			trustedDevice: false,
+			requiresLogin: true,
+			needsIdentity: true,
 
-
-		let user = null;
-
-
-
-		// =====================================================
-		// 1. EMAIL FIRST
-		// =====================================================
-
-		if(email){
-
-			user =
-				await this.userRepository.findByEmail(email);
-		}
-
-
-
-
-		// =====================================================
-		// 2. MAC FALLBACK
-		// =====================================================
-
-		if(!user && macAddress){
-
-			const account =
-				await this.accountRepository.findByMac(
-					macAddress
-				);
-
-
-			if(account){
-
-				user =
-					await this.userRepository.findById(
-						account.userId
-					);
-			}
-		}
-
-
-
-
-
-		// =====================================================
-		// NEW USER
-		// =====================================================
-
-		if(!user){
-
-			return {
-				user:null,
-				hasUser:false,
-				hasHotspotAccount:false,
-				accounts:[]
-			};
-		}
-
-
-
-
-
-		// =====================================================
-		// FIND HOTSPOT ACCOUNT
-		// =====================================================
-
-		const account =
-			await this.accountRepository.findOne({
-				userId:user.id,
-				serviceType:"hotspot"
-			});
-
-
-
-
-		// =====================================================
-		// NO ACCOUNT YET
-		// =====================================================
-
-		if(!account){
-
-			return {
-
-				user,
-
-				hasUser:true,
-
-				hasHotspotAccount:false,
-
-				accounts:[]
-			};
-		}
-
-
-
-
-
-		const subscription =
-			await this.subscriptionRepository.findActiveByAccount(
-				account.id
-			);
-
-
-		let plan=null;
-
-
-		if(subscription?.planId){
-
-			plan =
-				await this.planRepository.findById(
-					subscription.planId
-				);
-		}
-
-
-
-
-		return {
-
-			user,
-
-			hasUser:true,
-
-			hasHotspotAccount:true,
-
-
-			accounts:[
-				{
-					account,
-					subscription,
-					plan
-				}
-			]
+			accountStatus: null
 		};
 	}
 }

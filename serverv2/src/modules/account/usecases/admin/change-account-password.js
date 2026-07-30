@@ -1,49 +1,94 @@
 // ChangeAccountPassword.js
 
 export class ChangeAccountPassword {
-    constructor({
-        accountRepository,
-        routerRepository,
-        mikrotikService
-    }) {
-        this.accountRepository = accountRepository;
-        this.routerRepository = routerRepository;
-        this.mikrotikService = mikrotikService;
-    }
 
-    async execute(accountId, password) {
-        const account =
-            await this.accountRepository.findById(accountId);
+	constructor({
+		accountRepository,
+		subscriptionRepository,
+		networkService
+	}) {
+		this.accountRepository = accountRepository;
+		this.subscriptionRepository = subscriptionRepository;
+		this.networkService = networkService;
+	}
 
-        if (!account) {
-            throw new Error("Account not found");
-        }
+	async execute(
+		accountId,
+		password
+	) {
 
-        const router =
-            await this.routerRepository.findById(
-                account.routerId
-            );
+		if (!accountId) {
+			throw new Error(
+				"accountId is required"
+			);
+		}
 
-        if (!router) {
-            throw new Error("Router not found");
-        }
 
-        await this.mikrotikService.changePassword(
-            account,
-            router,
-            password
-        );
+		if (!password) {
+			throw new Error(
+				"password is required"
+			);
+		}
 
-        account.routerPassword = password;
 
-        await this.accountRepository.update(
-            account.id,
-            account
-        );
+		const account =
+			await this.accountRepository.findById(
+				accountId
+			);
 
-        return {
-            success: true,
-            message: "Password changed successfully"
-        };
-    }
+
+		if (!account) {
+			throw new Error(
+				"Account not found"
+			);
+		}
+
+
+
+		// -----------------------------
+		// UPDATE ACCOUNT CREDENTIAL
+		// -----------------------------
+
+		account.routerPassword = password;
+
+
+		await this.accountRepository.update(
+			account.id,
+			account
+		);
+
+
+
+		// -----------------------------
+		// SYNC NETWORK USER IF ACTIVE
+		// -----------------------------
+
+		const subscription =
+			await this.subscriptionRepository.findByAccount(
+				account.id
+			);
+
+
+		let networkResult = null;
+
+
+		if (
+			subscription &&
+			subscription.status === "active"
+		) {
+
+			networkResult =
+				await this.networkService.changePassword(
+					subscription,
+					password
+				);
+
+		}
+
+		return {
+			success: true,
+			message: "Password changed successfully",
+			networkResult
+		};
+	}
 }

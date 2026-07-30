@@ -3,16 +3,19 @@ import { ValidationError } from "../../../../shared/errors/validation-error.js";
 export class GetRouterProfiles {
 	constructor({
 		routerRepository,
-		mikrotikService,
+		mikrotikManager,
 	}) {
 		this.routerRepository = routerRepository;
-		this.mikrotikService = mikrotikService;
+		this.mikrotikManager = mikrotikManager;
 	}
 
+
 	async execute(routerId, serviceType) {
+
 		const router = routerId
 			? await this.routerRepository.findById(routerId)
 			: await this.routerRepository.findDefaultRouter();
+
 
 		if (!router) {
 			throw new ValidationError(
@@ -22,9 +25,13 @@ export class GetRouterProfiles {
 			);
 		}
 
+
 		if (!router.isEnabled) {
-			throw new ValidationError("Router is disabled");
+			throw new ValidationError(
+				"Router is disabled"
+			);
 		}
+
 
 		if (!router.apiEnabled) {
 			throw new ValidationError(
@@ -32,14 +39,12 @@ export class GetRouterProfiles {
 			);
 		}
 
-		const profiles =
-			await this.mikrotikService.fetchRouterProfiles(
-				router,
-				serviceType ||
-					router.serviceType ||
-					"pppoe"
-			);
 
-		return profiles;
+		return this.mikrotikManager.getProfiles(
+			router,
+			serviceType ||
+				router.serviceType ||
+				"pppoe"
+		);
 	}
 }

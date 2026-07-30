@@ -30,6 +30,8 @@ export class Subscription {
 		lastPaymentDate = null,
 		lastPaymentAmount = null,
 		graceEndsAt = null,
+
+		remindersSent = [],
 		currentPeriodStart = null,
 		currentPeriodEnd = null,
 		mikrotikStatus = "pending",
@@ -81,11 +83,15 @@ export class Subscription {
 		this.currentPeriodStart = currentPeriodStart ? new Date(currentPeriodStart) : null;
 		this.currentPeriodEnd = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
 
+		
+
 		this.mikrotikStatus = mikrotikStatus;
 		this.mikrotikLastSyncAt = mikrotikLastSyncAt ? new Date(mikrotikLastSyncAt) : null;
 		this.mikrotikError = mikrotikError;
 
+		this.remindersSent = remindersSent;
 		this.events = [...events];
+		
 	}
 
 	// =========================

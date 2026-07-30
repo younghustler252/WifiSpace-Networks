@@ -1,27 +1,20 @@
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
 import { PlanBillingCalculator } from "../../domain/plan-billing-calculator.js";
-import { Subscription } from "../../domain/subscription.entity.js";
 
 export class RenewSubscriptionUseCase {
 	constructor({
 		subscriptionRepository,
-		planRepository,
-		analyticsTracker,
-		subscriptionQueue
+		planRepository
 	}) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
-		this.analyticsTracker = analyticsTracker;
-		this.subscriptionQueue = subscriptionQueue;
 	}
 
 	async execute({
 		subscriptionId,
 		paymentId,
-		cycles = 1,
-		context = {}
+		cycles = 1
 	}) {
 		if (!subscriptionId) {
 			throw new ValidationError("subscriptionId is required");
@@ -36,7 +29,6 @@ export class RenewSubscriptionUseCase {
 			throw new NotFoundError("Subscription not found");
 		}
 
-		const accountId = subscription.accountId;
 		const plan = await this.planRepository.findById(subscription.planId);
 		if (!plan) {
 			throw new NotFoundError("Plan not found");
@@ -48,11 +40,7 @@ export class RenewSubscriptionUseCase {
 			: now;
 
 		const billing = PlanBillingCalculator.calculate(plan, cycles);
-		const newExpiresAt = PlanBillingCalculator.calculateExpiryDate(
-			plan,
-			cycles,
-			effectiveStart
-		);
+		const newExpiresAt = PlanBillingCalculator.calculateExpiryDate(plan, cycles, effectiveStart);
 
 		subscription.renew({
 			newExpiresAt,
@@ -62,39 +50,10 @@ export class RenewSubscriptionUseCase {
 		});
 
 		subscription.bonusDays += billing.bonusDays;
-		subscription.mikrotikStatus = plan.serviceType === "hotspot" ? "synced" : "pending";
-		subscription.mikrotikError = null;
 
-		await this.subscriptionRepository.update(
-			subscription.id,
-			subscription
-		);
+		subscription.provisioning = { status: "not_started" };
 
-		if (plan.serviceType === "pppoe" || context.source === "admin") {
-			try {
-				await this.subscriptionQueue.add("provision-network", {
-					subscriptionId: subscription.id,
-					context
-				});
-			} catch (queueErr) {
-				console.error("[RenewSubscriptionUseCase] Failed to dispatch job context to Redis queue:", queueErr.message);
-			}
-		}
-
-		try {
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.SUBSCRIPTION_RENEWED,
-				{
-					accountId,
-					subscriptionId: subscription.id,
-					plan: plan.name,
-					cycles,
-					bonusDays: billing.bonusDays
-				}
-			);
-		} catch (err) {
-			console.error("Analytics failed:", err.message);
-		}
+		await this.subscriptionRepository.update(subscription.id, subscription);
 
 		return subscription;
 	}

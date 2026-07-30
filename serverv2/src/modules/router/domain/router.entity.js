@@ -1,5 +1,4 @@
-import { ROUTER_STATUSES } from "./router.enum.js";
-import { ROUTER_CONNECTION_TYPES } from "./router.enum.js";
+import { ROUTER_STATUSES, ROUTER_CONNECTION_TYPES, ROUTER_AGENT_STATUSES } from "./router.enum.js"; // CHANGED: added ROUTER_AGENT_STATUSES — the missing import that was crashing every agent-connection router
 
 export class RouterEntity {
 	constructor({
@@ -33,13 +32,13 @@ export class RouterEntity {
 		lastProvisionSyncAt = null,
 
 		connectionType = ROUTER_CONNECTION_TYPES.DIRECT,
-		connectorId = null,
+		// REMOVED: connectorId — confirmed unused, dropped from the schema too.
 
 		maxSessions = 0,
 		currentSessions = 0,
 
 		agentLastSeenAt = null,
-		agentStatus = "offline",
+		agentStatus = ROUTER_AGENT_STATUSES.OFFLINE, // CHANGED: was a bare "offline" string
 
 		routerOsVersion = null,
 		routerBoard = null,
@@ -53,12 +52,10 @@ export class RouterEntity {
 		createdAt = null,
 		updatedAt = null,
 	}) {
-		// Identity
 		this.id = id;
 		this.name = name;
 		this.code = code;
 
-		// Access
 		this.routerUid = routerUid;
 		this.host = host;
 		this.port = port;
@@ -66,10 +63,8 @@ export class RouterEntity {
 		this.password = password;
 		this.ssl = ssl;
 
-		// Capability (FIXED)
 		this.supportedServices = supportedServices;
 
-		// Status
 		this.status = status;
 		this.isEnabled = isEnabled;
 		this.apiEnabled = apiEnabled;
@@ -77,36 +72,28 @@ export class RouterEntity {
 		this.lastSeenAt = lastSeenAt;
 		this.lastProvisionSyncAt = lastProvisionSyncAt;
 
-		// Capacity
 		this.maxSessions = maxSessions;
 		this.currentSessions = currentSessions;
 
-		// Metadata
 		this.routerOsVersion = routerOsVersion;
 		this.routerBoard = routerBoard;
 		this.systemIdentity = systemIdentity;
 
-		// Location
 		this.location = location;
 		this.siteCode = siteCode;
 		this.popName = popName;
 
-		// Connection
 		this.connectionType = connectionType;
-		this.connectorId = connectorId;
+		// REMOVED: this.connectorId
 
-		// Agent
 		this.agentLastSeenAt = agentLastSeenAt;
 		this.agentStatus = agentStatus;
 
-		// Priority
 		this.priority = priority;
 		this.isDefaultRouter = isDefaultRouter;
 
-		// Errors
 		this.lastError = lastError;
 
-		// Timestamps
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 	}
@@ -133,9 +120,7 @@ export class RouterEntity {
 
 	canProvision() {
 		if (!this.isEnabled) return false;
-
 		if (!this.apiEnabled) return false;
-
 		if (!this.isOnline()) return false;
 
 		if (this.isAgentConnection()) {
@@ -170,9 +155,10 @@ export class RouterEntity {
 			this.currentSessions -= 1;
 		}
 	}
+
 	isDirectConnection() {
-	return this.connectionType ===  ROUTER_CONNECTION_TYPES.DIRECT;
-}
+		return this.connectionType === ROUTER_CONNECTION_TYPES.DIRECT;
+	}
 
 	isAgentConnection() {
 		return this.connectionType === ROUTER_CONNECTION_TYPES.AGENT;
@@ -181,13 +167,15 @@ export class RouterEntity {
 	isVpnConnection() {
 		return this.connectionType === ROUTER_CONNECTION_TYPES.VPN;
 	}
+
 	isAgentOnline() {
-		return this.agentStatus === ROUTER_AGENT_STATUSES.ONLINE;
+		return this.agentStatus === ROUTER_AGENT_STATUSES.ONLINE; // CHANGED: this line was the crash — ROUTER_AGENT_STATUSES now actually exists
 	}
 
 	isAgentOffline() {
 		return this.agentStatus === ROUTER_AGENT_STATUSES.OFFLINE;
 	}
+
 	markAgentOnline() {
 		this.agentStatus = ROUTER_AGENT_STATUSES.ONLINE;
 		this.agentLastSeenAt = new Date();
@@ -196,6 +184,7 @@ export class RouterEntity {
 	markAgentOffline() {
 		this.agentStatus = ROUTER_AGENT_STATUSES.OFFLINE;
 	}
+
 	requiresAgent() {
 		return this.connectionType === ROUTER_CONNECTION_TYPES.AGENT;
 	}

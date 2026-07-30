@@ -21,8 +21,8 @@ export const PAYMENT_ACTIONS = [
     "new_subscription",
     "renewal",
     "upgrade",
+    "downgrade", 
     "admin_bypass"
-   
 ];
 
 export const PAYMENT_GATEWAYS = [

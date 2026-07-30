@@ -34,7 +34,7 @@ app.use(
 // ----------------------------
 // Middleware
 // ----------------------------
-app.use(express.json());
+// app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cors());
@@ -67,9 +67,8 @@ app.use("/api/payments", payment.routes);
 app.use("/api/plans", plan.routes);
 app.use("/api/subscriptions", subscription.routes);
 app.use("/api/users", user.routes);
-app.use("/api/agents", router.routes.agent);
-app.use("/api/routers/admin", router.routes.admin);
-app.use("/api/routers", router.routes.provisioning);
+// app.use("/api/agents", router.routes.agent);
+app.use("/api/routers", router.routes);
 app.use("/api/usage", usage.routes);
 app.use("/api/dashboard", dashboard.routes)
 // ----------------------------

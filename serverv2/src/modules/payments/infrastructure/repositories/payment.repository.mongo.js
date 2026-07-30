@@ -271,6 +271,15 @@ export class PaymentRepositoryMongo {
 			}
 		);
 	}
+
+	async deleteExpiredPayments(cutoffDate) {
+    	return PaymentModel.deleteMany({
+			status: "expired",
+			expiredAt: {
+				$lte: cutoffDate
+			}
+		});
+	}
 	// =================================
 	// AUTO RENEW
 	// =================================

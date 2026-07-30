@@ -13,7 +13,6 @@ export class SubscriptionAdminController {
 		forceExpireSubscription,
 		adminRenewSubscription,       // Added Dependency
 		changePlan,
-		syncSubscriptionHardware
 	}) {
 		this.getAllSubscriptionsUseCase = getAllSubscriptions;
 		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
@@ -24,7 +23,6 @@ export class SubscriptionAdminController {
 		this.forceExpireSubscriptionUseCase = forceExpireSubscription;
 		this.adminRenewSubscriptionUseCase = adminRenewSubscription;             // Instantiated
 		this.changePlanUseCase = changePlan;  
-		this.syncSubscriptionHardwareUseCase = syncSubscriptionHardware;
 	}
 
 	// ------------------------------------------------
@@ -199,40 +197,21 @@ export class SubscriptionAdminController {
 	// ------------------------------------------------
 	// FORCE EXPIRE
 	// ------------------------------------------------
-		forceExpireSubscription = async (req, res) => {
-			const { reason = "Admin forced lifecycle expiration" } = req.body || {};
+	forceExpireSubscription = async (req, res) => {
+		const { reason = "Admin forced lifecycle expiration" } = req.body || {};
 
-			const subscription =
-				await this.forceExpireSubscriptionUseCase.execute({
-					subscriptionId: req.params.subscriptionId,
-					reason,
-					adminId: req.user?.id
-				});
-
-			return successResponse({
-				res,
-				data: subscription,
-				message: "Subscription expired",
-				code: "SUBSCRIPTION_FORCE_EXPIRED"
-			});
-		};
-
-			syncHardware = async (req, res) => {
-			const { subscriptionId } = req.params;
-
-			const subscription = await this.syncSubscriptionHardwareUseCase.execute({
-				subscriptionId,
+		const subscription =
+			await this.forceExpireSubscriptionUseCase.execute({
+				subscriptionId: req.params.subscriptionId,
+				reason,
 				adminId: req.user?.id
 			});
 
-			return successResponse({
-				res,
-				data: subscription,
-				message: "Hardware synchronization task queued successfully",
-				code: "SUBSCRIPTION_HARDWARE_SYNC_QUEUED",
-				statusCode: 200
-			});
-		};
-
-
+		return successResponse({
+			res,
+			data: subscription,
+			message: "Subscription expired",
+			code: "SUBSCRIPTION_FORCE_EXPIRED"
+		});
+	};
 }

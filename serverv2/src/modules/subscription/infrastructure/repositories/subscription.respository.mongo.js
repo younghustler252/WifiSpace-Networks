@@ -127,6 +127,18 @@ export class SubscriptionRepositoryMongo extends SubscriptionRepository {
         });
         return docs.map(SubscriptionMapper.toDomain).filter(sub => sub.hasAccess());
     }
+    async findExpiringBetween(start, end) {
+        const docs = await SubscriptionModel.find({
+            status: "active",
+            expiresAt: {
+                $gte: start,
+                $lte: end
+            }
+        })
+        .populate("userId", "email firstName");
+
+        return docs.map(SubscriptionMapper.toDomain);
+    }
     async getDashboardStats() {
         const [stats] = await SubscriptionModel.aggregate([
             {

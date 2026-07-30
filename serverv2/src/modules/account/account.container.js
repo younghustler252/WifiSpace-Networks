@@ -38,7 +38,6 @@ import { RequestAccount } from "./usecases/user/request-account.js";
 import { UpdateUserAccount } from "./usecases/user/update-user-account.usecase.js";
 
 // SHARED
-import { ActivatePppoeAccess } from "./usecases/user/activate-ppoe-access.js";
 import { GetAccountById } from "./usecases/shared/get-account-by-Id.js";
 import { GetAccountByWsnId } from "./usecases/shared/get-account-by-wsn.js";
 
@@ -78,7 +77,6 @@ export function registerAccount(container) {
 		| USER USE CASES
 		|--------------------------------------------------------------------------
 		*/
-		activatePppoeAccess: asClass(ActivatePppoeAccess).scoped(),
 		getUserAccounts: asClass(GetUserAccounts).scoped(),
 		requestAccount: asClass(RequestAccount).scoped(),
 		updateUserAccount: asClass(UpdateUserAccount).scoped(),

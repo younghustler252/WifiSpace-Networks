@@ -1,9 +1,6 @@
 import { RouterEntity } from "./router.entity.js";
 
 export class RouterMapper {
-	/**
-	 * Convert mongoose document -> entity
-	 */
 	static toEntities(docs) {
 		if (!docs || !docs.length) return [];
 		return docs.map((doc) => this.toEntity(doc));
@@ -42,7 +39,7 @@ export class RouterMapper {
 			lastProvisionSyncAt: doc.lastProvisionSyncAt,
 
 			connectionType: doc.connectionType,
-			connectorId: doc.connectorId,
+			// REMOVED: connectorId — field no longer exists on the schema.
 
 			maxSessions: doc.maxSessions,
 			currentSessions: doc.currentSessions,
@@ -64,9 +61,6 @@ export class RouterMapper {
 		});
 	}
 
-	/**
-	 * Convert entity -> persistence object (MongoDB)
-	 */
 	static toPersistence(entity) {
 		return {
 			name: entity.name,
@@ -96,7 +90,7 @@ export class RouterMapper {
 			lastProvisionSyncAt: entity.lastProvisionSyncAt,
 
 			connectionType: entity.connectionType,
-			connectorId: entity.connectorId,
+			// REMOVED: connectorId
 
 			maxSessions: entity.maxSessions,
 			currentSessions: entity.currentSessions,

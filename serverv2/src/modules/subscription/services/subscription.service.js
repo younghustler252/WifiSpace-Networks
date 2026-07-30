@@ -1,8 +1,7 @@
 import { ValidationError } from "../../../shared/errors/validation-error.js";
-import { AppError } from "../../../shared/errors/app-error.js";
+import { NotFoundError } from "../../../shared/errors/not-found-error.js";
 
 export class SubscriptionService {
-
 	constructor({
 		subscriptionRepository,
 		planRepository,
@@ -17,16 +16,12 @@ export class SubscriptionService {
 		this.upgradeSubscription = upgradeSubscription;
 	}
 
-	// =====================================================
-	// MAIN ENTRY POINT
-	// =====================================================
 	async process({
 		payment,
 		account,
 		user,
 		plan
 	}) {
-
 		if (!payment) {
 			throw new ValidationError("Payment is required");
 		}
@@ -43,19 +38,12 @@ export class SubscriptionService {
 			throw new ValidationError("Plan is required");
 		}
 
-		// =====================================================
-		// FIND ACTIVE SUBSCRIPTION
-		// =====================================================
 		const activeSubscription =
 			await this.subscriptionRepository.findActiveByAccount(
 				account.id
 			);
 
-		// =====================================================
-		// CASE 1: NO ACTIVE SUBSCRIPTION → CREATE
-		// =====================================================
 		if (!activeSubscription) {
-
 			const subscription =
 				await this.createSubscription.execute({
 					accountId: account.id,
@@ -71,23 +59,14 @@ export class SubscriptionService {
 			};
 		}
 
-		// =====================================================
-		// NORMALIZE PLAN IDS
-		// =====================================================
 		const activePlanId =
 			this._normalizeId(activeSubscription.planId);
 
-		const newPlanId =
+		const requestedPlanId =
 			this._normalizeId(plan.id || plan._id);
 
-		const samePlan = activePlanId === newPlanId;
-
-		// =====================================================
-		// CASE 2: SAME PLAN → RENEW
-		// =====================================================
-		if (samePlan) {
-
-			const result =
+		if (activePlanId === requestedPlanId) {
+			const subscription =
 				await this.renewSubscription.execute({
 					subscriptionId: activeSubscription.id,
 					paymentId: payment.id,
@@ -96,61 +75,57 @@ export class SubscriptionService {
 
 			return {
 				action: "renewed",
-				subscription: result
+				subscription
 			};
 		}
 
-		// =====================================================
-		// LOAD PLAN DETAILS (FOR COMPARISON)
-		// =====================================================
 		const currentPlan =
 			await this.planRepository.findById(activePlanId);
 
 		const newPlan =
-			await this.planRepository.findById(newPlanId);
+			await this.planRepository.findById(requestedPlanId);
 
 		if (!currentPlan || !newPlan) {
-			throw new AppError("Plan not found", 404);
+			throw new NotFoundError("Plan not found");
 		}
 
-		// =====================================================
-		// CASE 3: DOWNGRADE → BLOCK
-		// =====================================================
 		if (newPlan.price < currentPlan.price) {
-			throw new ValidationError("Downgrades are not allowed");
+			throw new ValidationError(
+				"Downgrades are not allowed"
+			);
 		}
 
-		// =====================================================
-		// CASE 4: SAME PRICE DIFFERENT PLAN → BLOCK
-		// =====================================================
-		if (newPlan.price === currentPlan.price && !samePlan) {
-			throw new ValidationError("Plan already exists at same tier");
+		if (
+			newPlan.price === currentPlan.price
+		) {
+			throw new ValidationError(
+				"Plan already exists at same tier"
+			);
 		}
 
-		// =====================================================
-		// CASE 5: UPGRADE
-		// =====================================================
-		const upgraded =
+		const subscription =
 			await this.upgradeSubscription.execute({
 				subscriptionId: activeSubscription.id,
-				newPlanId: newPlanId,
+				newPlanId: requestedPlanId,
 				paymentId: payment.id
 			});
 
 		return {
 			action: "upgraded",
-			subscription: upgraded
+			subscription
 		};
 	}
 
-	// =====================================================
-	// HELPER
-	// =====================================================
 	_normalizeId(id) {
 		if (!id) return null;
+
 		if (typeof id === "object") {
-			return (id._id || id.id)?.toString();
+			return (
+				id._id ||
+				id.id
+			)?.toString();
 		}
+
 		return id.toString();
 	}
 }

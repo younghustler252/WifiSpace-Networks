@@ -1,14 +1,10 @@
 import { asClass } from "awilix";
 
-import { HotspotActivatior } from "./services/hotspot-activator.js";
-import { PppoeActivatior } from "./services/ppoe-activator.js";
-import { ServiceActivationService } from "./services/service-activation.engine.js";
+import { NetworkService } from "./services/network.service.js";
 
 export function registerProvisioning(container) {
     container.register({
-        hotspotActivator: asClass(HotspotActivatior).scoped(),
-        pppoeActivator: asClass(PppoeActivatior).scoped(),
-        serviceActivationService: asClass(ServiceActivationService).scoped(),
+        networkService: asClass(NetworkService).scoped(),
     });
 
 }

@@ -1,93 +1,170 @@
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 
+
 export class AdminRenewSubscriptionUseCase {
+
 	constructor({
 		adminRecordPayment,
 		renewSubscription,
 		subscriptionRepository,
-		planRepository // 🔥 Added Live Plan Repository for up-to-date pricing
+		planRepository,
+		networkService
 	}) {
 		this.adminRecordPaymentUseCase = adminRecordPayment;
 		this.renewSubscriptionUseCase = renewSubscription;
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
+		this.networkService = networkService;
 	}
+
 
 	async execute({
 		subscriptionId,
 		cycles = 1,
-		reason = "Admin manual bypass renewal",
+		reason = "Admin manual renewal",
 		reference,
 		context = {}
 	}) {
-		// -----------------------------
+
+		// --------------------------------
 		// VALIDATION
-		// -----------------------------
+		// --------------------------------
+
 		if (!subscriptionId) {
-			throw new ValidationError("subscriptionId is required");
+			throw new ValidationError(
+				"subscriptionId is required"
+			);
 		}
 
-		// -----------------------------
-		// RESOLVE SUBSCRIPTION
-		// -----------------------------
-		const subscription = await this.subscriptionRepository.findById(subscriptionId);
+
+		if (cycles < 1) {
+			throw new ValidationError(
+				"cycles must be greater than zero"
+			);
+		}
+
+
+
+		// --------------------------------
+		// LOAD SUBSCRIPTION
+		// --------------------------------
+
+		const subscription =
+			await this.subscriptionRepository.findById(
+				subscriptionId
+			);
+
+
 		if (!subscription) {
-			throw new NotFoundError("Subscription entity not found");
+			throw new NotFoundError(
+				"Subscription not found"
+			);
 		}
 
-		// -----------------------------
-		// 🔥 RESOLVE LIVE PLAN PRICE
-		// -----------------------------
+
+
+		// --------------------------------
+		// RESOLVE CURRENT PRICE
+		// --------------------------------
+
 		let pricePerCycle = 0;
-		
+
+
 		if (subscription.planId) {
-			const livePlan = await this.planRepository.findById(subscription.planId);
-			if (livePlan) {
-				pricePerCycle = livePlan.price;
+
+			const plan =
+				await this.planRepository.findById(
+					subscription.planId
+				);
+
+			if (plan) {
+				pricePerCycle = plan.price;
 			}
 		}
 
+
+		// fallback to snapshot
 		if (!pricePerCycle && subscription.planSnapshot?.price) {
-			pricePerCycle = subscription.planSnapshot.price;
+			pricePerCycle =
+				subscription.planSnapshot.price;
 		}
 
-		const totalCalculatedAmount = pricePerCycle * Number(cycles);
 
-		// -----------------------------
-		// REFERENCE GENERATION
-		// -----------------------------
-		const finalReference = reference || `ADM-BYP-${Date.now()}`;
+		const amount =
+			pricePerCycle * Number(cycles);
 
-		// -----------------------------
-		// RECORD BYPASS PAYMENT LOG
-		// -----------------------------
-		const payment = await this.adminRecordPaymentUseCase.execute({
-			userId: subscription.userId,
-			accountId: subscription.accountId,
-			planId: subscription.planId,
-			amount: {
-				base: totalCalculatedAmount,
-				total: totalCalculatedAmount,
-				currency: subscription.planSnapshot?.currency || "NGN"
-			},
-			transactionId: finalReference,
-			adminNote: reason
-		});
 
-		// -----------------------------
-		// RENEW SUBSCRIPTION LIFECYCLE
-		// -----------------------------
-		const updatedSubscription = await this.renewSubscriptionUseCase.execute({
-			subscriptionId,
-			paymentId: payment.id,
-			cycles: Number(cycles),
-			context
-		});
+
+		// --------------------------------
+		// CREATE ADMIN PAYMENT RECORD
+		// --------------------------------
+
+		const payment =
+			await this.adminRecordPaymentUseCase.execute({
+
+				userId: subscription.userId,
+
+				accountId: subscription.accountId,
+
+				planId: subscription.planId,
+
+
+				amount: {
+					base: amount,
+					total: amount,
+					currency:
+						subscription.planSnapshot?.currency ||
+						"NGN"
+				},
+
+
+				transactionId:
+					reference ||
+					`ADM-RENEW-${Date.now()}`,
+
+
+				adminNote: reason
+			});
+
+
+
+		// --------------------------------
+		// RENEW SUBSCRIPTION
+		// --------------------------------
+
+		const updatedSubscription =
+			await this.renewSubscriptionUseCase.execute({
+
+				subscriptionId,
+
+				paymentId: payment.id,
+
+				cycles: Number(cycles),
+
+				context
+			});
+
+
+
+		// --------------------------------
+		// RESTORE NETWORK ACCESS
+		// --------------------------------
+
+		const activation =
+			await this.networkService.resume(
+				updatedSubscription,
+				context
+			);
+
+
 
 		return {
 			payment,
-			subscription: updatedSubscription
+
+			subscription: updatedSubscription,
+
+			activation
 		};
 	}
 }

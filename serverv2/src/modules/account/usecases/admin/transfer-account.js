@@ -1,7 +1,6 @@
 import { Account } from "../../domain/account.entity.js";
 import { PROFILE_STATUSES } from "../../domain/account.enum.js";
 
-import {PERMISSION} from "../../../../shared/constants/permissions.js";
 
 import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
@@ -22,14 +21,6 @@ export class TransferAccount {
 	 * @param {Object} context - { ip, userAgent } for audit logging
 	 */
 	async execute(currentUser, accountId, newOwnerId, context = {}) {
-
-		// ----------------------------
-		// Permission Check
-		// ----------------------------
-		await this.permissionService.hasPermission(
-			currentUser.id,
-			PERMISSION.ACCOUNT.TRANSFER
-		);
 
 		// ----------------------------
 		// Fetch Account

@@ -1,43 +1,38 @@
-// src/modules/auth/presentation/controllers/hotspot.controller.js
-
 import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class HotspotController {
-
 	constructor({
 		startHotspotPurchase,
 		confirmHotspotPurchase,
 		getHotspotPlans,
 		getHotspotSession,
-		activateHotspotAccess
+		// createHotspotSession,
+		authenticateHotspotSession,
+		revokeHotspotSession,
 	}) {
-
-		this.startHotspotPurchaseUseCase =
-			startHotspotPurchase;
-
-		this.confirmHotspotPurchaseUseCase =
-			confirmHotspotPurchase;
-
+		this.startHotspotPurchaseUseCase = startHotspotPurchase;
+		this.confirmHotspotPurchaseUseCase = confirmHotspotPurchase;
 		this.getHotspotPlansUseCase = getHotspotPlans;
-
-		this.getHotspotSessionUsecase = getHotspotSession;
-
-		this.activateHotspotAccessUsecase = activateHotspotAccess;
+		this.getHotspotSessionUseCase = getHotspotSession;
+		// this.createHotspotSessionUseCase = createHotspotSession;
+		this.authenticateHotspotSessionUseCase =
+			authenticateHotspotSession;
+		this.revokeHotspotSessionUseCase =
+			revokeHotspotSession;
+	
 	}
 
-	// -----------------------------
+	// --------------------------------
 	// START PURCHASE
-	// -----------------------------
-	startPurchase = async (req, res) => {
+	// --------------------------------
 
-		console.log("resolved ip", req.body.ipAddress );
-		const result = await this.startHotspotPurchaseUseCase.execute({
-			...req.body,
-			ipAddress:  req.body.ipAddress || req.ip,  // ← use frontend value first
-			userAgent:  req.headers["user-agent"]
-			
-		});
-		console.log("Result:", result);
+	startPurchase = async (req, res) => {
+		const result =
+			await this.startHotspotPurchaseUseCase.execute({
+				...req.body,
+				ipAddress: req.body.ipAddress || req.ip,
+				userAgent: req.headers["user-agent"]
+			});
 
 		return successResponse({
 			res,
@@ -45,35 +40,90 @@ export class HotspotController {
 			message: "Hotspot purchase initiated successfully"
 		});
 	};
-	// -----------------------------
+
+	// --------------------------------
 	// CONFIRM PAYMENT
-	// -----------------------------
-	confirmPurchase = async (req, res) => {
+	// --------------------------------
 
-		const { reference } = req.body;
+	confirmPurchase = async (req, res, next) => {
+		try {
+			const result = await this.confirmHotspotPurchaseUseCase.execute({
+				reference: req.body.reference
+			});
 
+			return successResponse({
+				res,
+				data: result,
+				message: "Payment confirmed successfully"
+			});
+		} catch (err) {
+			next(err);
+		}
+	};
+
+	// --------------------------------
+	// HOTSPOT SESSION
+	// --------------------------------
+
+	getHotspotSession = async (req, res) => {
 		const result =
-			await this.confirmHotspotPurchaseUseCase.execute(
-				reference
-			);
+			await this.getHotspotSessionUseCase.execute({
+				email: req.query.email,
+				macAddress: req.query.macAddress
+			});
 
 		return successResponse({
 			res,
 			data: result,
-			message: "Payment confirmed and hotspot activated successfully"
+			message: "Hotspot session resolved successfully"
 		});
 	};
 
-		// -----------------------------
-	// GET HOTSPOT PLANS
-	// -----------------------------
-	getPlans = async (req, res) => {
-		const { page, limit } = req.query;
+	// --------------------------------
+	// LOGIN / REMEMBER DEVICE
+	// --------------------------------
 
+	authenticateSession = async (req, res) => {
+		const result =
+			await this.authenticateHotspotSessionUseCase.execute({
+				...req.body,
+				ipAddress: req.body.ipAddress || req.ip,
+				userAgent: req.headers["user-agent"]
+			});
+
+		return successResponse({
+			res,
+			data: result,
+			message: "Device authenticated successfully"
+		});
+	};
+
+	// --------------------------------
+	// LOGOUT DEVICE
+	// --------------------------------
+
+	revokeSession = async (req, res) => {
+		const result =
+			await this.revokeHotspotSessionUseCase.execute({
+				token: req.body.token
+			});
+
+		return successResponse({
+			res,
+			data: result,
+			message: "Session revoked successfully"
+		});
+	};
+
+	// --------------------------------
+	// HOTSPOT PLANS
+	// --------------------------------
+
+	getPlans = async (req, res) => {
 		const result =
 			await this.getHotspotPlansUseCase.execute({
-				page,
-				limit
+				page: req.query.page,
+				limit: req.query.limit
 			});
 
 		return successResponse({
@@ -83,37 +133,24 @@ export class HotspotController {
 		});
 	};
 
-	getHotspotSession = async (req, res) => {
+	// --------------------------------
+	// ROUTER ACTIVATION
+	// --------------------------------
 
-		const { macAddress, email } = req.query;
+	// activateHotspot = async (req, res) => {
+	// 	const result =
+	// 		await this.activateHotspotAccessUseCase.execute({
+	// 			accountId: req.body.accountId,
+	// 			routerId: req.body.routerId,
+	// 			macAddress: req.body.macAddress,
+	// 			hostname: req.body.hostname,
+	// 			ipAddress: req.body.ipAddress || req.ip
+	// 		});
 
-		const result =
-			await this.getHotspotSessionUsecase.execute({
-				macAddress,
-				email
-			});
-
-		return successResponse({
-			res,
-			data: result,
-			message: "Session fetched successfully"
-		});
-	};
-
-	activateHotspot = async (req, res) => {
-		const result = await this.activateHotspotAccessUsecase.execute({
-			accountId: req.body.accountId,
-			routerId: req.body.routerId,
-			macAddress: req.body.macAddress,
-			hostname: req.body.hostname || "",
-			ipAddress: req.body.ipAddress || req.ip
-		});
-
-		return successResponse({
-			res,
-			data: result,
-			message: "Hotspot network access provisioned on router successfully"
-		});
-	};
-
+	// 	return successResponse({
+	// 		res,
+	// 		data: result,
+	// 		message: "Hotspot access activated successfully"
+	// 	});
+	// };
 }

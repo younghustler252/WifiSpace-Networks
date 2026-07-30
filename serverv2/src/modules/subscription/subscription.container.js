@@ -65,12 +65,13 @@ import { SuspendSubscriptionUseCase }
 import { ChangePlanUseCase } from "./usecases/admin/change-plan.js";
 
 import { ForceExpireSubscriptionUseCase } from "./usecases/admin/force-expire-subscription.js";
-import { SyncSubscriptionHardwareUseCase } from "./usecases/admin/sync-subscription-hardware.js";
 
 import { GetSubscriptionUseCase } from "./usecases/shared/get-subscription.js";
 import { GetCurrentSubscriptionUseCase } from "./usecases/shared/get-current-subscription.js";
 import { GetAllSubscriptionsUseCase } from "./usecases/shared/get-all-subscriptions.js";
 import { GetAccountSubscriptionsUseCase } from "./usecases/shared/get-account-subscriptions.js";
+
+import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.js";
 /*
 |--------------------------------------------------------------------------
 | SYSTEM USE CASES
@@ -78,17 +79,6 @@ import { GetAccountSubscriptionsUseCase } from "./usecases/shared/get-account-su
 */
 import { ExpireSubscriptionsUseCase } from "./usecases/system/expire-subscriptions.js";
 
-/*
-|--------------------------------------------------------------------------
-| QUEUE SERVICES
-|--------------------------------------------------------------------------
-*/
-
-import { SubscriptionQueueService } from "./infrastructure/queue/subscription-queue.js";
-
-
-// import { ExpireSubscriptionWorker }
-// 	from "./infrastructure/workers/expire-subscription.worker.js";
 /*
 |--------------------------------------------------------------------------
 | REGISTER MODULE
@@ -150,8 +140,7 @@ export function registerSubscription(container) {
 		forceExpireSubscription:
 			asClass(ForceExpireSubscriptionUseCase).scoped(),
 		
-		syncSubscriptionHardware:
-			asClass(SyncSubscriptionHardwareUseCase).scoped(),
+
 		/*
 		|--------------------------------------------------------------------------
 		| SHARED QUERY USE CASES
@@ -176,12 +165,7 @@ export function registerSubscription(container) {
 		*/
 		expireSubscriptions:
 			asClass(ExpireSubscriptionsUseCase).scoped(),
-
-		subscriptionQueue: 
-			asClass(SubscriptionQueueService).scoped(),
-
-		// expireSubscriptionWorker:
-		// 	asClass(ExpireSubscriptionWorker).scoped(),
+		sendSubscriptionReminder: asClass(SendSubscriptionReminder).scoped(),
 
 		/*
 		|--------------------------------------------------------------------------

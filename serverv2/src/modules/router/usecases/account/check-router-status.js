@@ -1,36 +1,32 @@
-// src/application/use-cases/CheckRouterStatus.js
 import { ValidationError } from "../../../../shared/errors/validation-error.js";
 
 export class CheckRouterStatus {
-    constructor({routerRepository, mikrotikService}) {
-        this.routerRepository = routerRepository;
-        this.mikrotikService = mikrotikService; // Ensure this has health/resource methods
-    }
+	constructor({ routerRepository, routerService }) { // CHANGED: mikrotikService -> routerService
+		this.routerRepository = routerRepository;
+		this.routerService = routerService;
+	}
 
-    async execute(routerId) {
-        const router = await this.routerRepository.findById(routerId);
-        if (!router) throw new ValidationError("Router not found");
+	async execute(routerId) {
+		const router = await this.routerRepository.findById(routerId);
+		if (!router) throw new ValidationError("Router not found");
 
-        try {
-            // Ask the lower-level API to fetch system resource data
-            // e.g., executing [ /system/resource/print ] or [ /system/identity/print ]
-            const systemHealth = await this.mikrotikService.getSystemResources(router);
+		try {
+			
+			const systemHealth = await this.routerService.getSystemInfo(router);
 
-            // Update database tracking metrics with live data
-            router.status = "online";
-            router.lastError = null;
-            router.lastSeenAt = new Date();
-            router.routerOsVersion = systemHealth.version;
-            router.routerBoard = systemHealth.boardName;
-            
-            return await this.routerRepository.update(router);
-        } catch (error) {
-            // If the socket connection drops or times out, mark it offline safely
-            router.status = "offline";
-            router.lastError = error.message;
-            await this.routerRepository.update(router);
-            
-            return router;
-        }
-    }
+			router.status = "online";
+			router.lastError = null;
+			router.lastSeenAt = new Date();
+			router.routerOsVersion = systemHealth.version;
+			router.routerBoard = systemHealth.board;
+
+			
+			return await this.routerRepository.update(router.id, router);
+		} catch (error) {
+			router.status = "offline";
+			router.lastError = error.message;
+			await this.routerRepository.update(router.id, router); // CHANGED: same fix
+			return router;
+		}
+	}
 }
