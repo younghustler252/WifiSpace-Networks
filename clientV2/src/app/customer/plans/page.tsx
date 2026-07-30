@@ -142,17 +142,17 @@ export default function PlansPage() {
 			<PageHeader title="Plans" />
 
 			<main className="p-4 md:p-8">
-				<div className="max-w-6xl mx-auto ui-stack-lg pb-12">
+				<div className="max-w-6xl pb-12 mx-auto ui-stack-lg">
 
 					{/* Unauthenticated Explore Banner */}
 					{isNoAccount && (
-						<div className="p-4 border rounded-xl bg-muted text-sm">
+						<div className="p-4 text-sm border rounded-xl bg-muted">
 							Explore all available plans. Select an account to activate subscription.
 						</div>
 					)}
 
 					{/* Controls and Sorting Header */}
-					<div className="ui-card flex flex-col md:flex-row items-center justify-between gap-4">
+					<div className="flex flex-col items-center justify-between gap-4 ui-card md:flex-row">
 						<div>
 							<h2 className="text-xl font-semibold">
 								{isNoAccount ? "Explore Plans" : "Your Plans"}
@@ -207,7 +207,7 @@ export default function PlansPage() {
 
 					{/* Empty Result Callback Wrapper */}
 					{sortedPlans.length === 0 && (
-						<div className="text-center p-6 border rounded-xl mt-6">
+						<div className="p-6 mt-6 text-center border rounded-xl">
 							No plans available
 						</div>
 					)}
@@ -230,12 +230,12 @@ export default function PlansPage() {
 					{selectedPlan && (
 						<div className="space-y-5">
 							{/* Pricing Highlights Matrix Card */}
-							<div className="p-5 border border-accent/10 rounded-2xl bg-accent/5 flex items-center justify-between">
+							<div className="flex items-center justify-between p-5 border border-accent/10 rounded-2xl bg-accent/5">
 								<div>
-									<p className="text-xs font-semibold text-accent uppercase tracking-wider">
+									<p className="text-xs font-semibold tracking-wider uppercase text-accent">
 										{isUpgradeMode ? "Selected Upgrade Tier" : "Target Plan Tier"}
 									</p>
-									<h2 className="text-xl font-bold text-foreground mt-1">
+									<h2 className="mt-1 text-xl font-bold text-foreground">
 										{selectedPlan.name}
 									</h2>
 									<p className="text-xs text-muted-foreground mt-0.5 capitalize">
@@ -243,7 +243,7 @@ export default function PlansPage() {
 									</p>
 								</div>
 								<div className="text-right">
-									<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Due</p>
+									<p className="text-xs font-medium tracking-wider uppercase text-muted-foreground">Total Due</p>
 									<p className="text-2xl font-black text-foreground mt-0.5">
 										₦{(selectedPlan.price * cycles).toLocaleString()}
 									</p>
@@ -261,7 +261,7 @@ export default function PlansPage() {
 									<button
 										type="button"
 										onClick={() => setCycles(Math.max(1, cycles - 1))}
-										className="h-7 w-7 flex items-center justify-center rounded-md font-bold text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent active:border-border transition-colors"
+										className="flex items-center justify-center font-bold transition-colors border border-transparent rounded-md h-7 w-7 text-muted-foreground hover:bg-muted hover:text-foreground active:border-border"
 									>
 										—
 									</button>
@@ -271,7 +271,7 @@ export default function PlansPage() {
 									<button
 										type="button"
 										onClick={() => setCycles(cycles + 1)}
-										className="h-7 w-7 flex items-center justify-center rounded-md font-bold text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent active:border-border transition-colors"
+										className="flex items-center justify-center font-bold transition-colors border border-transparent rounded-md h-7 w-7 text-muted-foreground hover:bg-muted hover:text-foreground active:border-border"
 									>
 										＋
 									</button>
@@ -284,7 +284,7 @@ export default function PlansPage() {
 									<span className="block text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
 										Base Value Length
 									</span>
-									<span className="text-base font-bold text-foreground mt-1 block">
+									<span className="block mt-1 text-base font-bold text-foreground">
 										{selectedPlan.durationValue * cycles} {selectedPlan.durationUnit}
 									</span>
 								</div>
@@ -293,7 +293,7 @@ export default function PlansPage() {
 									<span className="block text-[10px] uppercase font-bold tracking-wider text-muted-foreground">
 										Net Active Timeline
 									</span>
-									<span className="text-base font-bold text-accent mt-1 block">
+									<span className="block mt-1 text-base font-bold text-accent">
 										{(selectedPlan.durationValue * cycles) + calculateBonusDays(selectedPlan, cycles)} Days
 									</span>
 								</div>
