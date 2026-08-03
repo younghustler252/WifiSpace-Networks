@@ -4,7 +4,7 @@ import { NotFoundError } from "../../../../shared/errors/not-found-error.js";
 export class ConfirmPaymentUseCase {
 	constructor({
 		paymentRepository,
-		paymentService, 
+		paymentService,
 		paymentBusinessProcessor
 	}) {
 		this.paymentRepository = paymentRepository;
@@ -24,20 +24,6 @@ export class ConfirmPaymentUseCase {
 
 		const { payment, gatewayResponse } = await this.paymentService.verifyPayment(reference);
 
-		// Only businessProcessed means "we already ran subscription + activation
-		// logic". isSuccessful()/alreadyProcessed only means the gateway
-		// confirmed the charge - treating those as equivalent was the bug that
-		// made every webhook-driven confirmation silently no-op.
-		if (payment.businessProcessed) {
-			return {
-				success: true,
-				payment,
-				gatewayResponse,
-				alreadyProcessed: true,
-				autoConnected: true
-			};
-		}
-
 		if (!payment.isSuccessful()) {
 			return {
 				success: false,
@@ -48,18 +34,27 @@ export class ConfirmPaymentUseCase {
 			};
 		}
 
+		// CHANGED: removed the `if (payment.businessProcessed) return early`
+		// branch entirely — that was the source of the original bug (every
+		// webhook-driven confirmation silently no-op'd) AND the more recent
+		// one (a failed activation could never be retried). Capture the
+		// pre-call value here just for reporting — the retry/skip decision
+		// now lives inside paymentBusinessProcessor.process() itself, which
+		// reloads an existing subscription instead of recreating it but
+		// still always attempts activation.
+		const wasAlreadyBusinessProcessed = payment.businessProcessed;
+
 		const result = await this.paymentBusinessProcessor.process(payment);
 
 		const updatedPayment = await this.paymentRepository.findById(payment.id);
-		const autoConnectedStatus = result?.autoConnected ?? false;
 
 		return {
-			success: true,
+			success: result?.success !== false,
 			payment: updatedPayment,
 			gatewayResponse,
-			alreadyProcessed: false,
+			alreadyProcessed: wasAlreadyBusinessProcessed,
 			result,
-			autoConnected: autoConnectedStatus
+			autoConnected: result?.autoConnected ?? false
 		};
 	}
 }

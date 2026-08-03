@@ -1,13 +1,15 @@
 export class PaymentBusinessProcessor {
 	constructor({
 		subscriptionService,
-		networkService, // CHANGED: was serviceActivationEngine — matches the actual class name now
+		subscriptionRepository, // NEW — needed to reload an existing subscription on retry
+		networkService,
 		accountRepository,
 		paymentRepository,
 		userRepository,
 		planRepository
 	}) {
 		this.subscriptionService = subscriptionService;
+		this.subscriptionRepository = subscriptionRepository;
 		this.networkService = networkService;
 		this.accountRepository = accountRepository;
 		this.paymentRepository = paymentRepository;
@@ -18,7 +20,6 @@ export class PaymentBusinessProcessor {
 	async process(payment) {
 		if (!payment) throw new Error("Payment is required");
 		if (!payment.isSuccessful()) return payment;
-		if (payment.businessProcessed) return payment;
 
 		const user = await this.userRepository.findById(payment.userId);
 		const plan = await this.planRepository.findById(payment.planId);
@@ -27,29 +28,37 @@ export class PaymentBusinessProcessor {
 		if (!plan) throw new Error("Plan missing on payment");
 		if (!payment.accountId) throw new Error("Payment missing accountId (must be set by checkout flow)");
 
-		// Real fetch, not a fabricated { id: payment.accountId } stub — see
-		// earlier notes, this was likely the single biggest silent-failure bug.
 		const account = await this.accountRepository.findById(payment.accountId);
 		if (!account) throw new Error(`Account not found for id ${payment.accountId}`);
 
+		// CHANGED: this is the actual fix. Previously, `businessProcessed`
+		// being true made ConfirmPaymentUseCase skip this entire method
+		// forever — meaning a payment that succeeded but failed activation
+		// could never be retried by anything (webhook redelivery, user
+		// refreshing, admin reprocess) without a manual DB edit.
+		//
+		// Now: if the subscription already exists (businessProcessed was
+		// true, meaning subscription creation already ran), reload it
+		// instead of recreating/re-renewing it — but still fall through to
+		// attempt activation below, every time. Activation retrying is safe:
+		// hotspotService.createUser() already handles "already exists"
+		// gracefully, and if it's genuinely already synced, re-running it
+		// is a wasted RouterOS call at worst, not a correctness problem.
+		let subscription;
+		if (payment.businessProcessed && payment.subscriptionId) {
+			subscription = await this.subscriptionRepository.findById(payment.subscriptionId);
+			if (!subscription) {
+				throw new Error(`Payment ${payment.id} marked businessProcessed but subscription ${payment.subscriptionId} not found`);
+			}
+		} else {
+			const subscriptionResult = await this.subscriptionService.process({ payment, account, user, plan });
+			subscription = subscriptionResult.subscription;
+		}
+
 		const metadata = payment.metadata || {};
 
-		const subscriptionResult = await this.subscriptionService.process({ payment, account, user, plan });
-		const subscription = subscriptionResult.subscription;
-
-		// This is the ONE place activation gets triggered for the payment flow.
-		// CreateSubscriptionUseCase/RenewSubscriptionUseCase no longer call the
-		// engine themselves — subscriptionService.process() just creates/renews
-		// the record; this call is what actually reaches the router.
-		//
-		// metadata is passed through because hotspot activation needs it
-		// (macAddress, routerId, ipAddress — these come from the captive portal
-		// request that led to checkout, carried in payment.metadata since
-		// HotspotCheckoutFlow attached it there).
-		// NOTE: networkService.activate() never throws — NetworkService._execute
-		// catches internally and always resolves to { success, result } or
-		// { success: false, error }. No try/catch needed here; just check
-		// activation.success.
+		// Always attempted now — this is the retry. No separate endpoint,
+		// no separate code path to keep in sync with this one.
 		const activation = await this.networkService.activate(subscription, metadata);
 		if (!activation.success) {
 			console.error(
@@ -64,12 +73,8 @@ export class PaymentBusinessProcessor {
 
 		return {
 			success: activation.success,
-			// CHANGED: autoConnected now lives two levels deep —
-			// networkService returns { success, result }, and result is
-			// whatever MikrotikManager.provision() returned:
-			// { success, account, router, activation: { autoConnected, ... } }.
 			autoConnected: activation.result?.activation?.autoConnected ?? false,
-			user, // NEW — was loaded but never returned; ConfirmHotspotPurchase needs it downstream
+			user,
 			account,
 			subscription,
 			activation

@@ -11,269 +11,130 @@ export class MikrotikManager {
 		this.pppoeService = pppoeService;
 	}
 
+	// CHANGED: was `async provision({ subscription, metadata = {} })` — an
+	// object-destructured single argument. NetworkService.activate() calls
+	// this with TWO positional arguments (subscription, metadata), which
+	// silently made `subscription` undefined inside this function — the
+	// actual root cause of "Cannot read properties of undefined (reading
+	// 'accountId')". Every method below now takes plain positional args,
+	// consistently.
+	async provision(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription);
+		const service = this.getService(account); // CHANGED: was getService(subscription)
 
-	async provision({
-		subscription,
-		metadata = {}
-	}) {
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
-
-		const service =
-			this.getService(subscription);
-
-
-		const exists =
-			await service.userExists(
-				router,
-				account.wsnId
-			);
-
+		const exists = await service.userExists(router, account.wsnId);
 
 		if (!exists) {
-			await service.createUser(
-				router,
-				account
-			);
+			await service.createUser(router, account);
 		} else {
-			await service.updateUser(
-				router,
-				account
-			);
-
-			await service.resumeUser(
-				router,
-				account.wsnId
-			);
+			await service.updateUser(router, account);
+			await service.resumeUser(router, account.wsnId);
 		}
 
-
-		return service.provisionAccess(
-			router,
-			{
-				username: account.wsnId,
-				password: account.routerPassword,
-				macAddress: metadata.macAddress,
-				ipAddress: metadata.ipAddress
-			}
-		);
+		return service.provisionAccess(router, {
+			username: account.wsnId,
+			password: account.routerPassword,
+			macAddress: metadata.macAddress,
+			ipAddress: metadata.ipAddress
+		});
 	}
+
 	async suspend(subscription) {
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
+		const { account, router } = await this.loadContext(subscription);
+		const service = this.getService(account);
 
-		const service =
-			this.getService(subscription);
+		await service.suspendUser(router, account.wsnId);
+		await service.disconnectUser(router, account.wsnId);
 
-
-		await service.suspendUser(
-			router,
-			account.wsnId
-		);
-
-
-		await service.disconnectUser(
-			router,
-			account.wsnId
-		);
-
-
-		return {
-			success: true
-		};
+		return { success: true };
 	}
 
+	async resume(subscription, metadata = {}) { // CHANGED: added metadata param
+		const { account, router } = await this.loadContext(subscription);
+		const service = this.getService(account);
 
-	async resume(subscription) {
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
+		await service.resumeUser(router, account.wsnId);
 
-
-		const service =
-			this.getService(subscription);
-
-
-		await service.resumeUser(
-			router,
-			account.wsnId
-		);
-
-
-		return service.provisionAccess(
-			router,
-			{
-				username: account.wsnId,
-				password: account.routerPassword,
-				macAddress: account.macAddress,
-				ipAddress: account.ipAddress
-			}
-		);
+		return service.provisionAccess(router, {
+			username: account.wsnId,
+			password: account.routerPassword,
+			// CHANGED: was account.macAddress/account.ipAddress — these
+			// fields don't exist on Account (only devices[] does). A "current
+			// device" isn't durable account state, it comes from the request
+			// that triggered this — same as provision() above.
+			macAddress: metadata.macAddress,
+			ipAddress: metadata.ipAddress
+		});
 	}
-
 
 	async disconnect(subscription) {
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
-
-
-		return this.getService(subscription)
-			.disconnectUser(
-				router,
-				account.wsnId
-			);
+		const { account, router } = await this.loadContext(subscription);
+		return this.getService(account).disconnectUser(router, account.wsnId);
 	}
-
 
 	async remove(subscription) {
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
-
-
-		const service =
-			this.getService(subscription);
-
+		const { account, router } = await this.loadContext(subscription);
+		const service = this.getService(account);
 
 		if (!service.removeUser) {
-			return {
-				success: true
-			};
+			return { success: true };
 		}
 
-
-		return service.removeUser(
-			router,
-			account.wsnId
-		);
+		return service.removeUser(router, account.wsnId);
 	}
-
 
 	async changePassword(subscription, password) {
-
-		const {
-			account,
-			router
-		} = await this.loadContext(subscription);
-
-
-		return this.getService(subscription)
-			.changePassword(
-				router,
-				account.wsnId,
-				password
-			);
+		const { account, router } = await this.loadContext(subscription);
+		return this.getService(account).changePassword(router, account.wsnId, password);
 	}
 
+	// CHANGED: was calling getService({ planSnapshot: { serviceType } }) —
+	// a fake subscription-shaped object to satisfy the old
+	// getService(subscription) signature. Now calls resolveService(type)
+	// directly, since getService(account) expects a real account.
 	async getProfiles(router, serviceType) {
-		const service =
-			this.getService({
-				planSnapshot: {
-					serviceType
-				}
-			});
-
-		return service.getProfiles(router);
+		return this.resolveService(serviceType).getProfiles(router);
 	}
 
 	async getActiveSession(router, serviceType, username) {
-		const service =
-			this.getService({
-				planSnapshot: {
-					serviceType
-				}
-			});
-
-		return service.getActiveSession(
-			router,
-			username
-		);
+		return this.resolveService(serviceType).getActiveSession(router, username);
 	}
 
-
 	async getActiveSessions(router, serviceType) {
-		const service =
-			this.getService({
-				planSnapshot: {
-					serviceType
-				}
-			});
-
-		return service.getActiveSessions(
-			router
-		);
+		return this.resolveService(serviceType).getActiveSessions(router);
 	}
 
 	async loadContext(subscription) {
+		const account = await this.accountRepository.findById(subscription.accountId);
+		if (!account) throw new Error("Account not found");
 
-		const account =
-			await this.accountRepository.findById(
-				subscription.accountId
-			);
+		if (!account.routerId) throw new Error("Account has no router assigned");
 
+		const router = await this.routerRepository.findById(account.routerId);
+		if (!router) throw new Error("Router not found");
 
-		if (!account) {
-			throw new Error(
-				"Account not found"
-			);
-		}
-
-
-		if (!account.routerId) {
-			throw new Error(
-				"Account has no router assigned"
-			);
-		}
-
-
-		const router =
-			await this.routerRepository.findById(
-				account.routerId
-			);
-
-
-		if (!router) {
-			throw new Error(
-				"Router not found"
-			);
-		}
-
-
-		return {
-			account,
-			router
-		};
+		return { account, router };
 	}
 
+	// CHANGED: was getService(subscription), reading
+	// subscription.planSnapshot?.serviceType. Reads account.serviceType now —
+	// the account is already loaded by loadContext() before this is called,
+	// and it's the more durable source: it exists before any subscription
+	// does, and CreateSubscriptionUseCase validates a purchased plan's
+	// serviceType matches it, so the two can't drift apart silently. See
+	// earlier discussion in this conversation for the full reasoning.
+	getService(account) {
+		return this.resolveService(account.serviceType);
+	}
 
-	getService(subscription) {
-
-		const type =
-			subscription.planSnapshot?.serviceType;
-
-
+	resolveService(type) {
 		switch (type) {
-
 			case "hotspot":
 				return this.hotspotService;
-
-
 			case "pppoe":
 				return this.pppoeService;
-
-
 			default:
-				throw new Error(
-					`Unsupported service type: ${type}`
-				);
+				throw new Error(`Unsupported service type: ${type}`);
 		}
 	}
 }
