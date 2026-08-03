@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuthenticateHotspot } from "../hooks/useHotspot";
+import { useAuthenticateHotspot } from "../hooks/use-hotspot";
 
 interface RouterContext {
 	macAddress: string | null;

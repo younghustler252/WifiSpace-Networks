@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/useHotspot";
+import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/use-hotspot";
 import { HotspotLoading } from "@/features/hotspot/components/hotspot-loading";
 import { HotspotLanding } from "@/features/hotspot/components/hotspot-landing";
 import { HotspotConnected } from "@/features/hotspot/components/hotspot-connected";

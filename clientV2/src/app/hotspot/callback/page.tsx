@@ -2,11 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useConfirmHotspotPurchase } from "@/features/hotspot/hooks/useHotspot";
-
-// This is a real redirect target (Paystack sends the browser here with its
-// own ?reference=), separate from the main /hotspot page — that's why it's
-// its own route rather than a state in the portal's state machine.
+import { useConfirmHotspotPurchase } from "@/features/hotspot/hooks/use-hotspot";
 
 type Status = "confirming" | "connected" | "pending_activation" | "failed";
 
@@ -92,10 +88,37 @@ export default function HotspotCallbackPage() {
 				<h1 className="text-xl font-semibold tracking-tight">Payment received</h1>
 				<p className="text-sm text-muted-foreground">
 					We're still connecting your device. This can take a moment — try
-					refreshing, or contact support if it doesn't resolve shortly.
+					checking again, or contact support if it doesn't resolve shortly.
 				</p>
+				<button
+					className="w-full ui-button ui-button-accent"
+					disabled={confirmPurchase.isPending}
+					onClick={() => {
+						// CHANGED: was router.push("/hotspot") — that only
+						// re-checks session state (GetHotspotSession), it never
+						// retries activation. The backend now retries activation
+						// on every confirm call, so re-running confirm with the
+						// same reference is what actually gives this a chance to
+						// succeed.
+						setStatus("confirming");
+						confirmPurchase.mutate(
+							{ reference },
+							{
+								onSuccess: (data) => {
+									setStatus(data.autoConnected ? "connected" : "pending_activation");
+								},
+								onError: (err) => {
+									setStatus("failed");
+									setErrorMessage(err instanceof Error ? err.message : "Something went wrong.");
+								}
+							}
+						);
+					}}
+				>
+					{confirmPurchase.isPending ? "Checking…" : "Try again"}
+				</button>
 				<button className="w-full ui-button-outline" onClick={() => router.push("/hotspot")}>
-					Check status
+					Back to portal
 				</button>
 			</div>
 		);

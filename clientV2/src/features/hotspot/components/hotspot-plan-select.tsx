@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useHotspotPlans, useStartHotspotPurchase } from "../hooks/useHotspot";
+import { useHotspotPlans, useStartHotspotPurchase } from "../hooks/use-hotspot";
 import type { HotspotPlan, HotspotUser } from "../api/hotspot.types";
 
 interface RouterContext {
