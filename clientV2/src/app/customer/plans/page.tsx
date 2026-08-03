@@ -12,6 +12,7 @@ import { CenterLoader } from "@/components/ui/Loader";
 import PlanCard from "@/features/plan/PlanCard";
 import Button from "@/components/ui/Button";
 
+import { useCreatePayment } from "@/features/payment/hooks/usePayment";
 import { useSubscription } from "@/features/subscription/hooks/useSubscription";
 import { useAuth } from "@/context/AuthContext";
 
@@ -101,29 +102,34 @@ export default function PlansPage() {
 	}, [visiblePlans, cleanSort]);
 
 	// ================= PAYMENT =================
-	const { mutate: createPayment, isPending } = useMutation({
-		mutationFn: paymentApi.create,
-		onSuccess: (res) => {
-			const url =
-				res?.data?.paystack?.data?.authorization_url;
-
-			if (url) window.open(url, "_blank");
-		},
-		onError: (err) => {
-			console.error("Payment error:", err);
-		},
-	});
+	const { mutate: createPayment, isPending } = useCreatePayment();
 
 	const handlePay = () => {
 		if (!selectedPlan || !activeAccount) return;
 
-		createPayment({
+		createPayment(
+			{
 			accountId: activeAccount.id,
 			planId: selectedPlan.id,
 			cycles,
 			paymentChannel: "card",
-		});
-	};
+			},
+		{
+		onSuccess: (data) => {
+			const url = data.gatewayResponse?.data.authorization_url;
+
+			if (!url) {
+			console.error("No Paystack authorization URL returned.", data);
+			return;
+			}
+
+			window.location.href = url;
+		},
+		onError: (err) => {
+			console.error(err);
+		},
+	});
+	}
 
 	// ================= LOADING =================
 	if (isLoading)

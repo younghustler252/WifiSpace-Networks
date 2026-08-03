@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-
+import { useAllPayments } from "@/features/payment/hooks/usePayment";
+import type { Payment } from "@/features/payment/api/payment.types";
 import {
 	CalendarDays,
 	Search,
@@ -11,7 +11,6 @@ import {
 	ChevronRight,
 } from "lucide-react";
 
-import { paymentApi, Payment } from "@/lib/api/payment";
 import { useAuth } from "@/context/AuthContext";
 
 import PageHeader from "@/components/ui/PageHeader";
@@ -31,7 +30,7 @@ type PlanRef = {
 export default function PaymentsPage() {
 	const { activeAccount } = useAuth();
 
-	const [status, setStatus] = useState("");
+	const [status, setStatus] = useState<Payment["status"]>("successful");
 	const [search, setSearch] = useState("");
 	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 	const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
@@ -40,34 +39,19 @@ export default function PaymentsPage() {
 	   QUERY
 	================================ */
 
-	const { data, error, isLoading, isFetching } = useQuery({
-		queryKey: ["payments", activeAccount?.id, status, sortOrder],
-
-		queryFn: () =>
-			paymentApi.getAll({
-				accountId: activeAccount?.id,
-				status: status
-					? (status as Payment["status"])
-					: undefined,
-
-				limit: 50,
-				skip: 0,
-
-				sort: sortOrder === "desc" ? "newest" : "oldest",
-			}),
-
-		enabled: !!activeAccount,
-
-		placeholderData: (prev) => prev,
-
-		staleTime: 1000 * 60 * 5,
-		gcTime: 1000 * 60 * 30,
-
-		refetchOnWindowFocus: false,
-		refetchOnReconnect: true,
-		retry: 2,
+	const {
+		data,
+		error,
+		isLoading,
+		isFetching,
+	} = useAllPayments({
+		accountId: activeAccount?.id,
+		status,
+		limit: 50,
+		skip: 0,
+		sort: sortOrder === "desc" ? "newest" : "oldest",
 	});
-	const payments: Payment[] = data?.data?.data ?? [];
+	const payments = data?.data ?? [];
 
 	/* ================================
 	   SEARCH FILTER (client-side)
@@ -115,28 +99,28 @@ export default function PaymentsPage() {
 				title="Payments"
 				subtitle="View your billing history and subscription activity."
 				actions={
-					<div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+					<div className="flex flex-col w-full gap-2 sm:flex-row sm:w-auto">
 
 						{/* SEARCH */}
 						<div className="relative w-full sm:w-[240px]">
 							<Search
 								size={16}
-								className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+								className="absolute -translate-y-1/2 left-3 top-1/2 text-muted-foreground"
 							/>
 
 							<input
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 								placeholder="Search payments..."
-								className="h-11 w-full rounded-2xl border border-border/60 bg-background pl-10 pr-4 text-sm outline-none focus:border-primary/30 focus:ring-4 focus:ring-primary/10"
+								className="w-full pl-10 pr-4 text-sm border outline-none h-11 rounded-2xl border-border/60 bg-background focus:border-primary/30 focus:ring-4 focus:ring-primary/10"
 							/>
 						</div>
 
 						{/* STATUS */}
 						<select
 							value={status}
-							onChange={(e) => setStatus(e.target.value)}
-							className="h-11 rounded-2xl border border-border/60 bg-background px-4 text-sm outline-none focus:border-primary/30 focus:ring-4 focus:ring-primary/10"
+							onChange={(e) => setStatus(e.target.value as Payment["status"])}
+							className="px-4 text-sm border outline-none h-11 rounded-2xl border-border/60 bg-background focus:border-primary/30 focus:ring-4 focus:ring-primary/10"
 						>
 							<option value="">All Status</option>
 							<option value="successful">Successful</option>
@@ -163,18 +147,18 @@ export default function PaymentsPage() {
 			{/* FETCHING BAR */}
 			{isFetching && !isLoading && (
 				<div className="px-6 pt-3">
-					<div className="h-1 w-full overflow-hidden rounded-full bg-muted">
-						<div className="h-full w-1/3 animate-pulse rounded-full bg-primary" />
+					<div className="w-full h-1 overflow-hidden rounded-full bg-muted">
+						<div className="w-1/3 h-full rounded-full animate-pulse bg-primary" />
 					</div>
 				</div>
 			)}
 
 			{/* CONTENT */}
-			<div className="px-4 sm:px-6 pt-5">
+			<div className="px-4 pt-5 sm:px-6">
 
 				{/* EMPTY */}
 				{!isLoading && filteredPayments.length === 0 && (
-					<div className="rounded-3xl border border-dashed border-border py-14 text-center text-sm text-muted-foreground">
+					<div className="text-sm text-center border border-dashed rounded-3xl border-border py-14 text-muted-foreground">
 						No payments found
 					</div>
 				)}
@@ -217,9 +201,9 @@ export default function PaymentsPage() {
 								<div className="flex items-center justify-between gap-3">
 
 									{/* LEFT */}
-									<div className="flex items-center gap-3 min-w-0">
+									<div className="flex items-center min-w-0 gap-3">
 
-										<div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+										<div className="flex items-center justify-center h-11 w-11 rounded-2xl bg-primary/10 text-primary">
 											<Package size={18} />
 										</div>
 
@@ -227,7 +211,7 @@ export default function PaymentsPage() {
 
 											<div className="flex flex-wrap items-center gap-2">
 
-												<h3 className="font-semibold text-base">
+												<h3 className="text-base font-semibold">
 													₦{p.amount?.total?.toLocaleString()}
 												</h3>
 
@@ -237,11 +221,11 @@ export default function PaymentsPage() {
 
 											</div>
 
-											<p className="text-sm text-muted-foreground truncate">
+											<p className="text-sm truncate text-muted-foreground">
 												{planName}
 											</p>
 
-											<div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+											<div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-muted-foreground">
 
 												<div className="flex items-center gap-1">
 													<CalendarDays size={12} />
@@ -259,7 +243,7 @@ export default function PaymentsPage() {
 									</div>
 
 									{/* RIGHT */}
-									<div className="hidden sm:flex items-center gap-1 text-sm font-medium text-primary">
+									<div className="items-center hidden gap-1 text-sm font-medium sm:flex text-primary">
 										<span>View</span>
 										<ChevronRight size={16} />
 									</div>

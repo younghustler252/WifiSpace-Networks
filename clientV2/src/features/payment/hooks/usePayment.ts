@@ -20,10 +20,7 @@ import type {
 // ========================================
 export function useCreatePayment() {
 	return useMutation({
-		// CHANGED: was returning the raw ApiResponse<T> envelope in every hook
-		// here — same unwrap fix applied to the hotspot module earlier. This
-		// is what was making `res?.data?.paystack...` necessary at call sites;
-		// with this fixed, callers get CreatePaymentResponse directly.
+		
 		mutationFn: async (data: CreatePaymentDto) => {
 			const res = await paymentApi.create(data);
 			return res.data;
