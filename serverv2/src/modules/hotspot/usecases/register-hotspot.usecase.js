@@ -97,23 +97,23 @@ export class RegisterHotspotUser {
 
 
 		// Send login details
-		await this.mailService.sendNotification({
-			to: normalizedEmail,
-			name: firstName,
-			subject: "Your WiFiSpace account has been created",
-			message: `
-				Welcome ${firstName}.
+		// await this.mailService.sendNotification({
+		// 	to: normalizedEmail,
+		// 	name: firstName,
+		// 	subject: "Your WiFiSpace account has been created",
+		// 	message: `
+		// 		Welcome ${firstName}.
 
-				Your account has been created successfully.
+		// 		Your account has been created successfully.
 
-				Login email:
-				${normalizedEmail}
+		// 		Login email:
+		// 		${normalizedEmail}
 
-				Your temporary password is your phone number.
+		// 		Your temporary password is your phone number.
 
-				Please login and change your password after accessing your account.
-			`
-		});
+		// 		Please login and change your password after accessing your account.
+		// 	`
+		// });
 
 
 
