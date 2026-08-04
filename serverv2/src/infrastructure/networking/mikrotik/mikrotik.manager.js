@@ -20,18 +20,50 @@ export class MikrotikManager {
 	// consistently.
 	async provision(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription);
+
+		// NEW: refresh account-owned router config from the CURRENT
+		// subscription's plan before provisioning, instead of trusting
+		// whatever's already stored on the account. Accounts created before
+		// HotspotCheckoutFlow correctly set routerProfile at creation time
+		// (or created through a since-removed path) can be stuck on the
+		// schema default ("default") forever, since nothing was refreshing
+		// it — which is exactly what "input does not match any value of
+		// profile" means: RouterOS rejecting a profile name that was never
+		// real. This is the same sync that used to happen in the pre-rewrite
+		// ActivateHotspotAccess, lost when MikrotikManager was simplified.
+		const planSnapshot = subscription.planSnapshot || {};
+		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
+			account.routerProfile = planSnapshot.mikrotikProfile;
+			await this.accountRepository.update(account.id, account);
+		}
+
 		const service = this.getService(account); // CHANGED: was getService(subscription)
 
 		const exists = await service.userExists(router, account.wsnId);
 
 		if (!exists) {
 			await service.createUser(router, account);
+			// NEW: RouterOS can have a brief lag between creating a hotspot
+			// user and that user actually being queryable — calling login()
+			// immediately afterward may be racing the router's own commit.
+			// This is a hypothesis for the "first activation attempt fails,
+			// retry succeeds" pattern — worth testing. If this doesn't fix
+			// it, the delay/cause is elsewhere and this can come back out.
+			await this._waitForUser(service, router, account.wsnId);
 		} else {
 			await service.updateUser(router, account);
 			await service.resumeUser(router, account.wsnId);
 		}
 
-		
+		// CHANGED: was service.provisionAccess(router, {...}) — that method
+		// doesn't exist on HotspotService (checked: createUser, updateUser,
+		// changePassword, suspendUser, resumeUser, disconnectUser, bindMac,
+		// setUserMac, login, getProfiles, getUser, userExists,
+		// getActiveSession(s), findHost, findMacBinding — no provisionAccess).
+		// login() is RouterOS's /ip/hotspot/active/login — this is what
+		// actually makes the device auto-connect without the user re-typing
+		// credentials on the portal page, matching what "provisionAccess"
+		// was clearly meant to do.
 		const loginResult = await service.login(router, {
 			username: account.wsnId,
 			password: account.routerPassword,
@@ -136,5 +168,22 @@ export class MikrotikManager {
 			default:
 				throw new Error(`Unsupported service type: ${type}`);
 		}
+	}
+
+	// NEW: waits for a just-created hotspot user to actually be visible on
+	// the router before proceeding — see the note in provision() above.
+	// Polls a few times with short delays rather than a single blind sleep,
+	// so it resolves as soon as the user actually appears instead of always
+	// waiting the maximum.
+	async _waitForUser(service, router, username, attempts = 5, delayMs = 400) {
+		for (let i = 0; i < attempts; i++) {
+			const exists = await service.userExists(router, username);
+			if (exists) return true;
+			await new Promise((resolve) => setTimeout(resolve, delayMs));
+		}
+		// Didn't confirm within the budget — proceed anyway rather than
+		// blocking forever; login() will just fail with its own real error
+		// if the user genuinely isn't there, same as before this change.
+		return false;
 	}
 }
