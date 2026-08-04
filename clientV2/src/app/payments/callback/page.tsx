@@ -107,7 +107,7 @@ export default function PaymentCallbackPage() {
 							</div>
 							<button
 								className="w-full font-medium rounded-lg h-11 bg-accent text-accent-foreground hover:bg-accent-hover"
-								onClick={() => router.push("/dashboard")}
+								onClick={() => router.push("/admin/dashboard")}
 							>
 								Go to dashboard
 							</button>
