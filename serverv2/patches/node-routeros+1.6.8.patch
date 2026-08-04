@@ -1,54 +1,51 @@
 diff --git a/node_modules/node-routeros/dist/Channel.js b/node_modules/node-routeros/dist/Channel.js
-index ef56575..b149046 100644
+index ef56575..708feaf 100644
 --- a/node_modules/node-routeros/dist/Channel.js
 +++ b/node_modules/node-routeros/dist/Channel.js
-@@ -109,6 +109,15 @@ class Channel extends events_1.EventEmitter {
+@@ -107,27 +107,42 @@ class Channel extends events_1.EventEmitter {
+      *
+      * @param {Array} packet
       */
-     processPacket(packet) {
+-    processPacket(packet) {
++   processPacket(packet) {
          const reply = packet.shift();
 +
-+        console.log(
-+            "ROUTEROS REPLY",
-+            reply,
-+            "TAG",
-+            this.id,
-+            "PACKET",
-+            packet
-+        );
          info('Processing reply %s with data %o', reply, packet);
-         const parsed = this.parsePacket(packet);
-         if (reply === '!trap') {
-@@ -118,22 +127,31 @@ class Channel extends events_1.EventEmitter {
-         }
-         if (packet.length > 0 && !this.streaming)
-             this.emit('data', parsed);
--        switch (reply) {
-+                switch (reply) {
-             case '!re':
-                 if (this.streaming)
-                     this.emit('stream', parsed);
-                 break;
 +
-+            case '!empty':
-+                // RouterOS 7.23 sends !empty followed by !done
+         const parsed = this.parsePacket(packet);
++
+         if (reply === '!trap') {
+             this.trapped = true;
+             this.emit('trap', parsed);
+             return;
+         }
+-        if (packet.length > 0 && !this.streaming)
++
++        if (packet.length > 0 && !this.streaming) {
+             this.emit('data', parsed);
++        }
++
+         switch (reply) {
+             case '!re':
+-                if (this.streaming)
++                if (this.streaming) {
+                     this.emit('stream', parsed);
++                }
 +                break;
 +
++            case '!empty':
++                // RouterOS 7.18+ returns !empty when no records match.
++                // Do not close here because RouterOS sends !done afterwards.
+                 break;
++
              case '!done':
-                 if (!this.trapped)
+-                if (!this.trapped)
++                if (!this.trapped) {
                      this.emit('done', this.data);
++                }
                  this.close();
                  break;
 +
              default:
                  this.emit('unknown', reply);
                  this.close();
-                 break;
-         }
--    }
-+    } // <-- THIS WAS MISSING
-+
-+    /**
-+     * Parse the packet line...
-     /**
-      * Parse the packet line, separating the key from the data.
-      * Ex: transform '=interface=ether2' into object {interface:'ether2'}
