@@ -31,12 +31,14 @@ export class MikrotikManager {
 			await service.resumeUser(router, account.wsnId);
 		}
 
-		return service.provisionAccess(router, {
+		
+		const loginResult = await service.login(router, {
 			username: account.wsnId,
 			password: account.routerPassword,
-			macAddress: metadata.macAddress,
 			ipAddress: metadata.ipAddress
 		});
+
+		return { autoConnected: true, method: "login", data: loginResult };
 	}
 
 	async suspend(subscription) {
@@ -55,16 +57,14 @@ export class MikrotikManager {
 
 		await service.resumeUser(router, account.wsnId);
 
-		return service.provisionAccess(router, {
+		// CHANGED: same fix as provision() above.
+		const loginResult = await service.login(router, {
 			username: account.wsnId,
 			password: account.routerPassword,
-			// CHANGED: was account.macAddress/account.ipAddress — these
-			// fields don't exist on Account (only devices[] does). A "current
-			// device" isn't durable account state, it comes from the request
-			// that triggered this — same as provision() above.
-			macAddress: metadata.macAddress,
 			ipAddress: metadata.ipAddress
 		});
+
+		return { autoConnected: true, method: "login", data: loginResult };
 	}
 
 	async disconnect(subscription) {
