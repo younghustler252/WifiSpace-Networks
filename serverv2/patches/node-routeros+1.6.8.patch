@@ -1,8 +1,24 @@
 diff --git a/node_modules/node-routeros/dist/Channel.js b/node_modules/node-routeros/dist/Channel.js
-index ef56575..bc27549 100644
+index ef56575..b149046 100644
 --- a/node_modules/node-routeros/dist/Channel.js
 +++ b/node_modules/node-routeros/dist/Channel.js
-@@ -118,22 +118,31 @@ class Channel extends events_1.EventEmitter {
+@@ -109,6 +109,15 @@ class Channel extends events_1.EventEmitter {
+      */
+     processPacket(packet) {
+         const reply = packet.shift();
++
++        console.log(
++            "ROUTEROS REPLY",
++            reply,
++            "TAG",
++            this.id,
++            "PACKET",
++            packet
++        );
+         info('Processing reply %s with data %o', reply, packet);
+         const parsed = this.parsePacket(packet);
+         if (reply === '!trap') {
+@@ -118,22 +127,31 @@ class Channel extends events_1.EventEmitter {
          }
          if (packet.length > 0 && !this.streaming)
              this.emit('data', parsed);
