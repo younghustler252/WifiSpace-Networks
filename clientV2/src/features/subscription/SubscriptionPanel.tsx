@@ -28,6 +28,7 @@ import { CenterLoader } from "@/components/ui/Loader";
 
 import { AlertTriangle, XCircle, Calendar, ShieldAlert, Plus } from "lucide-react";
 import { paymentApi } from "@/lib/api/payment";
+import { useCreatePayment } from "../payment/hooks/usePayment";
 
 const notify = {
 	success: (msg: string) => alert(`Success: ${msg}`),
@@ -99,7 +100,7 @@ export default function SubscriptionPanel({
 	/* ================= USER/CUSTOMER MODALS ================= */
 	const [showRenewModal, setShowRenewModal] = useState(false);
 	const [renewCycles, setRenewCycles] = useState(1);
-	const [creatingPayment, setCreatingPayment] = useState(false);
+	// const [creatingPayment, setCreatingPayment] = useState(false);
 
 	/* ================= ADMIN OPERATIONAL MODALS ================= */
 	const [showSuspendModal, setShowSuspendModal] = useState(false);
@@ -120,8 +121,8 @@ export default function SubscriptionPanel({
 
 	// Add this near your other data custom hook references at the top of SubscriptionPanel:
 	const { data: plans = [], isLoading: isLoadingPlans } = useCachedPlans();
-
-
+	const { mutateAsync: createPayment, isPending: creatingPayment, } = useCreatePayment();
+ 
 	/* ================= USER RENEW FLOW (PAYSTACK) ================= */
 	const openRenewModal = () => {
 		if (!subscription) return;
@@ -129,26 +130,34 @@ export default function SubscriptionPanel({
 		setShowRenewModal(true);
 	};
 
-	const confirmRenew = async () => {
-		if (!subscription) return;
-		try {
-			setCreatingPayment(true);
-			const res = await paymentApi.create({
-				accountId,
-				subscriptionId: subscription.id,
-				planId: subscription.planId?._id,
-				cycles: renewCycles,
-			});
+const confirmRenew = async () => {
+    if (!subscription) return;
 
-			const url = res.data.paystack?.data.authorization_url;	
-			if (url) window.location.href = url;
-		} catch (err: any) {
-			console.error(err);
-			notify.error(err?.message || "Failed to initialize payment gateway.");
-		} finally {
-			setCreatingPayment(false);
-		}
-	};
+    try {
+        const res = await createPayment({
+            accountId,
+            subscriptionId: subscription.id,
+            planId: subscription.planId?._id,
+            cycles: renewCycles,
+        });
+
+        const authorizationUrl =
+            res.gatewayResponse?.data.authorization_url;
+
+        if (!authorizationUrl) {
+            notify.error("Payment gateway did not return an authorization URL.");
+            return;
+        }
+
+        window.location.href = authorizationUrl;
+    } catch (err: any) {
+        console.error(err);
+
+        notify.error(
+            err?.message ?? "Failed to initialize payment gateway."
+        );
+    }
+};
 
 	const upgradeSubscription = () => {
 		router.push(
@@ -274,13 +283,13 @@ export default function SubscriptionPanel({
 			{!subscription? (
 				/* ================= BLANK STATE UI (NEW USER) ================= */
 				<Card className="max-w-md mx-auto my-12">
-					<CardContent className="py-14 text-center">
+					<CardContent className="text-center py-14">
 						<AlertTriangle className="mx-auto mb-4 text-warning" />
 						<h3>No Active Subscription</h3>
-						<p className="text-xs text-muted-foreground mt-2 max-w-xs mx-auto">
+						<p className="max-w-xs mx-auto mt-2 text-xs text-muted-foreground">
 							This account does not have a network access profile provisioned yet.
 						</p>
-						<div className="mt-6 flex justify-center gap-3">
+						<div className="flex justify-center gap-3 mt-6">
 							{role === "customer" ? (
 								<Button
 									variant="accent"
@@ -385,12 +394,12 @@ export default function SubscriptionPanel({
 				size="sm"
 			>
 				<ModalHeader>
-					<span className="text-foreground tracking-tight font-semibold">Renew Subscription</span>
+					<span className="font-semibold tracking-tight text-foreground">Renew Subscription</span>
 				</ModalHeader>
 				
 				<ModalBody>
 					<div className="space-y-5">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							Review your active plan details and select how many cycles you want to extend your service by before proceeding to checkout.
 						</p>
 
@@ -398,8 +407,8 @@ export default function SubscriptionPanel({
 						<div className="space-y-1.5">
 							<label className="text-xs font-medium text-muted-foreground">Selected Plan Configuration</label>
 							{/* Upgraded card style to remove wireframe gray look */}
-							<div className="w-full bg-muted/40 border border-border/60 flex flex-col justify-center py-3 px-4 rounded-xl select-none">
-								<p className="font-semibold text-sm text-foreground tracking-tight">
+							<div className="flex flex-col justify-center w-full px-4 py-3 border select-none bg-muted/40 border-border/60 rounded-xl">
+								<p className="text-sm font-semibold tracking-tight text-foreground">
 									{subscription?.planSnapshot?.name || "Active Tier"}
 								</p>
 								<p className="text-xs text-muted-foreground mt-0.5">
@@ -409,7 +418,7 @@ export default function SubscriptionPanel({
 						</div>
 
 						{/* 📱 RESPONSIVE CONTROLS - Switches from stack on mobile to row on grid tablets */}
-						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 							
 							{/* CYCLES INPUT */}
 							<div className="space-y-1.5">
@@ -418,7 +427,7 @@ export default function SubscriptionPanel({
 									type="number"
 									min={1}
 									required
-									className="ui-input w-full font-medium"
+									className="w-full font-medium ui-input"
 									value={renewCycles}
 									// Prevents users from typing floating points or negatives
 									onChange={(e) => setRenewCycles(Math.max(1, Math.floor(Number(e.target.value))))}
@@ -429,7 +438,7 @@ export default function SubscriptionPanel({
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-muted-foreground">Total Due Amount</label>
 								{/* Styled to mirror a proper invoice indicator token with monospace font */}
-								<div className="ui-input w-full bg-muted/20 border border-border/80 font-mono font-bold text-foreground flex items-center h-10 px-3 rounded-lg select-none">
+								<div className="flex items-center w-full h-10 px-3 font-mono font-bold border rounded-lg select-none ui-input bg-muted/20 border-border/80 text-foreground">
 									₦{((subscription?.planSnapshot?.price || 0) * renewCycles).toLocaleString()}
 								</div>
 							</div>
@@ -449,14 +458,16 @@ export default function SubscriptionPanel({
 						Cancel
 					</Button>
 					
-					<Button 
+					<Button
 						variant="accent"
 						size="sm"
-						onClick={confirmRenew} 
-						disabled={creatingPayment || !subscription}
-						isLoading={creatingPayment} // Drops in your component's native spinning indicator loader
+						onClick={confirmRenew}
+						disabled={!subscription || creatingPayment}
+						isLoading={creatingPayment}
 					>
-						{creatingPayment ? "Connecting Paystack..." : "Confirm & Pay"}
+						{creatingPayment
+							? "Connecting Paystack..."
+							: "Confirm & Pay"}
 					</Button>
 				</ModalFooter>
 			</Modal>
@@ -473,7 +484,7 @@ export default function SubscriptionPanel({
 				</ModalHeader>
 				<ModalBody>
 					<div className="space-y-4">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							This action bypasses payment gateways entirely to trigger a manual subscription renewal cycle.
 						</p>
 
@@ -485,7 +496,7 @@ export default function SubscriptionPanel({
 									type="number"
 									min={1}
 									required
-									className="ui-input w-full"
+									className="w-full ui-input"
 									value={renewCycles}
 									onChange={(e) => setRenewCycles(Math.max(1, Number(e.target.value)))}
 								/>
@@ -493,7 +504,7 @@ export default function SubscriptionPanel({
 
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-neutral-600">Calculated Value</label>
-								<div className="ui-input w-full bg-neutral-50 font-semibold text-neutral-700 flex items-center h-10 border select-none">
+								<div className="flex items-center w-full h-10 font-semibold border select-none ui-input bg-neutral-50 text-neutral-700">
 									₦{((subscription?.planSnapshot?.price || 0) * renewCycles).toLocaleString()}
 								</div>
 							</div>
@@ -529,7 +540,7 @@ export default function SubscriptionPanel({
 				</ModalHeader>
 				<ModalBody>
 					<div className="space-y-4">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							Appends additional active runtime days directly onto this account's terminal operational window.
 						</p>
 
@@ -541,7 +552,7 @@ export default function SubscriptionPanel({
 									type="number"
 									min={1}
 									required
-									className="ui-input w-full"
+									className="w-full ui-input"
 									value={extendDays}
 									onChange={(e) => setExtendDays(Math.max(1, Number(e.target.value)))}
 								/>
@@ -551,7 +562,7 @@ export default function SubscriptionPanel({
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-neutral-600">Preset Category</label>
 								<select
-									className="ui-input w-full"
+									className="w-full ui-input"
 									defaultValue="Network downtime compensation"
 									onChange={(e) => {
 										const val = e.target.value;
@@ -601,7 +612,7 @@ export default function SubscriptionPanel({
 				</ModalHeader>
 				<ModalBody>
 					<div className="space-y-4">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							Immediately overrides underlying configurations and shifts this account's operational profiling tier.
 						</p>
 
@@ -613,7 +624,7 @@ export default function SubscriptionPanel({
 								<label className="text-xs font-medium text-neutral-600">Target Service Plan</label>
 								<select
 									required
-									className="ui-input w-full"
+									className="w-full ui-input"
 									value={targetPlanId}
 									onChange={(e) => setTargetPlanId(e.target.value)}
 									disabled={isLoadingPlans}
@@ -636,7 +647,7 @@ export default function SubscriptionPanel({
 								<label className="text-xs font-medium text-neutral-600">Balance Adjustment</label>
 								<input
 									type="number"
-									className="ui-input w-full"
+									className="w-full ui-input"
 									placeholder="e.g. 5000 or -2000"
 									value={paymentAdjustment}
 									onChange={(e) => setPaymentAdjustment(e.target.value)}
@@ -648,7 +659,7 @@ export default function SubscriptionPanel({
 						<div className="space-y-1.5">
 							<label className="text-xs font-medium text-neutral-600">Migration Reason Category</label>
 							<select
-								className="ui-input w-full"
+								className="w-full ui-input"
 								defaultValue="Administrative profile migration"
 								onChange={(e) => {
 									const val = e.target.value;
@@ -724,7 +735,7 @@ export default function SubscriptionPanel({
 				</ModalHeader>
 				<ModalBody>
 					<div className="space-y-4">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							This action kills active provisioning states and cuts off live internet access immediately.
 						</p>
 
@@ -734,7 +745,7 @@ export default function SubscriptionPanel({
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-neutral-600">Termination Category</label>
 								<select
-									className="ui-input w-full border-danger/20 focus:border-danger"
+									className="w-full ui-input border-danger/20 focus:border-danger"
 									defaultValue="Account termination / TOS violation"
 									onChange={(e) => {
 										const val = e.target.value;
@@ -785,18 +796,18 @@ export default function SubscriptionPanel({
 				</ModalHeader>
 				<ModalBody>
 					<div className="space-y-4">
-						<p className="text-xs text-muted-foreground leading-relaxed">
+						<p className="text-xs leading-relaxed text-muted-foreground">
 							Provisions a brand new network access profile for account identification context <b className="text-neutral-700">{accountId}</b>.
 						</p>
 
 						{/* Clean 3-column layout on desktop */}
-						<div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+						<div className="grid grid-cols-2 gap-4 md:grid-cols-3">
 							
 							<div className="space-y-1.5 col-span-2 md:col-span-1">
 								<label className="text-xs font-medium text-neutral-600">Select Initial Plan</label>
 								<select
 									required
-									className="ui-input w-full"
+									className="w-full ui-input"
 									value={targetPlanId}
 									onChange={(e) => setTargetPlanId(e.target.value)}
 									disabled={isLoadingPlans}
@@ -831,7 +842,7 @@ export default function SubscriptionPanel({
 									type="number"
 									min={1}
 									required
-									className="ui-input w-full"
+									className="w-full ui-input"
 									value={renewCycles}
 									onChange={(e) => setRenewCycles(Math.max(1, Number(e.target.value)))}
 								/>
@@ -841,7 +852,7 @@ export default function SubscriptionPanel({
 						{targetPlanId && (
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-neutral-600">Calculated Plan Provision Value</label>
-								<div className="ui-input w-full bg-neutral-50 font-bold text-green-700 flex items-center h-10 border select-none px-3 rounded-lg">
+								<div className="flex items-center w-full h-10 px-3 font-bold text-green-700 border rounded-lg select-none ui-input bg-neutral-50">
 									₦{(() => {
 										const selectedPlan = plans.find((p: any) => (p.id || p._id) === targetPlanId);
 										return ((selectedPlan?.price || 0) * renewCycles).toLocaleString();
