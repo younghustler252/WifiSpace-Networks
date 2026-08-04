@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon",
     "migrate": "node src/migrations/runner.js",
-    "script": "node src/scripts/sync-legacy-router.js"
+    "script": "node src/scripts/sync-legacy-router.js",
+    "postinstall": "patch-package"
   },
   "imports": {
     "#/*": "./src/*"
