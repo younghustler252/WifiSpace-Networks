@@ -77,6 +77,20 @@ export class MikrotikClient {
 						router
 					);
 				} catch (error) {
+					// NEW: RouterOS sends a `!empty` reply sentence when a
+					// query/print command matches zero rows — a completely
+					// normal outcome (e.g. looking up a hotspot user that
+					// doesn't exist yet, which is exactly what happens on
+					// every brand-new account's first activation). This
+					// version of node-routeros doesn't recognize `!empty` as
+					// a valid sentence and throws instead of resolving with
+					// an empty array. Treat it as the empty result it
+					// actually is — retrying won't produce a different
+					// answer, and it isn't a real failure.
+					if (error?.errno === "UNKNOWNREPLY" && /!empty/i.test(error?.message || "")) {
+						return [];
+					}
+
 					this.connections.delete(key);
 
 					if (attempt === retries) {
