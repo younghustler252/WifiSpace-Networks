@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/use-hotspot";
+import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/useHotspot";
 import { HotspotLoading } from "@/features/hotspot/components/hotspot-loading";
 import { HotspotLanding } from "@/features/hotspot/components/hotspot-landing";
 import { HotspotConnected } from "@/features/hotspot/components/hotspot-connected";
@@ -37,6 +37,7 @@ export default function HotspotPortalPage() {
 
 	const [view, setView] = useState<View>("landing");
 	const [loginPrefillEmail, setLoginPrefillEmail] = useState<string | undefined>(undefined);
+	const [loginContextMessage, setLoginContextMessage] = useState<string | undefined>(undefined); // NEW
 
 	const sessionQuery = useHotspotSession({
 		macAddress: routerContext.macAddress ?? undefined
@@ -57,6 +58,7 @@ export default function HotspotPortalPage() {
 	}
 
 	const session = sessionQuery.data;
+
 	if (session?.trustedDevice && session.hasActiveSubscription) {
 		return (
 			<HotspotConnected
@@ -65,6 +67,8 @@ export default function HotspotPortalPage() {
 				plan={session.plan}
 				isLoggingOut={revoke.isPending}
 				onLogout={() => {
+					// ASSUMPTION: RevokeHotspotSessionDto.token — see chat, needs
+					// confirming against the real RevokeHotspotSession usecase.
 					if (!session.identity?.id) return;
 					revoke.mutate({ token: session.identity.id });
 				}}
@@ -89,6 +93,7 @@ export default function HotspotPortalPage() {
 				<HotspotLogin
 					routerContext={routerContext}
 					prefillEmail={loginPrefillEmail}
+					contextMessage={loginContextMessage}
 					onAuthenticated={() => sessionQuery.refetch()}
 				/>
 			)}
@@ -101,8 +106,9 @@ export default function HotspotPortalPage() {
 						identity: routerContext.identity
 					}}
 					knownUser={session?.user ?? null}
-					onRequiresLogin={(email) => {
+					onRequiresLogin={(email, message) => {
 						setLoginPrefillEmail(email);
+						setLoginContextMessage(message);
 						setView("login");
 					}}
 				/>

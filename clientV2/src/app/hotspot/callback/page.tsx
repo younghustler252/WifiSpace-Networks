@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useConfirmHotspotPurchase } from "@/features/hotspot/hooks/use-hotspot";
+import { useConfirmHotspotPurchase } from "@/features/hotspot/hooks/useHotspot";
+
+// This is a real redirect target (Paystack sends the browser here with its
+// own ?reference=), separate from the main /hotspot page — that's why it's
+// its own route rather than a state in the portal's state machine.
 
 type Status = "confirming" | "connected" | "pending_activation" | "failed";
 
@@ -74,6 +78,14 @@ export default function HotspotCallbackPage() {
 				<div>
 					<h1 className="text-2xl font-semibold tracking-tight">You're online</h1>
 					<p className="mt-1 text-sm text-muted-foreground">Payment confirmed and your connection is active.</p>
+				</div>
+				{/* NEW: some devices cache the pre-authentication "no internet"
+				    status from before the captive portal login completed, and
+				    won't refresh it on their own — this is the standard fix. */}
+				<div className="ui-card !p-4 text-sm text-muted-foreground text-left">
+					Not seeing internet access yet? Turn your WiFi off and back on,
+					then reconnect to the network — this refreshes your device's
+					connection status.
 				</div>
 				<button className="w-full ui-button ui-button-accent" onClick={() => router.push("/hotspot")}>
 					Continue

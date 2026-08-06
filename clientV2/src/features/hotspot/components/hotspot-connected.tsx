@@ -23,8 +23,8 @@ export function HotspotConnected({
 
 	return (
 		<div className="space-y-6 text-center">
-			<div className="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-success/15">
-				<svg viewBox="0 0 24 24" className="h-8 w-8 text-success" fill="none" stroke="currentColor" strokeWidth={2}>
+			<div className="flex items-center justify-center w-16 h-16 mx-auto rounded-full bg-success/15">
+				<svg viewBox="0 0 24 24" className="w-8 h-8 text-success" fill="none" stroke="currentColor" strokeWidth={2}>
 					<path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
 				</svg>
 			</div>
@@ -46,8 +46,15 @@ export function HotspotConnected({
 				<Row k="Connection ID" v={account?.wsnId ?? "—"} />
 			</div>
 
+			{/* NEW: same guidance as the payment-callback success screen —
+			    some devices cache pre-authentication "no internet" status. */}
+			<div className="ui-card !p-4 text-sm text-muted-foreground text-left">
+				Not seeing internet access? Turn your WiFi off and back on, then
+				reconnect to the network.
+			</div>
+
 			<button
-				className="ui-button-outline w-full"
+				className="w-full ui-button-outline"
 				onClick={onLogout}
 				disabled={isLoggingOut}
 			>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuthenticateHotspot } from "../hooks/use-hotspot";
+import { useAuthenticateHotspot } from "../hooks/useHotspot";
 
 interface RouterContext {
 	macAddress: string | null;
@@ -12,10 +12,11 @@ interface RouterContext {
 interface HotspotLoginProps {
 	routerContext: RouterContext;
 	prefillEmail?: string;
+	contextMessage?: string; // NEW — e.g. "Welcome back. Please login to continue."
 	onAuthenticated: () => void;
 }
 
-export function HotspotLogin({ routerContext, prefillEmail, onAuthenticated }: HotspotLoginProps) {
+export function HotspotLogin({ routerContext, prefillEmail, contextMessage, onAuthenticated }: HotspotLoginProps) {
 	const authenticate = useAuthenticateHotspot();
 
 	const [email, setEmail] = useState(prefillEmail ?? "");
@@ -45,6 +46,9 @@ export function HotspotLogin({ routerContext, prefillEmail, onAuthenticated }: H
 
 			onAuthenticated();
 		} catch (err) {
+			// Backend throws UnauthorizedError("Invalid credentials") for both
+			// wrong email and wrong password — deliberately vague, don't split
+			// that out client-side either.
 			setError(err instanceof Error ? err.message : "Invalid credentials.");
 		}
 	}
@@ -54,7 +58,7 @@ export function HotspotLogin({ routerContext, prefillEmail, onAuthenticated }: H
 			<div>
 				<h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
 				<p className="mt-1 text-sm text-muted-foreground">
-					Enter your details to reconnect.
+					{contextMessage || "Enter your details to reconnect."}
 				</p>
 			</div>
 

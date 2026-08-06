@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useHotspotPlans, useStartHotspotPurchase } from "../hooks/use-hotspot";
+import { useHotspotPlans, useStartHotspotPurchase } from "../hooks/useHotspot";
 import type { HotspotPlan, HotspotUser } from "../api/hotspot.types";
 
 interface RouterContext {
@@ -14,7 +14,7 @@ interface HotspotPlanSelectProps {
 	routerContext: RouterContext;
 
 	knownUser?: HotspotUser | null;
-	onRequiresLogin: (email: string) => void;
+	onRequiresLogin: (email: string, message?: string) => void; // CHANGED: added message param
 }
 
 export function HotspotPlanSelect({
@@ -72,8 +72,13 @@ export function HotspotPlanSelect({
 				identity: routerContext.identity ?? undefined
 			});
 
+			// CHANGED: was onRequiresLogin(email) — dropped result.message,
+			// which StartHotspotPurchase already provides
+			// ("Welcome back. Please login to continue.") specifically so
+			// the user understands why they're being asked to sign in
+			// instead of proceeding straight to payment.
 			if (result.requiresLogin) {
-				onRequiresLogin(email);
+				onRequiresLogin(email, result.message);
 				return;
 			}
 
