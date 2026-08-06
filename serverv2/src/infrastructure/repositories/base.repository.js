@@ -17,19 +17,22 @@ export class BaseRepository {
 		return query;
 	}
 
-	// -----------------------------
-	// PAGINATION PARAM NORMALIZER
-	// -----------------------------
+	
 	normalizePaginationParams(params = {}) {
-		const page = Math.max(parseInt(params.page || 1), 1);
-		const limit = Math.max(parseInt(params.limit || 20), 1);
+		const MAX_LIMIT = 100;
+
+		const parsedPage = parseInt(params.page, 10);
+		const page = Number.isNaN(parsedPage) || parsedPage < 1 ? 1 : parsedPage;
+
+		const parsedLimit = parseInt(params.limit, 10);
+		const limit =
+			Number.isNaN(parsedLimit) || parsedLimit < 1
+				? 20
+				: Math.min(parsedLimit, MAX_LIMIT);
+
 		const skip = (page - 1) * limit;
 
-		return {
-			page,
-			limit,
-			skip
-		};
+		return { page, limit, skip };
 	}
 
 	// -----------------------------
@@ -82,7 +85,8 @@ export class BaseRepository {
 		id,
 		{ populates = [], select = null, lean = true } = {}
 	) {
-		if (!id) return null;
+		
+		if (!id || !this.isValidId(id)) return null;
 
 		let query = this.model.findById(id);
 
@@ -99,6 +103,12 @@ export class BaseRepository {
 		const doc = await query;
 
 		return this.mapOne(doc);
+	}
+
+	// NEW: shared ObjectId validation, used by findById above and available
+	// to subclasses for the same guard on any other id-based lookup.
+	isValidId(id) {
+		return /^[0-9a-fA-F]{24}$/.test(String(id));
 	}
 
 	// -----------------------------
@@ -137,6 +147,36 @@ export class BaseRepository {
 	// -----------------------------
 	async count(filter = {}) {
 		return this.model.countDocuments(filter);
+	}
+
+	
+	async create(entityOrData) {
+		const persistenceData = this.mapper?.toPersistence?.(entityOrData) ?? entityOrData;
+		const doc = await this.model.create(persistenceData);
+		return this.mapOne(doc);
+	}
+
+	
+	async update(id, entityOrData, { populates = [] } = {}) {
+		if (!id || !this.isValidId(id)) return null;
+
+		const persistenceData = this.mapper?.toPersistence?.(entityOrData) ?? entityOrData;
+
+		let query = this.model.findByIdAndUpdate(id, persistenceData, { new: true });
+		query = this.applyPopulates(query, populates);
+
+		const doc = await query;
+		return this.mapOne(doc);
+	}
+
+	// -----------------------------
+	// DELETE (NEW)
+	// -----------------------------
+	async delete(id) {
+		if (!id || !this.isValidId(id)) return null;
+
+		const doc = await this.model.findByIdAndDelete(id);
+		return this.mapOne(doc);
 	}
 
 	// -----------------------------

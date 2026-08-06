@@ -2,10 +2,9 @@ import "./config/env.js";
 
 import app from "./app.js";
 import { connectDatabase } from "./infrastructure/database/mongo.connecton.js";
-import redisClient from "./config/redisClient.js";
 
 // // New jobs bootstrap
-// import { startJobs } from "./infrastructure/jobs/index.js";
+import { startJobs } from "./infrastructure/jobs/index.js";
 
 const PORT = process.env.PORT || 3000;
 
@@ -16,7 +15,6 @@ const startServer = async () => {
         console.log("⏳ Initializing system infrastructure dependencies...");
 
         await connectDatabase();
-		await redisClient.ping();
 		
         // New BullMQ jobs
         // await startJobs();
