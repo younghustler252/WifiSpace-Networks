@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import Button from "../../components/ui/Button";
 import { InputField } from "../../components/ui/InputField";
-import { routerApi } from "@/lib/api/router";
+import { useRouters, useRouterProfiles } from "../router/hooks/use-router";
 
 type BonusRule = {
 	minCycles: number;
@@ -100,36 +100,12 @@ export default function PlanForm({
 		control,
 		name: "serviceType",
 	});
-
-	// ----------------------------
-	// GET ROUTERS (ONLY NAME USED IN UI)
-	// ----------------------------
-	const { data: routers = [], isLoading: loadingRouters } =
-	useQuery({
-		queryKey: ["routers"],
-		queryFn: routerApi.getAll,
-	});
-
-	// ----------------------------
-	// GET MIKROTIK PROFILES
-	// ----------------------------
-	const { data: profiles = [], isLoading: loadingProfiles } =
-		useQuery({
-			queryKey: ["router-profiles", routerId, serviceType],
-			queryFn: async () => {
-				if (!routerId) return [];
-
-				const res = await routerApi.getProfiles(
-					routerId,
-					serviceType
-				);
-
-				return res.data || [];
-			},
-			enabled: !!routerId,
-		});
-
-		// console.log("Profiles:", profiles);
+	
+	const { data: routers = [] , isLoading: loadingRouters} = useRouters();
+	
+	//get router profiles
+	
+	const {data: profiles = [], isLoading: loadingProfiles} = useRouterProfiles(routerId, serviceType);
 	// ----------------------------
 	// SUBMIT
 	// ----------------------------
