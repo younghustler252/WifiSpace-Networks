@@ -1,107 +1,34 @@
 import { Account } from "../../domain/account.entity.js";
-import { ANALYTICS_EVENTS } from "../../../analytics/domain/analytics.events.js";
+import { SERVICE_TYPES } from "../../domain/account.enum.js";
+
+const DEFAULT_PASSWORDS = {
+	[SERVICE_TYPES.HOTSPOT]: "Access123",
+	[SERVICE_TYPES.PPPOE]: "C0NN3CT@pppoe123$"
+};
 
 export class CreateAccount {
 
 	constructor({
 		accountRepository,
-		userRepository,
-		analyticsTracker
+		userRepository
 	}) {
 		this.accountRepository = accountRepository;
 		this.userRepository = userRepository;
-		this.analyticsTracker = analyticsTracker;
 	}
 
-
-	async execute(data, context = {}) {
-
-		// -----------------------------
-		// CREATE ACCOUNT ENTITY
-		// -----------------------------
-
-		const account =
-			new Account({
-				...data,
-				userId: data.userId
-			});
-
-
-		account.profileStatus = "pending";
-
-
-
-		// -----------------------------
-		// GENERATE ROUTER PASSWORD
-		// -----------------------------
+	async execute(data) {
+		const account = new Account(data);
 
 		if (!account.routerPassword) {
+			const user = await this.userRepository.findById(account.userId);
 
-			try {
-
-				const user =
-					await this.userRepository.findById(
-						account.userId.toString()
-					);
-
-
-				const userPhone =
-					user?.phone;
-
-
-				account.routerPassword =
-					userPhone ||
-					(
-						account.serviceType === "hotspot"
-							? "Access123"
-							: "C0NN3CT@pppoe123$"
-					);
-
-
-			} catch (err) {
-
-				account.routerPassword =
-					account.serviceType === "hotspot"
-						? "Access123"
-						: "C0NN3CT@pppoe123$";
-
-			}
+			account.routerPassword =
+				user?.phone ||
+				DEFAULT_PASSWORDS[account.serviceType];
 		}
 
+		const createdAccount = await this.accountRepository.create(account);
 
-
-		// -----------------------------
-		// SAVE ACCOUNT
-		// -----------------------------
-
-		const createdAccount =
-			await this.accountRepository.create(
-				account
-			);
-
-		// -----------------------------
-		// ANALYTICS
-		// -----------------------------
-
-		try {
-
-			await this.analyticsTracker.track(
-				ANALYTICS_EVENTS.ACCOUNT_CREATED,
-				{
-					accountType: createdAccount.accountType,
-					serviceType: createdAccount.serviceType,
-					profileStatus: createdAccount.profileStatus
-				}
-			);
-
-		} catch(err) {
-
-			console.error(
-				"Analytics tracking failed:",
-				err.message
-			);
-
-		}
 		return {
 			account: createdAccount
 		};

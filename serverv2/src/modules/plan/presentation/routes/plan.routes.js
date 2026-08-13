@@ -2,8 +2,8 @@ import { Router } from "express";
 
 import { PERMISSION } from "../../../../shared/constants/permissions.js";
 
-import { authMiddleware } from "../../../../shared/middleware/auth.middleware.js";
-import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
+import { authMiddleware } from "../../../../infrastructure/middleware/auth.middleware.js";
+import { requirePermission } from "../../../../infrastructure/middleware/permission.middleware.js";
 
 export default function planRoutes({
 	planController,

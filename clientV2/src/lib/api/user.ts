@@ -1,5 +1,39 @@
 import { API } from "./client";
-import { ApiResponse, User } from "./types";
+import { ApiResponse } from "./types";
+
+
+export interface User {
+	id: string;
+	firstName: string;
+	lastName: string;
+	email: string;
+
+	// core
+	role: string;
+	status?: string;
+	isVerified?: boolean;
+
+	// profile
+	avatar?: {
+		url?: string;
+	};
+
+	phone?: string;
+	nin?: string;
+	address?: string;
+	dateOfBirth?: string;
+	gender?: string;
+
+	// permissions / settings
+	permissions?: string[];
+	theme?: string;
+	otpExpiresAt?: number; 
+	// timestamps
+	lastLoginAt?: string;
+	createdAt?: string;
+	updatedAt?: string;
+}
+
 
 // ================================
 // REQUEST TYPES

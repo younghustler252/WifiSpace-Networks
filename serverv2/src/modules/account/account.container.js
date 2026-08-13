@@ -1,113 +1,94 @@
 import { asClass } from "awilix";
 
-/*
-|--------------------------------------------------------------------------
-| REPOSITORY
-|--------------------------------------------------------------------------
-*/
-import { AccountRepositoryMongo } from "./infrastructure/repositories/account.repository.mongo.js";
+import { AccountRepositoryMongo } from "./repositories/account.repository.mongo.js";
 
-/*
-|--------------------------------------------------------------------------
-| CONTROLLERS
-|--------------------------------------------------------------------------
-*/
-import { AdminAccountController } from "./presentation/controllers/admin.controller.js";
-import { UserAccountController } from "./presentation/controllers/user.controller.js";
-import { SharedAccountController } from "./presentation/controllers/shared.controller.js";
+import { AdminAccountController } from "./controllers/admin-account.controller.js";
+import { AccountController } from "./controllers/account.controller.js";
 
-/*
-|--------------------------------------------------------------------------
-| USE CASES
-|--------------------------------------------------------------------------
-*/
-
-// ADMIN
 import { CreateAccount } from "./usecases/admin/create-account.js";
+import { GetAccount } from "./usecases/admin/get-account.js";
+import { GetAllAccounts } from "./usecases/admin/get-all-accounts.js";
+import { GetAccountStats } from "./usecases/admin/get-account-stats.js";
 import { UpdateAccount } from "./usecases/admin/update-account.js";
 import { DeleteAccount } from "./usecases/admin/delete-account.js";
-import { ActivateAccount } from "./usecases/admin/activate-account.js";
+import { ApproveAccount } from "./usecases/admin/approve-account.js";
+import { RejectAccount } from "./usecases/admin/reject-account.js";
 import { SuspendAccount } from "./usecases/admin/suspend-account.js";
 import { TransferAccount } from "./usecases/admin/transfer-account.js";
-import { GetAllAccounts } from "./usecases/admin/get-all-accounts.usecase.js";
-import { ChangeAccountPassword } from "./usecases/admin/change-account-password.js";
+import { ChangeRouterPassword } from "./usecases/admin/change-router-password.js";
 
-// USER
-import { GetUserAccounts } from "./usecases/user/get-user-accounts.js";
+import { GetMyAccount } from "./usecases/user/get-my-account.js";
+import { GetMyAccounts } from "./usecases/user/get-my-accounts.js";
 import { RequestAccount } from "./usecases/user/request-account.js";
-import { UpdateUserAccount } from "./usecases/user/update-user-account.usecase.js";
-
-// SHARED
-import { GetAccountById } from "./usecases/shared/get-account-by-Id.js";
-import { GetAccountByWsnId } from "./usecases/shared/get-account-by-wsn.js";
-
+import { UpdateMyAccount } from "./usecases/user/update-my-account.js";
 
 import { AccountResolverService } from "./services/account.resolver.js";
-/*
-|--------------------------------------------------------------------------
-| MODULE REGISTRATION
-|--------------------------------------------------------------------------
-*/
+
+
 export function registerAccount(container) {
 
 	container.register({
 
-		/*
-		|--------------------------------------------------------------------------
-		| REPOSITORY
-		|--------------------------------------------------------------------------
-		*/
-		accountRepository: asClass(AccountRepositoryMongo).singleton(),
+		accountRepository:
+			asClass(AccountRepositoryMongo).singleton(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| ADMIN USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		createAccount: asClass(CreateAccount).scoped(),
-		updateAccount: asClass(UpdateAccount).scoped(),
-		deleteAccount: asClass(DeleteAccount).scoped(),
-		activateAccount: asClass(ActivateAccount).scoped(),
-		suspendAccount: asClass(SuspendAccount).scoped(),
-		transferAccount: asClass(TransferAccount).scoped(),
-		getAllAccounts: asClass(GetAllAccounts).scoped(),
-		changeAccountPassword: asClass(ChangeAccountPassword).scoped(),
-		/*
-		|--------------------------------------------------------------------------
-		| USER USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		getUserAccounts: asClass(GetUserAccounts).scoped(),
-		requestAccount: asClass(RequestAccount).scoped(),
-		updateUserAccount: asClass(UpdateUserAccount).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| SHARED USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		getAccountById: asClass(GetAccountById).scoped(),
-		getAccountByWsnId: asClass(GetAccountByWsnId).scoped(),
+		createAccount:
+			asClass(CreateAccount).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| CONTROLLERS
-		|--------------------------------------------------------------------------
-		*/
+		getAccount:
+			asClass(GetAccount).scoped(),
+
+		getAllAccounts:
+			asClass(GetAllAccounts).scoped(),
+
+		getAccountStats:
+			asClass(GetAccountStats).scoped(),
+
+		updateAccount:
+			asClass(UpdateAccount).scoped(),
+
+		deleteAccount:
+			asClass(DeleteAccount).scoped(),
+
+		approveAccount:
+			asClass(ApproveAccount).scoped(),
+
+		rejectAccount:
+			asClass(RejectAccount).scoped(),
+
+		suspendAccount:
+			asClass(SuspendAccount).scoped(),
+
+		transferAccount:
+			asClass(TransferAccount).scoped(),
+
+		changeRouterPassword:
+			asClass(ChangeRouterPassword).scoped(),
+
+
+		getMyAccount:
+			asClass(GetMyAccount).scoped(),
+
+		getMyAccounts:
+			asClass(GetMyAccounts).scoped(),
+
+		requestAccount:
+			asClass(RequestAccount).scoped(),
+
+		updateMyAccount:
+			asClass(UpdateMyAccount).scoped(),
+
+
 		adminAccountController:
 			asClass(AdminAccountController).scoped(),
 
-		userAccountController:
-			asClass(UserAccountController).scoped(),
+		accountController:
+			asClass(AccountController).scoped(),
 
-		sharedAccountController:
-			asClass(SharedAccountController).scoped()
+
+		accountResolver:
+			asClass(AccountResolverService).scoped()
+
 	});
-
-
-	///services
-
-	container.register({
-		accountResolver: asClass(AccountResolverService).scoped()
-	})
 }

@@ -2,8 +2,8 @@ import { Router } from "express";
 import asyncHandler from "express-async-handler";
 import multer from "multer";
 
-import { authMiddleware } from "../../../../shared/middleware/auth.middleware.js";
-import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
+import { authMiddleware } from "../../../../infrastructure/middleware/auth.middleware.js";
+import { requirePermission } from "../../../../infrastructure/middleware/permission.middleware.js";
 import { PERMISSION } from "../../../../shared/constants/permissions.js";
 
 const upload = multer({ dest: "tmp/" });

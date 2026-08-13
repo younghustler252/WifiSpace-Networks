@@ -15,7 +15,7 @@ import { authModule } from "./modules/auth/auth.module.js";
 import { userModule } from "./modules/user/user.module.js";
 import { RouterModule } from "./modules/router/router.module.js";
 import { dashboardModule } from "./modules/dashboard/dashboard.module.js";
-import { errorMiddleware } from "./shared/middleware/error.middleware.js";
+import { errorMiddleware } from "./infrastructure/middleware/error.middleware.js";
 
 const app = express();
 
