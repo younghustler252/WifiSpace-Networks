@@ -200,8 +200,8 @@ export class User {
 		if (dateOfBirth !== undefined) this.dateOfBirth = dateOfBirth;
 		if (theme !== undefined) this.theme = theme;
 
-		if (typeof data.isVerified === "boolean") {
-			user.setVerificationStatus(data.isVerified);
+		if (typeof isVerified === "boolean") {
+			this.setVerificationStatus(isVerified);
 		}
 	}
 	setVerificationStatus(isVerified) {
