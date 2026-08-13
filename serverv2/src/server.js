@@ -17,7 +17,7 @@ const startServer = async () => {
         await connectDatabase();
 		
         // New BullMQ jobs
-        // await startJobs();
+        await startJobs();
 
         console.log("✅ All connections and scheduling handlers initialized");
 
