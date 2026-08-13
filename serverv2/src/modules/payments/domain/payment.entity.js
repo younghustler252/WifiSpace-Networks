@@ -120,12 +120,12 @@ export class Payment {
 			throw new ValidationError("Cycles must be >= 1");
 		}
 
-		if (
-			paymentChannel &&
-			!PAYMENT_CHANNELS.includes(paymentChannel)
-		) {
-			throw new ValidationError("Invalid payment channel");
-		}
+		// if (
+		// 	paymentChannel &&
+		// 	!PAYMENT_CHANNELS.includes(paymentChannel)
+		// ) {
+		// 	throw new ValidationError("Invalid payment channel");
+		// }
 
 		if (!PAYMENT_STATUSES.includes(status)) {
 			throw new ValidationError("Invalid status");

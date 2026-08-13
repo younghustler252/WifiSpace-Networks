@@ -14,7 +14,7 @@ import {
 
 import Button from "@/components/ui/Button";
 import { InputField } from "@/components/ui/InputField";
-import { routerApi } from "@/lib/api/router";
+import { useRouters } from "@/features/router/hooks/use-router";
 
 interface FormValues {
 	wsnId?: string;
@@ -74,13 +74,7 @@ export default function AccountForm({
 	});
 
 	// ================= ROUTERS =================
-	const { data: routerResponse, isLoading: routersLoading } = useQuery({
-		queryKey: ["routers"],
-		queryFn: async () => {
-			const response = await routerApi.getAll();
-			return response;
-		},
-	});
+	const { data: routerResponse, isLoading: routersLoading } = useRouters()
 
 	const routers = routerResponse ?? [];
 

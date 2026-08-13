@@ -53,9 +53,9 @@ export class Account {
             throw new Error("Invalid account type");
         }
 
-        if (!PROFILE_STATUS_LIST.includes(profileStatus)) {
-            throw new Error("Invalid profile status");
-        }
+        // if (!PROFILE_STATUS_LIST.includes(profileStatus)) {
+        //     throw new Error("Invalid profile status");
+        // }
 
         if (!SERVICE_TYPE_LIST.includes(serviceType)) {
             throw new Error("Invalid service type");
