@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useHotspotSession, useRevokeHotspotSession } from "@/features/hotspot/hooks/useHotspot";
@@ -9,7 +9,7 @@ import { HotspotLanding } from "@/features/hotspot/components/hotspot-landing";
 import { HotspotConnected } from "@/features/hotspot/components/hotspot-connected";
 import { HotspotPlanSelect } from "@/features/hotspot/components/hotspot-plan-select";
 import { HotspotLogin } from "@/features/hotspot/components/hotspot-login";
-
+import { shouldShowHotspotGuide, HotspotGuideModal } from "@/features/hotspot/components/hotspot-guide-modal";
 // CHANGED: no HotspotLayout import/wrap here anymore — app/hotspot/layout.tsx
 // already applies to every page under app/hotspot/* automatically per
 // Next.js App Router convention. This file returns content only.
@@ -37,7 +37,15 @@ export default function HotspotPortalPage() {
 
 	const [view, setView] = useState<View>("landing");
 	const [loginPrefillEmail, setLoginPrefillEmail] = useState<string | undefined>(undefined);
-	const [loginContextMessage, setLoginContextMessage] = useState<string | undefined>(undefined); // NEW
+	const [loginContextMessage, setLoginContextMessage] = useState<string | undefined>(undefined);
+
+	// NEW: guide modal. Starts false and flips in an effect (not the
+	// initializer) to avoid an SSR/client hydration mismatch — localStorage
+	// doesn't exist on the server.
+	const [showGuide, setShowGuide] = useState(false);
+	useEffect(() => {
+		setShowGuide(shouldShowHotspotGuide());
+	}, []);
 
 	const sessionQuery = useHotspotSession({
 		macAddress: routerContext.macAddress ?? undefined
@@ -82,11 +90,14 @@ export default function HotspotPortalPage() {
 	return (
 		<>
 			{effectiveView === "landing" && (
-				<HotspotLanding
-					routerName={routerContext.identity}
-					onGetStarted={() => setView("plans")}
-					onSignIn={() => setView("login")}
-				/>
+				<>
+					<HotspotGuideModal open={showGuide} onClose={() => setShowGuide(false)} />
+					<HotspotLanding
+						routerName={routerContext.identity}
+						onGetStarted={() => setView("plans")}
+						onSignIn={() => setView("login")}
+					/>
+				</>
 			)}
 
 			{effectiveView === "login" && (

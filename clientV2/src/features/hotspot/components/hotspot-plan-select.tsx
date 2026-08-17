@@ -31,6 +31,13 @@ export function HotspotPlanSelect({
 	const [email, setEmail] = useState(knownUser?.email ?? "");
 	const [phone, setPhone] = useState(knownUser?.phone ?? "");
 	const [formError, setFormError] = useState<string | null>(null);
+	// NEW: purchase.isPending only covers the API call itself. Once it
+	// resolves with a checkout URL, there's a brief window before
+	// window.location.href actually navigates the browser away — during
+	// that gap the button was re-enabled, so an impatient click fired a
+	// second /hotspot/purchase call (a second payment/account attempt).
+	// This stays true until the page actually leaves.
+	const [isRedirecting, setIsRedirecting] = useState(false);
 
 	const isKnownUser = Boolean(knownUser);
 	// NOTE: still guessing PaginatedResponse's field name here — confirm
@@ -38,6 +45,8 @@ export function HotspotPlanSelect({
 	const plans: HotspotPlan[] = plansQuery.data?.data ?? [];
 
 	async function handleSubmit() {
+		if (purchase.isPending || isRedirecting) return; // guards against any re-entry, not just disabled-button clicks
+
 		setFormError(null);
 
 		if (!selectedPlanId) {
@@ -88,6 +97,7 @@ export function HotspotPlanSelect({
 				return;
 			}
 
+			setIsRedirecting(true);
 			window.location.href = checkoutUrl;
 		} catch (err) {
 			setFormError(err instanceof Error ? err.message : "Something went wrong.");
@@ -186,9 +196,9 @@ export function HotspotPlanSelect({
 			<button
 				className="w-full ui-button ui-button-accent"
 				onClick={handleSubmit}
-				disabled={purchase.isPending}
+				disabled={purchase.isPending || isRedirecting}
 			>
-				{purchase.isPending ? "Starting checkout…" : "Continue to payment"}
+				{isRedirecting ? "Redirecting to payment…" : purchase.isPending ? "Starting checkout…" : "Continue to payment"}
 			</button>
 		</div>
 	);
