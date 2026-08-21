@@ -4,6 +4,8 @@ import app from "./app.js";
 import { connectDatabase } from "./infrastructure/database/mongo.connecton.js";
 
 // // New jobs bootstrap
+// // New jobs bootstrap
+
 import { startJobs } from "./infrastructure/jobs/index.js";
 
 const PORT = process.env.PORT || 3000;
