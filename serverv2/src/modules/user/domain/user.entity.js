@@ -1,6 +1,7 @@
 import { ROLE_PERMISSIONS } from "../../../shared/constants/roles.js";
-import { ValidationError } from "../../../shared/errors/validation-error.js";
+import { ValidationError } from "../../../shared/errors/domain-errors.js";
 import { maskNin } from "../../../shared/utils/mask-sensitive.js";
+import { USER_ROLE, USER_STATUS, THEME } from "./user.enum.js";
 
 export class User {
 	constructor({
@@ -10,8 +11,8 @@ export class User {
 		email,
 		avatar,
 		hashedPassword,
-		role = "customer",
-		status = "active",
+		role = USER_ROLE.CUSTOMER,
+		status = USER_STATUS.ACTIVE,
 		isVerified = false,
 		permissions = [],
 		phone = null,
@@ -30,7 +31,7 @@ export class User {
 		lastOtpSentAt = null,
 		createdAt = null,
 		updatedAt = null,
-		theme = "system"
+		theme = THEME.SYSTEM
 	}) {
 		if (!email) throw new ValidationError("Email is required");
 		if (!firstName) throw new ValidationError("First name is required");
@@ -52,10 +53,9 @@ export class User {
 		this.status = status;
 		this.isVerified = isVerified;
 
-		this.permissions =
-			permissions?.length > 0
-				? permissions
-				: ROLE_PERMISSIONS[role] || [];
+		this.permissions = permissions?.length > 0
+			? permissions
+			: ROLE_PERMISSIONS[role] || [];
 
 		this.phone = phone;
 		this.nin = nin;
@@ -95,16 +95,10 @@ export class User {
 			isVerified: this.isVerified,
 			permissions: this.permissions,
 			phone: this.phone,
-
-			nin: exposeSensitive
-				? this.nin
-				: maskNin(this.nin),
-
+			nin: exposeSensitive ? this.nin : maskNin(this.nin),
 			address: this.address,
 			dateOfBirth: this.dateOfBirth
-				? new Date(this.dateOfBirth)
-					.toISOString()
-					.split("T")[0]
+				? new Date(this.dateOfBirth).toISOString().split("T")[0]
 				: null,
 			gender: this.gender,
 			lastLoginAt: this.lastLoginAt,
@@ -113,23 +107,24 @@ export class User {
 			theme: this.theme
 		};
 	}
+
 	// ----------------------------
 	// Status Management
 	// ----------------------------
 	isActive() {
-		return this.status === "active";
+		return this.status === USER_STATUS.ACTIVE;
 	}
 
 	suspend() {
-		this.status = "suspended";
+		this.status = USER_STATUS.SUSPENDED;
 	}
 
 	ban() {
-		this.status = "banned";
+		this.status = USER_STATUS.BANNED;
 	}
 
 	activate() {
-		this.status = "active";
+		this.status = USER_STATUS.ACTIVE;
 	}
 
 	// ----------------------------
@@ -141,13 +136,15 @@ export class User {
 		this.lastOtpSentAt = null;
 	}
 
+	setVerificationStatus(isVerified) {
+		this.isVerified = isVerified;
+	}
+
 	// ----------------------------
 	// Login Security
 	// ----------------------------
 	isLocked() {
-		return Boolean(
-			this.lockUntil && this.lockUntil > new Date()
-		);
+		return Boolean(this.lockUntil && this.lockUntil > new Date());
 	}
 
 	recordFailedLogin(maxAttempts = 5, lockMinutes = 15) {
@@ -155,10 +152,7 @@ export class User {
 
 		if (this.failedLoginAttempts >= maxAttempts) {
 			const lockTime = new Date();
-			lockTime.setMinutes(
-				lockTime.getMinutes() + lockMinutes
-			);
-
+			lockTime.setMinutes(lockTime.getMinutes() + lockMinutes);
 			this.lockUntil = lockTime;
 		}
 	}
@@ -189,7 +183,7 @@ export class User {
 		dateOfBirth,
 		nin,
 		theme,
-		isVerified,
+		isVerified
 	} = {}) {
 		if (firstName !== undefined) this.firstName = firstName;
 		if (lastName !== undefined) this.lastName = lastName;
@@ -200,12 +194,9 @@ export class User {
 		if (dateOfBirth !== undefined) this.dateOfBirth = dateOfBirth;
 		if (theme !== undefined) this.theme = theme;
 
-		if (typeof data.isVerified === "boolean") {
-			user.setVerificationStatus(data.isVerified);
+		if (typeof isVerified === "boolean") {
+			this.setVerificationStatus(isVerified);
 		}
-	}
-	setVerificationStatus(isVerified) {
-		this.isVerified = isVerified;
 	}
 
 	// ----------------------------
@@ -214,23 +205,15 @@ export class User {
 	setVerificationOTP(otp, expiresAt) {
 		this.verificationOTP = otp;
 		this.otpExpiresAt = expiresAt;
-
-		// fresh OTP = fresh attempt counter
 		this.otpAttempts = 0;
-
-		// clear any existing OTP lock
 		this.otpLockedUntil = null;
 	}
 
-	incrementOTPAttempts(
-		maxAttempts = 5,
-		lockMinutes = 15
-	) {
+	incrementOTPAttempts(maxAttempts = 5, lockMinutes = 15) {
 		this.otpAttempts += 1;
 
 		if (this.otpAttempts >= maxAttempts) {
-			this.otpLockedUntil =
-				Date.now() + lockMinutes * 60 * 1000;
+			this.otpLockedUntil = Date.now() + lockMinutes * 60 * 1000;
 		}
 	}
 
@@ -239,17 +222,11 @@ export class User {
 	}
 
 	isOTPLocked() {
-		return Boolean(
-			this.otpLockedUntil &&
-			Date.now() < this.otpLockedUntil
-		);
+		return Boolean(this.otpLockedUntil && Date.now() < this.otpLockedUntil);
 	}
 
 	unlockOTPIfExpired() {
-		if (
-			this.otpLockedUntil &&
-			Date.now() >= this.otpLockedUntil
-		) {
+		if (this.otpLockedUntil && Date.now() >= this.otpLockedUntil) {
 			this.otpAttempts = 0;
 			this.otpLockedUntil = null;
 		}
@@ -261,11 +238,7 @@ export class User {
 
 	canResendOTP(cooldownSeconds = 60) {
 		if (!this.lastOtpSentAt) return true;
-
-		return (
-			Date.now() - this.lastOtpSentAt >=
-			cooldownSeconds * 1000
-		);
+		return Date.now() - this.lastOtpSentAt >= cooldownSeconds * 1000;
 	}
 
 	clearVerificationOTP() {
@@ -276,33 +249,20 @@ export class User {
 	}
 
 	isOTPExpired() {
-		return (
-			!this.otpExpiresAt ||
-			Date.now() > this.otpExpiresAt
-		);
+		return !this.otpExpiresAt || Date.now() > this.otpExpiresAt;
 	}
 
 	// ----------------------------
 	// Avatar
 	// ----------------------------
 	updateAvatar({ url, publicId }) {
-		if (!url) {
-			throw new ValidationError(
-				"Avatar URL is required"
-			);
-		}
+		if (!url) throw new ValidationError("Avatar URL is required");
 
-		this.avatar = {
-			url,
-			publicId: publicId || null
-		};
+		this.avatar = { url, publicId: publicId || null };
 	}
 
 	removeAvatar() {
-		this.avatar = {
-			url: "https://default-avatar.png",
-			publicId: null
-		};
+		this.avatar = { url: "https://default-avatar.png", publicId: null };
 	}
 
 	// ----------------------------
