@@ -1,9 +1,9 @@
 import { Router } from "express";
 import asyncHandler from "express-async-handler";
 
-import { authMiddleware } from "../../../../shared/middleware/auth.middleware.js";
-import { requirePermission } from "../../../../shared/middleware/permission.middleware.js";
-import { PERMISSION } from "../../../../shared/constants/permissions.js";
+import { authMiddleware } from "../../../shared/middleware/auth.middleware.js";
+import { requirePermission } from "../../../shared/middleware/permission.middleware.js";
+import { PERMISSION } from "../../../shared/constants/permissions.js";
 
 export default function routerRoutes({
 	routerController,

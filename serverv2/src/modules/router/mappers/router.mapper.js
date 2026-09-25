@@ -1,4 +1,4 @@
-import { RouterEntity } from "./router.entity.js";
+import { RouterEntity } from "../domain/router.entity.js";
 
 export class RouterMapper {
 	static toEntities(docs) {

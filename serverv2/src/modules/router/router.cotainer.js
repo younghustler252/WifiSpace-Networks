@@ -3,8 +3,8 @@
 import { asClass } from "awilix";
 
 // REPOSITORIES
-import { RouterRepositoryMongo } from "./infrastructure/repositories/router.repository.mongo.js";
-
+import { RouterRepositoryMongo } from "./repositories/router.repository.mongo.js";
+import { RouterProvisioningRepositoryMongo } from "./repositories/router-provisioning.repository.mongo.js";
 
 import { CheckRouterStatus } from "./usecases/account/check-router-status.js";
 import { RebootRouter } from "./usecases/account/reboot-router.js";
@@ -18,7 +18,7 @@ import { GetRouterProfiles } from "./usecases/account/get-router-profiles.js";
 import { SyncRouterInfo } from "./usecases/admin/sync-router-info.js";
 import { SyncAllRouters } from "./usecases/admin/syncAllRouter.js";
 
-import { RouterController } from "./presentation/controller/router.controller.js";
+import { RouterController } from ".//controller/router.controller.js";
 
 export function registerRouter(container) {
 
@@ -26,7 +26,8 @@ export function registerRouter(container) {
 	// REPOSITORY
 	// -------------------------
 	container.register({
-		routerRepository: asClass(RouterRepositoryMongo).singleton()
+		routerRepository: asClass(RouterRepositoryMongo).singleton(),
+		routerProvisioningRepository: asClass(RouterProvisioningRepositoryMongo).singleton()
 	});
 
 

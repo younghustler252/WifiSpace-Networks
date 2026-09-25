@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { successResponse } from "../../../../shared/utils/api-response.js";
+import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class RouterController {
     constructor({

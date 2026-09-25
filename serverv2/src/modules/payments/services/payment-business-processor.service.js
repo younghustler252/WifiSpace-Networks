@@ -31,19 +31,6 @@ export class PaymentBusinessProcessor {
 		const account = await this.accountRepository.findById(payment.accountId);
 		if (!account) throw new Error(`Account not found for id ${payment.accountId}`);
 
-		// CHANGED: this is the actual fix. Previously, `businessProcessed`
-		// being true made ConfirmPaymentUseCase skip this entire method
-		// forever — meaning a payment that succeeded but failed activation
-		// could never be retried by anything (webhook redelivery, user
-		// refreshing, admin reprocess) without a manual DB edit.
-		//
-		// Now: if the subscription already exists (businessProcessed was
-		// true, meaning subscription creation already ran), reload it
-		// instead of recreating/re-renewing it — but still fall through to
-		// attempt activation below, every time. Activation retrying is safe:
-		// hotspotService.createUser() already handles "already exists"
-		// gracefully, and if it's genuinely already synced, re-running it
-		// is a wasted RouterOS call at worst, not a correctness problem.
 		let subscription;
 		if (payment.businessProcessed && payment.subscriptionId) {
 			subscription = await this.subscriptionRepository.findById(payment.subscriptionId);
@@ -57,8 +44,7 @@ export class PaymentBusinessProcessor {
 
 		const metadata = payment.metadata || {};
 
-		// Always attempted now — this is the retry. No separate endpoint,
-		// no separate code path to keep in sync with this one.
+		
 		const activation = await this.networkService.activate(subscription, metadata);
 		if (!activation.success) {
 			console.error(
@@ -73,7 +59,7 @@ export class PaymentBusinessProcessor {
 
 		return {
 			success: activation.success,
-			autoConnected: activation.result?.activation?.autoConnected ?? false,
+			autoConnected: activation.result?.autoConnected ?? false,
 			user,
 			account,
 			subscription,

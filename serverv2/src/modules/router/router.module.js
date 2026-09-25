@@ -1,6 +1,6 @@
  // src/modules/router/router.module.js
 
-import routerRoutes from "./presentation/routes/router.routes.js";
+import routerRoutes from "./routes/router.routes.js";
 
 
 export function RouterModule({

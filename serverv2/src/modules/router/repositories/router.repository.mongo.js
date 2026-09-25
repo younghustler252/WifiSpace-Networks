@@ -1,7 +1,7 @@
 import RouterModel from "../database/router.model.js";
-import { RouterMapper } from "../../domain/router.mapper.js";
-import { RouterRepository } from "../../domain/router.repository.js";
-import { ROUTER_STATUSES } from "../../domain/router.enum.js";
+import { RouterMapper } from "../mappers/router.mapper.js";
+import { RouterRepository } from "./router.repository.js";
+import { ROUTER_STATUSES } from "../domain/router.enum.js";
 
 export class RouterRepositoryMongo extends RouterRepository {
 

@@ -3,12 +3,6 @@ import { Payment } from "../domain/payment.entity.js";
 import { AppError } from "../../../shared/errors/app-error.js";
 import { ValidationError } from "../../../shared/errors/validation-error.js";
 
-// CHANGED: renamed from PaystackPaymentService. This class no longer knows
-// Paystack exists — it asks paymentGatewayRegistry for whichever gateway
-// `payment.gateway` says to use, and only calls the four contract methods
-// (initializeTransaction, verifyTransaction, verifyWebhookSignature,
-// parseWebhookEvent). Adding a second gateway means writing a new gateway
-// class + registering it — this file does not change.
 export class PaymentService {
 	constructor({ paymentGatewayRegistry, paymentRepository }) {
 		this.paymentGatewayRegistry = paymentGatewayRegistry;
@@ -129,9 +123,7 @@ export class PaymentService {
 		const payment = await this.paymentRepository.findByGatewayReference(reference);
 		if (!payment) throw new AppError("Payment not found", 404);
 
-		// Idempotency: return if already successful — this only means "the
-		// gateway already confirmed this charge", NOT "business processing
-		// already ran". See confirm-payment.js for why that distinction matters.
+		
 		if (payment.isSuccessful()) {
 			return { payment, alreadyProcessed: true };
 		}
@@ -177,20 +169,12 @@ export class PaymentService {
 		const isValid = provider.verifyWebhookSignature(rawBody, signature);
 		if (!isValid) throw new AppError("Invalid webhook signature", 401);
 
-		// CHANGED: all Paystack-specific payload parsing (payload.event,
-		// payload.data.reference, etc.) now lives inside the gateway class,
-		// not here. This method works identically for any future gateway that
-		// implements parseWebhookEvent().
+
 		const parsed = provider.parseWebhookEvent(payload);
 		if (!parsed || !parsed.reference) return null;
 
 		const payment = await this.paymentRepository.findByGatewayReference(parsed.reference);
 		if (!payment) return null;
-
-		// NEW: mark that a webhook actually arrived and was validated for this
-		// payment — set here regardless of what status it turns out to carry,
-		// so "webhook never arrived" is distinguishable from "webhook arrived,
-		// business logic hasn't run yet" (businessProcessed).
 		payment.isWebhookProcessed = true;
 
 		if (payment.isSuccessful()) return payment;
