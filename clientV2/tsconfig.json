@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "src/app/customer/me/account"  ],
+, "src/app/(customer)/me/account"  ],
   "exclude": ["node_modules"]
 }

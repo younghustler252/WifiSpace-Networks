@@ -1,21 +1,10 @@
-"use client";
+import { AdminShell } from "@/components/layout/admin-shell";
+import { AuthGuard } from "@/features/auth/components/auth-guard";
 
-import { ReactNode } from "react";
-import ProtectedRoute from "@/routes/ProtectedRoute";
-import AppShell from "@/components/layout/AppShell";
-
-interface AdminLayoutProps {
-	children: ReactNode;
-}
-
-const AdminLayout = ({ children }: AdminLayoutProps) => {
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<ProtectedRoute allowedRoles={["superadmin"]}>
-			<AppShell>
-				{children}
-			</AppShell>
-		</ProtectedRoute>
+		<AuthGuard allow={["staff", "superadmin"]}>
+			<AdminShell>{children}</AdminShell>
+		</AuthGuard>
 	);
-};
-
-export default AdminLayout;
+}

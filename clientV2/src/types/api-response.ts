@@ -1,17 +1,4 @@
-// ================================
-// GENERIC API RESPONSE
-// ================================
-
-export interface ApiResponse<T> {
-	success: boolean;
-	code: string;
-	message: string;
-	data: T;
-}
-
-// ================================
-// PAGINATION
-// ================================
+import type { ErrorCode } from "./error-codes";
 
 export interface PaginationMeta {
 	total: number;
@@ -20,14 +7,19 @@ export interface PaginationMeta {
 	totalPages: number;
 }
 
-// ================================
-// PAGINATED API RESPONSE
-// ================================
-
-export interface PaginatedResponse<T> {
-	success: boolean;
+export interface ApiSuccessResponse<T> {
+	success: true;
 	code: string;
 	message: string;
-	data: T[];
-	meta: PaginationMeta;
+	data: T;
+	meta?: PaginationMeta;
 }
+
+export interface ApiErrorResponse {
+	success: false;
+	code: ErrorCode;
+	message: string;
+	details?: unknown;
+}
+
+export type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;

@@ -1,11 +1,8 @@
-"use client";
+import type { Metadata } from "next";
+import { UsersAdmin } from "@/features/users/components/users-admin";
 
-import UsersTable from "@/features/user/UsersTable";
+export const metadata: Metadata = { title: "Users" };
 
 export default function AdminUsersPage() {
-	return (
-		<UsersTable
-			scope="admin"
-		/>
-	);
+	return <UsersAdmin />;
 }

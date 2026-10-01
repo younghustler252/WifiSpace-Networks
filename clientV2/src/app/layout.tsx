@@ -1,25 +1,29 @@
-"use client";
-
-import { useState } from "react";
-import { Suspense } from "react";  // add this
-
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AuthProvider } from "@/context/AuthContext";
-import { FullScreenLoader } from "@/components/ui/Loader";
-import LayoutServer from "./LayoutServer"; // server component wrapper
+import type { Metadata } from "next";
+import { Fira_Mono, Inter } from "next/font/google";
+import { Providers } from "./providers";
 import "./globals.css";
-export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
 
-  return (
-    <LayoutServer>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <Suspense fallback={<FullScreenLoader label="Loading..." />} >       {/* add this */}
-            {children}
-          </Suspense>        {/* add this */}
-        </AuthProvider>
-      </QueryClientProvider>
-    </LayoutServer>
-  );
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+const firaMono = Fira_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-fira-mono" });
+
+export const metadata: Metadata = {
+	title: { default: "WifiSpace", template: "%s · WifiSpace" },
+	description: "Fast, reliable internet plans from WifiSpace.",
+};
+export default function RootLayout({
+	children,
+}: {
+	children: React.ReactNode;
+}) {
+	return (
+		<html
+			lang="en"
+			suppressHydrationWarning
+			className={`${inter.variable} ${firaMono.variable} dark`}
+		>
+			<body className="font-sans">
+				<Providers>{children}</Providers>
+			</body>
+		</html>
+	);
 }
