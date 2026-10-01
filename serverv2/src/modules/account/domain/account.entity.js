@@ -1,125 +1,62 @@
-import {
-	ACCOUNT_TYPES,
-	ACCOUNT_TYPE_LIST,
-	APPROVAL_STATUSES,
-	APPROVAL_STATUS_LIST,
-	SERVICE_TYPES,
-	SERVICE_TYPE_LIST
-} from "./account.enum.js";
+import { ACCOUNT_TYPES, ACCOUNT_TYPE_LIST, APPROVAL_STATUSES, APPROVAL_STATUS_LIST, ACCOUNT_STATUSES, ACCOUNT_STATUS_LIST } from "./account.enum.js";
+import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class Account {
 	constructor({
 		id,
 		userId,
 		user = null,
-
+		serviceType,
 		accountType = ACCOUNT_TYPES.PERSONAL,
-
 		businessName = null,
 		companyRegistrationNumber = null,
 		taxId = null,
-
-		wsnId,
-		routerPassword = null,
-
-		routerId = null,
-		routerProfile = "default",
-
-		devices = [],
-
-		serviceType = SERVICE_TYPES.PPPOE,
-
+		wsnId = null,
+		status = ACCOUNT_STATUSES.ACTIVE,
 		approvalStatus = APPROVAL_STATUSES.APPROVED,
 		approvalNote = null,
 		approvedAt = null,
 		approvedBy = null,
-    approver = null,
-
-		limitUptime = "0",
-
+		deleteAt = null,
+		devices = [],
 		createdAt = null,
 		updatedAt = null
 	}) {
-		if (!userId) {
-			throw new Error("User ID is required");
-		}
-
-		if (!ACCOUNT_TYPE_LIST.includes(accountType)) {
-			throw new Error("Invalid account type");
-		}
-
-		if (!SERVICE_TYPE_LIST.includes(serviceType)) {
-			throw new Error("Invalid service type");
-		}
-
-		if (!APPROVAL_STATUS_LIST.includes(approvalStatus)) {
-			throw new Error("Invalid approval status");
-		}
+		if (!userId) throw new ValidationError("User ID is required");
+		if (!ACCOUNT_TYPE_LIST.includes(accountType)) throw new ValidationError("Invalid account type");
+		if (!APPROVAL_STATUS_LIST.includes(approvalStatus)) throw new ValidationError("Invalid approval status");
+		if (!ACCOUNT_STATUS_LIST.includes(status)) throw new ValidationError("Invalid account status");
 
 		this.id = id;
 		this.userId = userId;
 		this.user = user;
-
-		this.accountType = accountType;
-
-		this.businessName =
-			accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
-
-		this.companyRegistrationNumber =
-			accountType === ACCOUNT_TYPES.BUSINESS
-				? companyRegistrationNumber
-				: null;
-
-		this.taxId =
-			accountType === ACCOUNT_TYPES.BUSINESS
-				? taxId
-				: null;
-
-		this.wsnId = wsnId;
-		this.routerPassword = routerPassword;
-
-		this.routerId = routerId;
-		this.routerProfile = routerProfile;
-
-		this.devices = devices;
-
 		this.serviceType = serviceType;
-
+		this.accountType = accountType;
+		this.businessName = accountType === ACCOUNT_TYPES.BUSINESS ? businessName : null;
+		this.companyRegistrationNumber = accountType === ACCOUNT_TYPES.BUSINESS ? companyRegistrationNumber : null;
+		this.taxId = accountType === ACCOUNT_TYPES.BUSINESS ? taxId : null;
+		this.wsnId = wsnId;
+		this.status = status;
 		this.approvalStatus = approvalStatus;
 		this.approvalNote = approvalNote;
 		this.approvedAt = approvedAt;
 		this.approvedBy = approvedBy;
-		this.approver = approver;
-		this.limitUptime = limitUptime;
-
+		this.deleteAt = deleteAt;
+		this.devices = devices;
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 	}
 
-	isBusinessAccount() {
-		return this.accountType === ACCOUNT_TYPES.BUSINESS;
-	}
-
-	isPersonalAccount() {
-		return this.accountType === ACCOUNT_TYPES.PERSONAL;
-	}
-
-	isApproved() {
-		return this.approvalStatus === APPROVAL_STATUSES.APPROVED;
-	}
-
-	isPendingApproval() {
-		return this.approvalStatus === APPROVAL_STATUSES.PENDING;
-	}
-
-	isRejected() {
-		return this.approvalStatus === APPROVAL_STATUSES.REJECTED;
-	}
+	isBusinessAccount() { return this.accountType === ACCOUNT_TYPES.BUSINESS; }
+	isPersonalAccount() { return this.accountType === ACCOUNT_TYPES.PERSONAL; }
+	isApproved() { return this.approvalStatus === APPROVAL_STATUSES.APPROVED; }
+	isPendingApproval() { return this.approvalStatus === APPROVAL_STATUSES.PENDING; }
+	isRejected() { return this.approvalStatus === APPROVAL_STATUSES.REJECTED; }
+	isActive() { return this.status === ACCOUNT_STATUSES.ACTIVE; }
 
 	approve(approvedBy) {
 		this.approvalStatus = APPROVAL_STATUSES.APPROVED;
 		this.approvedBy = approvedBy;
-		this.approver = approvedBy;
 		this.approvedAt = new Date();
 		this.approvalNote = null;
 	}
@@ -138,69 +75,18 @@ export class Account {
 		this.approvedBy = null;
 	}
 
-	updateRouterPassword(password) {
-		if (!password) {
-			throw new Error("Password cannot be empty");
-		}
+	isDeleted() { return this.deletedAt !== null; }
+	suspend() { this.status = ACCOUNT_STATUSES.SUSPENDED; }
+	pause() { this.status = ACCOUNT_STATUSES.PAUSED; }
+	terminate() { this.status = ACCOUNT_STATUSES.TERMINATED; }
+	activate() { this.status = ACCOUNT_STATUSES.ACTIVE; }
 
-		this.routerPassword = password;
+	transferOwnership(newOwnerId) {
+		if (!newOwnerId) throw new ValidationError("New owner ID is required");
+		this.userId = newOwnerId;
 	}
-
-	updateRouterProfile(profile) {
-		if (!profile) {
-			throw new Error("Router profile cannot be empty");
-		}
-
-		this.routerProfile = profile;
-	}
-
-	moveToRouter(routerId) {
-		if (!routerId) {
-			throw new Error("Router ID is required");
-		}
-
-		this.routerId = routerId;
-	}
-
-	addDevice({ macAddress, hostname = null }) {
-		if (!macAddress) {
-			throw new Error("MAC address required");
-		}
-
-		this.devices.push({
-			macAddress: macAddress.toUpperCase(),
-			hostname,
-			lastSeenAt: new Date()
-		});
-	}
-
-	updateDeviceLastSeen(macAddress, date = new Date()) {
-		const device = this.devices.find(
-			device => device.macAddress === macAddress.toUpperCase()
-		);
-
-		if (device) {
-			device.lastSeenAt = date;
-		}
-	}
-
-	removeDevice(macAddress) {
-		this.devices = this.devices.filter(
-			device => device.macAddress !== macAddress.toUpperCase()
-		);
-	}
-
-    transferOwnership(newOwnerId) {
-        if (!newOwnerId) {
-            throw new Error("New owner ID is required");
-        }
-
-        this.userId = newOwnerId;
-    }
 
 	toJSON() {
-		const obj = { ...this };
-		delete obj.routerPassword;
-		return obj;
+		return { ...this };
 	}
 }

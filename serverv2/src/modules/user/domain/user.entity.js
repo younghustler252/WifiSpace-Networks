@@ -1,5 +1,5 @@
 import { ROLE_PERMISSIONS } from "../../../shared/constants/roles.js";
-import { ValidationError } from "../../../shared/errors/domain-errors.js";
+import { ValidationError } from "../../../shared/errors/domain.errors.js";
 import { maskNin } from "../../../shared/utils/mask-sensitive.js";
 import { USER_ROLE, USER_STATUS, THEME } from "./user.enum.js";
 
@@ -29,6 +29,11 @@ export class User {
 		otpAttempts = 0,
 		otpLockedUntil = null,
 		lastOtpSentAt = null,
+		resetPasswordOTP = null,
+		resetPasswordOTPExpiresAt = null,
+		resetPasswordAttempts = 0,
+		resetPasswordOTPLockedUntil = null,
+		lastResetPasswordOtpSentAt = null,
 		createdAt = null,
 		updatedAt = null,
 		theme = THEME.SYSTEM
@@ -74,15 +79,18 @@ export class User {
 		this.otpLockedUntil = otpLockedUntil;
 		this.lastOtpSentAt = lastOtpSentAt;
 
+		this.resetPasswordOTP = resetPasswordOTP;
+		this.resetPasswordOTPExpiresAt = resetPasswordOTPExpiresAt;
+		this.resetPasswordAttempts = resetPasswordAttempts;
+		this.resetPasswordOTPLockedUntil = resetPasswordOTPLockedUntil;
+		this.lastResetPasswordOtpSentAt = lastResetPasswordOtpSentAt;
+
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;
 
 		this.theme = theme;
 	}
 
-	// ----------------------------
-	// Safe Output (DTO)
-	// ----------------------------
 	toJSON({ exposeSensitive = false } = {}) {
 		return {
 			id: this.id,
@@ -108,9 +116,6 @@ export class User {
 		};
 	}
 
-	// ----------------------------
-	// Status Management
-	// ----------------------------
 	isActive() {
 		return this.status === USER_STATUS.ACTIVE;
 	}
@@ -127,9 +132,6 @@ export class User {
 		this.status = USER_STATUS.ACTIVE;
 	}
 
-	// ----------------------------
-	// Verification
-	// ----------------------------
 	verify() {
 		this.isVerified = true;
 		this.clearVerificationOTP();
@@ -140,9 +142,6 @@ export class User {
 		this.isVerified = isVerified;
 	}
 
-	// ----------------------------
-	// Login Security
-	// ----------------------------
 	isLocked() {
 		return Boolean(this.lockUntil && this.lockUntil > new Date());
 	}
@@ -167,9 +166,6 @@ export class User {
 		this.passwordChangedAt = new Date();
 	}
 
-	// ----------------------------
-	// Profile Updates
-	// ----------------------------
 	updatePermissions(newPermissions = []) {
 		this.permissions = newPermissions;
 	}
@@ -199,9 +195,6 @@ export class User {
 		}
 	}
 
-	// ----------------------------
-	// OTP Management
-	// ----------------------------
 	setVerificationOTP(otp, expiresAt) {
 		this.verificationOTP = otp;
 		this.otpExpiresAt = expiresAt;
@@ -252,9 +245,53 @@ export class User {
 		return !this.otpExpiresAt || Date.now() > this.otpExpiresAt;
 	}
 
-	// ----------------------------
-	// Avatar
-	// ----------------------------
+	setResetPasswordOTP(otp, expiresAt) {
+		this.resetPasswordOTP = otp;
+		this.resetPasswordOTPExpiresAt = expiresAt;
+		this.resetPasswordAttempts = 0;
+		this.resetPasswordOTPLockedUntil = null;
+	}
+
+	markResetPasswordOtpSent() {
+		this.lastResetPasswordOtpSentAt = Date.now();
+	}
+
+	canResendResetPasswordOTP(cooldownSeconds = 60) {
+		if (!this.lastResetPasswordOtpSentAt) return true;
+		return Date.now() - this.lastResetPasswordOtpSentAt >= cooldownSeconds * 1000;
+	}
+
+	incrementResetPasswordAttempts(maxAttempts = 5, lockMinutes = 15) {
+		this.resetPasswordAttempts += 1;
+
+		if (this.resetPasswordAttempts >= maxAttempts) {
+			this.resetPasswordOTPLockedUntil = Date.now() + lockMinutes * 60 * 1000;
+		}
+	}
+
+	isResetPasswordOTPLocked() {
+		return Boolean(this.resetPasswordOTPLockedUntil && Date.now() < this.resetPasswordOTPLockedUntil);
+	}
+
+	isResetPasswordOTPExpired() {
+		return !this.resetPasswordOTPExpiresAt || Date.now() > this.resetPasswordOTPExpiresAt;
+	}
+
+	clearResetPasswordOTP() {
+		this.resetPasswordOTP = null;
+		this.resetPasswordOTPExpiresAt = null;
+		this.resetPasswordAttempts = 0;
+		this.resetPasswordOTPLockedUntil = null;
+	}
+
+	resetPassword(newHashedPassword) {
+		this.hashedPassword = newHashedPassword;
+		this.markPasswordChanged();
+		this.clearResetPasswordOTP();
+		this.failedLoginAttempts = 0;
+		this.lockUntil = null;
+	}
+
 	updateAvatar({ url, publicId }) {
 		if (!url) throw new ValidationError("Avatar URL is required");
 
@@ -265,9 +302,6 @@ export class User {
 		this.avatar = { url: "https://default-avatar.png", publicId: null };
 	}
 
-	// ----------------------------
-	// Helpers
-	// ----------------------------
 	getFullName() {
 		return `${this.firstName} ${this.lastName}`;
 	}

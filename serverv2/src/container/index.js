@@ -13,18 +13,20 @@ import { registerSecrets } from "./secrets.js";
 | MODULE REGISTRARS
 |--------------------------------------------------------------------------
 */
-import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
 import { registerDashboard } from "../modules/dashboard/dashboard.container.js";
 import { registerUsage } from "../modules/usage/usage.container.js";
-import { registerAnalytics } from "../modules/analytics/analytics.container.js";
+import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
+// import { registerAnalytics } from "../modules/analytics/analytics.container.js";
+import { registerNotifications } from "../modules/notification/notification.container.js";
 import { registerRouter } from "../modules/router/router.cotainer.js";
-import { registerPayment } from "../modules/payments/payment.container.js";
+import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
+import { registerPayment } from "../modules/payment/payment.container.js";
 import { registerSubscription } from "../modules/subscription/subscription.container.js";
 import { registerPlan } from "../modules/plan/plan.container.js";
-import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
 import { registerAccount } from "../modules/account/account.container.js";
 import { registerUser } from "../modules/user/user.container.js";
 import { registerAuth } from "../modules/auth/auth.container.js";
+import { registerAudit } from "../modules/audit/audit-container.js";
 
 /*
 |--------------------------------------------------------------------------
@@ -51,17 +53,19 @@ registerSecrets(container);
 |--------------------------------------------------------------------------
 */
 const modules = [
-	registerProvisioning,
+	registerNotifications,
 	registerDashboard,
+	registerHotspot,
 	registerRouter,
+	registerProvisioning,
 	registerPayment,
 	registerSubscription,
 	registerPlan,
-	registerHotspot,
 	registerAccount,
 	registerUser,
 	registerAuth,
-	registerAnalytics,
+	registerAudit,
+	// registerAnalytics,
 	registerUsage
 ];
 

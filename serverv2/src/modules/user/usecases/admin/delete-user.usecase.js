@@ -1,63 +1,34 @@
-// modules/user/usecases/admin/delete-user.usecase.js
-
-import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { NotFoundError, ForbiddenError } from "../../../../shared/errors/domain.errors.js";
+import { USER_ERROR_CODES } from "../../domain/user.enum.js";
+import { USER_ROLE } from "../../domain/user.enum.js";
 
 export class DeleteUser {
-	constructor({userRepository, permissionService, auditService}) {
+	constructor({ userRepository, auditService }) {
 		this.userRepository = userRepository;
-		this.permissionService = permissionService;
 		this.auditService = auditService;
 	}
 
-	/**
-	 * Execute delete user
-	 * @param {object} actor - The admin performing the action
-	 * @param {string} userId - The user to delete
-	 * @returns {string} - Deletion status
-	 */
-	async execute(actor, userId) {
-		// ----------------------------
-		// 1️⃣ Check actor permission
-		// ----------------------------
-		const canDelete = await this.permissionService.hasPermission(
-			actor.id,
-			"user:delete_user"
-		);
-
-		if (!canDelete) {
-			throw new UnauthorizedError("You do not have permission to delete a user", "FORBIDDEN");
+	async execute({ actorId, actorRole, targetId, ip = null }) {
+		if (actorId === targetId) {
+			throw new ForbiddenError("You cannot delete your own account", USER_ERROR_CODES.CANNOT_DELETE_SELF);
 		}
 
-		// ----------------------------
-		// 2️⃣ Find the user to delete
-		// ----------------------------
-		const user = await this.userRepository.findById(userId);
+		const target = await this.userRepository.findById(targetId);
+		if (!target) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
 
-		if (!user) {
-			throw new ValidationError("User not found");
+		if (target.role === USER_ROLE.SUPERADMIN && actorRole !== USER_ROLE.SUPERADMIN) {
+			throw new ForbiddenError("Only a superadmin can delete a superadmin", USER_ERROR_CODES.CANNOT_MODIFY_SUPERADMIN);
 		}
 
-		// ----------------------------
-		// 3️⃣ Delete user from the repository
-		// ----------------------------
-		await this.userRepository.delete(userId);
+		await this.userRepository.delete(targetId);
 
-		// ----------------------------
-		// 4️⃣ Audit logging
-		// ----------------------------
 		if (this.auditService) {
 			await this.auditService.log({
-				actorId: actor.id,
-				action: "DELETE_USER",
-				targetId: user.id,
-				meta: { email: user.email, role: user.role }
-			});
+				actorId, action: "USER_DELETED", resource: "User",
+				metadata: { targetId, targetEmail: target.email, ip }
+			}).catch((err) => console.error("Audit log failed:", err.message));
 		}
 
-		// ----------------------------
-		// 5️⃣ Return success message
-		// ----------------------------
-		return "User deleted successfully";
+		return { message: "User deleted successfully" };
 	}
 }

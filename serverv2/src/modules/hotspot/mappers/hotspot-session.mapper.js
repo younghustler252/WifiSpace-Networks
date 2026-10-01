@@ -1,42 +1,21 @@
 import { HotspotSession } from "../domain/hotspot-session.entity.js";
 
+const FIELDS = ["userId", "accountId", "routerId", "macAddress", "ipAddress", "userAgent", "status", "trustedDevice", "lastSeenAt", "expiresAt"];
+
 export class HotspotSessionMapper {
-	static toDomain(doc) {
-		if (!doc) return null;
-
-		const data = doc.toObject ? doc.toObject() : doc;
-
-		return new HotspotSession({
-			id: data._id?.toString() || data.id,
-			userId: data.userId,
-			accountId: data.accountId,
-			routerId: data.routerId,
-			macAddress: data.macAddress,
-			ipAddress: data.ipAddress,
-			userAgent: data.userAgent,
-			status: data.status,
-			trustedDevice: data.trustedDevice,
-			lastSeenAt: data.lastSeenAt,
-			expiresAt: data.expiresAt,
-			createdAt: data.createdAt,
-			updatedAt: data.updatedAt
-		});
+	static toDomain(raw) {
+		if (!raw) return null;
+		const data = { id: raw._id?.toString() || raw.id, createdAt: raw.createdAt, updatedAt: raw.updatedAt };
+		for (const f of FIELDS) data[f] = raw[f];
+		data.userId = raw.userId?.toString() ?? null;
+		data.accountId = raw.accountId?.toString() ?? null;
+		data.routerId = raw.routerId?.toString();
+		return new HotspotSession(data);
 	}
 
-	static toPersistence(entity) {
-		if (!entity) return null;
-
-		return {
-			userId: entity.userId,
-			accountId: entity.accountId,
-			routerId: entity.routerId,
-			macAddress: entity.macAddress,
-			ipAddress: entity.ipAddress,
-			userAgent: entity.userAgent,
-			status: entity.status,
-			trustedDevice: entity.trustedDevice,
-			lastSeenAt: entity.lastSeenAt,
-			expiresAt: entity.expiresAt
-		};
+	static toPersistence(session) {
+		const data = {};
+		for (const f of FIELDS) data[f] = session[f];
+		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 	}
 }

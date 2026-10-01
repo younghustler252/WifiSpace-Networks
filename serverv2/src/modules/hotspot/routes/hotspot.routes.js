@@ -1,83 +1,18 @@
-// src/modules/hotspot/presentation/routes/hotspot.routes.js
+    import { Router } from "express";
+    import asyncHandler from "express-async-handler";
+    import { container } from "../../../container/index.js";
+    import { validate } from "../../../infrastructure/middleware/validate.middleware.js";
+    import { resolveSessionSchema, authenticateSchema, startHotspotSchema, macAddressSchema, connectionStatusSchema } from "../validators/hotspot.validators.js";
 
-import { Router } from "express";
-import expressAsyncHandler from "express-async-handler";
+    const router = Router();
+    const hotspotController = container.resolve("hotspotController");
 
-export function hotspotRoutes({ hotspotController }) {
+    router.get("/session", validate(resolveSessionSchema, "query"), asyncHandler(hotspotController.resolveSession));
+    router.post("/login", validate(authenticateSchema), asyncHandler(hotspotController.authenticate));
+    router.post("/start", validate(startHotspotSchema), asyncHandler(hotspotController.startHotspot));
+    router.get("/plans", asyncHandler(hotspotController.getPlans));
+    router.get("/status", validate(connectionStatusSchema, "query"), asyncHandler(hotspotController.getConnectionStatus));
+    router.post("/refresh", validate(macAddressSchema), asyncHandler(hotspotController.refreshSession));
+    router.post("/revoke", validate(macAddressSchema), asyncHandler(hotspotController.revokeSession));
 
-	const router = Router();
-
-	// -----------------------------
-	// GET HOTSPOT SESSION
-	// Detect:
-	// - remembered device
-	// - existing user
-	// - new visitor
-	// -----------------------------
-	router.get(
-		"/session",
-		expressAsyncHandler(
-			hotspotController.getHotspotSession
-		)
-	);
-
-
-	// -----------------------------
-	// AUTHENTICATE EXISTING USER
-	// Password / device verification
-	// -----------------------------
-	router.post(
-		"/authenticate",
-		expressAsyncHandler(
-			hotspotController.authenticateSession
-		)
-	);
-
-
-	// -----------------------------
-	// START PURCHASE
-	// New hotspot user
-	// -----------------------------
-	router.post(
-		"/purchase",
-		expressAsyncHandler(
-			hotspotController.startPurchase
-		)
-	);
-
-
-	// -----------------------------
-	// CONFIRM PAYMENT
-	// -----------------------------
-	router.post(
-		"/confirm",
-		expressAsyncHandler(
-			hotspotController.confirmPurchase
-		)
-	);
-
-
-	// -----------------------------
-	// AVAILABLE PLANS
-	// -----------------------------
-	router.get(
-		"/plans",
-		expressAsyncHandler(
-			hotspotController.getPlans
-		)
-	);
-
-
-	// -----------------------------
-	// LOGOUT / FORGET DEVICE
-	// -----------------------------
-	router.post(
-		"/logout",
-		expressAsyncHandler(
-			hotspotController.revokeSession
-		)
-	);
-
-
-	return router;
-}
+    export default router;

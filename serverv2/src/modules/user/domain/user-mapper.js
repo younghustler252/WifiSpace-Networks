@@ -1,10 +1,6 @@
 import { User } from "./user.entity.js";
 
 export class UserMapper {
-
-	// ----------------------------
-	// Mongo → Domain Entity
-	// ----------------------------
 	static toDomain(raw) {
 		if (!raw) return null;
 
@@ -16,7 +12,7 @@ export class UserMapper {
 			email: raw.email,
 
 			avatar: raw.avatar,
-			hashedPassword: raw.password, // ✅ important mapping
+			hashedPassword: raw.password,
 
 			role: raw.role,
 			status: raw.status,
@@ -33,29 +29,33 @@ export class UserMapper {
 			lockUntil: raw.lockUntil,
 			passwordChangedAt: raw.passwordChangedAt,
 			lastLoginAt: raw.lastLoginAt,
+
 			verificationOTP: raw.verificationOTP,
 			otpExpiresAt: raw.otpExpiresAt,
 			otpAttempts: raw.otpAttempts,
 			otpLockedUntil: raw.otpLockedUntil,
 			lastOtpSentAt: raw.lastOtpSentAt,
 
+			resetPasswordOTP: raw.resetPasswordOTP,
+			resetPasswordOTPExpiresAt: raw.resetPasswordOTPExpiresAt,
+			resetPasswordAttempts: raw.resetPasswordAttempts,
+			resetPasswordOTPLockedUntil: raw.resetPasswordOTPLockedUntil,
+			lastResetPasswordOtpSentAt: raw.lastResetPasswordOtpSentAt,
+
 			createdAt: raw.createdAt,
 			updatedAt: raw.updatedAt,
 
-			theme: raw.theme || 'system'  // Map theme from DB (default to 'system')
+			theme: raw.theme || "system"
 		});
 	}
 
-	// ----------------------------
-	// Domain → Persistence
-	// ----------------------------
 	static toPersistence(user) {
-		return {
+		const data = {
 			firstName: user.firstName,
 			lastName: user.lastName,
 			email: user.email,
 
-			password: user.hashedPassword, // ✅ consistent
+			password: user.hashedPassword,
 
 			avatar: user.avatar,
 			role: user.role,
@@ -73,13 +73,24 @@ export class UserMapper {
 			lockUntil: user.lockUntil,
 			passwordChangedAt: user.passwordChangedAt,
 			lastLoginAt: user.lastLoginAt,
+
 			verificationOTP: user.verificationOTP,
 			otpExpiresAt: user.otpExpiresAt,
 			otpAttempts: user.otpAttempts,
 			otpLockedUntil: user.otpLockedUntil,
 			lastOtpSentAt: user.lastOtpSentAt,
 
-			theme: user.theme || 'system' 
+			resetPasswordOTP: user.resetPasswordOTP,
+			resetPasswordOTPExpiresAt: user.resetPasswordOTPExpiresAt,
+			resetPasswordAttempts: user.resetPasswordAttempts,
+			resetPasswordOTPLockedUntil: user.resetPasswordOTPLockedUntil,
+			lastResetPasswordOtpSentAt: user.lastResetPasswordOtpSentAt,
+
+			theme: user.theme || "system"
 		};
+
+		return Object.fromEntries(
+			Object.entries(data).filter(([, value]) => value !== undefined)
+		);
 	}
 }

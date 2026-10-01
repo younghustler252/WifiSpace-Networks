@@ -1,112 +1,134 @@
 import { BaseRepository } from "../../../infrastructure/repositories/base.repository.js";
-import accountModel from "../database/account.model.js";
+import AccountModel from "../database/account.model.js";
+import { PppoeAccountModel } from "../database/pppoe-account.model.js";
+import { HotspotAccountModel } from "../database/hotspot-account.model.js";
 import CounterModel from "../database/counter.model.js";
 
-import { AccountRepository } from "../domain/account.repository.js";
 import { AccountMapper } from "../mappers/account.mapper.js";
+import { SERVICE_TYPES } from "../domain/account.enum.js";
 
-const USER_POPULATE = {
-	path: "userId",
-	select: "firstName lastName email avatar"
+const USER_POPULATE = { path: "userId", select: "firstName lastName email avatar" };
+const NOT_DELETED = { deletedAt: null };
+
+const MODEL_BY_TYPE = {
+	[SERVICE_TYPES.PPPOE]: PppoeAccountModel,
+	[SERVICE_TYPES.HOTSPOT]: HotspotAccountModel
 };
 
 export class AccountRepositoryMongo extends BaseRepository {
+	constructor({ credentialCipherService }) {
+		super(AccountModel, AccountMapper);
+		this.credentialCipherService = credentialCipherService;
+	}
 
-	constructor() {
-		super(accountModel, AccountMapper);
+	_modelFor(serviceType) {
+		const model = MODEL_BY_TYPE[serviceType];
+		if (!model) throw new Error(`Unknown service type: ${serviceType}`);
+		return model;
 	}
 
 	async create(accountEntity) {
 		if (!accountEntity.wsnId) {
-			const prefix = accountEntity.serviceType === "hotspot"
-				? "HS"
-				: "WSN";
-
+			const prefix = accountEntity.serviceType === SERVICE_TYPES.HOTSPOT ? "HS" : "WSN";
 			accountEntity.wsnId = await this.generateWsnId(prefix);
 		}
 
-		const account = await super.create(accountEntity);
+		const persistence = AccountMapper.toPersistence(accountEntity);
 
-		return this.findById(account.id);
+		if (persistence.routerPassword) {
+			persistence.routerPasswordEncrypted = this.credentialCipherService.encrypt(persistence.routerPassword);
+			delete persistence.routerPassword;
+		}
+
+		const Model = this._modelFor(accountEntity.serviceType);
+		const created = await Model.create(persistence);
+
+		return this.findById(created._id);
 	}
 
-	async findById(id) {
-		return super.findById(id, {
-			populates: [USER_POPULATE]
-		});
-	}
-
-	async findAll(query = {}, sort = {}, page = 1, limit = 20) {
-		return this.paginate({
-			filter: query,
-			page,
-			limit,
-			sort,
-			populates: [USER_POPULATE]
-		});
-	}
-
-
-	async findOne(filters) {
-		return super.findOne({
-			filter: filters,
-			populates: [USER_POPULATE]
-		});
-	}
-
-	async findByWsnId(wsnId) {
-		return super.findOne({
-			filter: { wsnId },
-			populates: [USER_POPULATE]
-		});
-	}
-
-	async findByUserId(userId) {
-		const docs = await accountModel
-			.find({ userId })
-			.populate(USER_POPULATE)
-			.lean();
-
-		return this.mapArray(docs);
-	}
-
-	async findByMac(macAddress) {
-		const normalized = macAddress.toUpperCase().trim();
-
-		const doc = await accountModel
-			.findOne({
-				"devices.macAddress": normalized,
-				serviceType: "hotspot"
-			})
+	async findById(id, { includeDeleted = false } = {}) {
+		const doc = await this.model
+			.findOne({ _id: id, ...(includeDeleted ? {} : NOT_DELETED) })
 			.populate(USER_POPULATE)
 			.lean();
 
 		return this.mapOne(doc);
 	}
 
-	async deleteById(id) {
-		return this.delete(id);
+	async paginate(opts = {}) {
+		const { filter = {}, includeDeleted = false, ...rest } = opts;
+		return super.paginate({
+			...rest,
+			filter: { ...filter, ...(includeDeleted ? {} : NOT_DELETED) },
+			populates: [USER_POPULATE]
+		});
+	}
+
+	async findOne(filters, { includeDeleted = false } = {}) {
+		return super.findOne({
+			filter: { ...filters, ...(includeDeleted ? {} : NOT_DELETED) },
+			populates: [USER_POPULATE]
+		});
+	}
+
+	async findByWsnId(wsnId) {
+		return super.findOne({ filter: { wsnId, ...NOT_DELETED }, populates: [USER_POPULATE] });
+	}
+
+	async findByUserId(userId) {
+		const docs = await this.model.find({ userId, ...NOT_DELETED }).populate(USER_POPULATE).lean();
+		return this.mapArray(docs);
+	}
+
+	async findByMac(macAddress) {
+		const normalized = macAddress.toUpperCase().trim();
+		const doc = await this.model
+			.findOne({ "devices.macAddress": normalized, serviceType: SERVICE_TYPES.HOTSPOT, ...NOT_DELETED })
+			.populate(USER_POPULATE)
+			.lean();
+		return this.mapOne(doc);
+	}
+
+	async update(id, entityOrData) {
+		const persistence = AccountMapper.toPersistence(entityOrData);
+
+		if (persistence.routerPassword) {
+			persistence.routerPasswordEncrypted = this.credentialCipherService.encrypt(persistence.routerPassword);
+			delete persistence.routerPassword;
+		}
+
+		await this.model.findByIdAndUpdate(id, persistence, { new: true });
+		return this.findById(id, { includeDeleted: true }); // caller may be re-reading right after a soft delete
+	}
+
+	async findRouterCredentials(id) {
+		const doc = await PppoeAccountModel.findById(id).select("+routerPasswordEncrypted").lean();
+		if (!doc) return null;
+
+		return {
+			id: doc._id.toString(),
+			routerId: doc.routerId?.toString(),
+			routerProfile: doc.routerProfile,
+			routerPassword: this.credentialCipherService.decrypt(doc.routerPasswordEncrypted)
+		};
 	}
 
 	async generateWsnId(prefix = "WSN") {
 		const counter = await CounterModel.findOneAndUpdate(
 			{ _id: `wsnId_${prefix}` },
 			{ $inc: { sequence_value: 1 } },
-			{
-				returnDocument: "after",
-				upsert: true
-			}
+			{ returnDocument: "after", upsert: true }
 		);
-
 		return `${prefix}${String(counter.sequence_value).padStart(4, "0")}`;
 	}
 
 	async countAllAccounts() {
-		return this.count();
+		return this.count(NOT_DELETED);
 	}
 
 	async getDashboardStats() {
-		const [stats] = await accountModel.aggregate([
+		const [stats] = await this.model.aggregate([
+			{ $match: NOT_DELETED },
 			{
 				$group: {
 					_id: null,
@@ -122,17 +144,6 @@ export class AccountRepositoryMongo extends BaseRepository {
 			}
 		]);
 
-		return (
-			stats || {
-				total: 0,
-				pending: 0,
-				approved: 0,
-				rejected: 0,
-				pppoe: 0,
-				hotspot: 0,
-				personal: 0,
-				business: 0
-			}
-		);
+		return stats || { total: 0, pending: 0, approved: 0, rejected: 0, pppoe: 0, hotspot: 0, personal: 0, business: 0 };
 	}
 }

@@ -1,108 +1,45 @@
 import { asClass } from "awilix";
 
-/*
-|--------------------------------------------------------------------------
-| REPOSITORIES
-|--------------------------------------------------------------------------
-*/
-import { UserRepositoryMongo } from "./infrastructure/repositories/user.repository.mongo.js";
+import { UserRepositoryMongo } from "./repositories/user.repository.mongo.js";
+import { GetMyProfile } from "./usecases/user/get-my-profile.usecase.js";
+import { UpdateMyProfile } from "./usecases/user/update-my-profile.usecase.js";
+import { ChangePassword } from "./usecases/user/change-password.usecase.js";
+import { UploadAvatar } from "./usecases/user/upload-avatar.usecase.js";
 
-/*
-|--------------------------------------------------------------------------
-| CONTROLLERS
-|--------------------------------------------------------------------------
-*/
-import { SelfController } from "./presentation/controllers/self.controller.js";
-import { AdminController } from "./presentation/controllers/admin.controller.js";
-import { StaffController } from "./presentation/controllers/staff.controller.js";
-
-/*
-|--------------------------------------------------------------------------
-| USE CASES
-|--------------------------------------------------------------------------
-*/
-
-// SELF
-import { GetMyProfile } from "./usecases/self/get-my-profile.usecase.js";
-import { UpdateMyProfile } from "./usecases/self/update-my-profile.usecase.js";
-import { ChangePassword } from "./usecases/self/change-password.usecase.js";
-import { UploadAvatar } from "./usecases/self/upload-avatar.usecase.js";
-
-// ADMIN
 import { CreateUser } from "./usecases/admin/create-user.usecase.js";
+import { GetAllUsers } from "./usecases/admin/get-all-users.usecase.js";
+import { GetUserById } from "./usecases/admin/get-user-by-id.usecase.js";
+import { AdminUpdateUserProfile } from "./usecases/admin/admin-update-user-profile.usecase.js";
 import { UpdateRole } from "./usecases/admin/update-role.usecase.js";
-import { DeleteUser } from "./usecases/admin/delete-user.usecase.js";
 import { BanUser } from "./usecases/admin/ban-user.usecase.js";
-import { UpdateUserProfile } from "./usecases/admin/update-user-profile.js";
+import { UnbanUser } from "./usecases/admin/unban-user.usecase.js";
+import { DeleteUser } from "./usecases/admin/delete-user.usecase.js";
+import { AdminSetUserPassword } from "./usecases/admin/admin-set-user-password.usecase.js";
+import { ImpersonateUser } from "./usecases/admin/impersonate-user.usecase.js";
 
-// STAFF
-import { SearchUser } from "./usecases/staff/search-user.usecase.js";
-import { ImpersonateUser } from "./usecases/staff/impersonate-user.usecase.js";
+import { UserController } from "./controllers/user.controller.js";
+import { AdminController } from "./controllers/admin.controller.js";
 
-// SHARED
-import { GetAllUsers } from "./usecases/shared/get-all-users.usecase.js";
-import { GetUserById } from "./usecases/shared/get-user-by-id.usecase.js";
-
-/*
-|--------------------------------------------------------------------------
-| MODULE REGISTRATION
-|--------------------------------------------------------------------------
-*/
 export function registerUser(container) {
-
 	container.register({
-
-		/*
-		|--------------------------------------------------------------------------
-		| REPOSITORIES
-		|--------------------------------------------------------------------------
-		*/
-		userRepository: asClass(UserRepositoryMongo).singleton(),
-
-		/*
-		|--------------------------------------------------------------------------
-		| SELF USE CASES
-		|--------------------------------------------------------------------------
-		*/
 		getMyProfile: asClass(GetMyProfile).scoped(),
 		updateMyProfile: asClass(UpdateMyProfile).scoped(),
 		changePassword: asClass(ChangePassword).scoped(),
 		uploadAvatar: asClass(UploadAvatar).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| SHARED USE CASES
-		|--------------------------------------------------------------------------
-		*/
+		createUser: asClass(CreateUser).scoped(),
 		getAllUsers: asClass(GetAllUsers).scoped(),
 		getUserById: asClass(GetUserById).scoped(),
-
-		/*
-		|--------------------------------------------------------------------------
-		| STAFF USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		searchUser: asClass(SearchUser).scoped(),
+		adminUpdateUserProfile: asClass(AdminUpdateUserProfile).scoped(),
+		updateRole: asClass(UpdateRole).scoped(),
+		banUser: asClass(BanUser).scoped(),
+		unbanUser: asClass(UnbanUser).scoped(),
+		deleteUser: asClass(DeleteUser).scoped(),
+		adminSetUserPassword: asClass(AdminSetUserPassword).scoped(),
 		impersonateUser: asClass(ImpersonateUser).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| ADMIN USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		createUser: asClass(CreateUser).scoped(),
-		updateRole: asClass(UpdateRole).scoped(),
-		updateUserProfile: asClass(UpdateUserProfile).scoped(),
-		deleteUser: asClass(DeleteUser).scoped(),
-		banUser: asClass(BanUser).scoped(),
-
-		/*
-		|--------------------------------------------------------------------------
-		| CONTROLLERS
-		|--------------------------------------------------------------------------
-		*/
-		selfController: asClass(SelfController).scoped(),
-		staffController: asClass(StaffController).scoped(),
-		adminController: asClass(AdminController).scoped()
+		userRepository: asClass(UserRepositoryMongo).singleton(),
+		userController: asClass(UserController).scoped(),
+		userAdminController: asClass(AdminController).scoped()
 	});
 }

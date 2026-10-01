@@ -1,43 +1,35 @@
-// src/shared/middleware/auth.middleware.js
+import { UnauthorizedError } from "../../shared/errors/domain.errors.js";
+import { ERROR_CODES } from "../../shared/errors/domain.errors.js";
 
-import jwt from "jsonwebtoken";
-import { UnauthorizedError } from "../../shared/errors/unauthorized-error.js";
-import { ForbiddenError } from "../../shared/errors/forbidden-error.js";
+export function authenticateFactory({ userRepository, tokenService, tokenBlacklistService }) {
+	return async function authenticate(req, res, next) {
+		try {
+			const headerToken = req.headers.authorization?.startsWith("Bearer ")
+				? req.headers.authorization.split(" ")[1]
+				: null;
 
-export function authMiddleware({ userRepository }) {
-	return function (requiredRoles = []) {
-		return async (req, res, next) => {
-			try {
-				const authHeader = req.headers.authorization;
+			const token = headerToken || req.cookies?.accessToken;
 
-				if (!authHeader || !authHeader.startsWith("Bearer ")) {
-					throw new UnauthorizedError("Missing token", "NO_TOKEN");
-				}
-
-				const token = authHeader.split(" ")[1];
-
-				let payload;
-				try {
-					payload = jwt.verify(token, process.env.JWT_SECRET);
-				} catch {
-					throw new UnauthorizedError("Invalid or expired token", "INVALID_TOKEN");
-				}
-
-				const user = await userRepository.findById(payload.sub);
-
-				if (!user) {
-					throw new UnauthorizedError("Invalid token user", "INVALID_TOKEN_USER");
-				}
-
-				if (requiredRoles.length && !requiredRoles.includes(user.role)) {
-					throw new ForbiddenError("Insufficient role", "ROLE_FORBIDDEN");
-				}
-
-				req.user = user;
-				next();
-			} catch (err) {
-				next(err);
+			if (!token) {
+				throw new UnauthorizedError("Missing token", ERROR_CODES.UNAUTHORIZED);
 			}
-		};
+
+			if (tokenBlacklistService && (await tokenBlacklistService.isRevoked(token))) {
+				throw new UnauthorizedError("Token has been revoked", ERROR_CODES.UNAUTHORIZED);
+			}
+
+			const payload = tokenService.verifyAccessToken(token); // throws TokenExpiredError/TokenInvalidError
+
+			const user = await userRepository.findById(payload.sub);
+			if (!user) {
+				throw new UnauthorizedError("User no longer exists", ERROR_CODES.UNAUTHORIZED);
+			}
+
+			req.user = user;
+			req.token = token;
+			next();
+		} catch (err) {
+			next(err);
+		}
 	};
 }

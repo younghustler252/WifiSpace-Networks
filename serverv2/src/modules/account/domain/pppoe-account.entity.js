@@ -1,0 +1,46 @@
+import { Account } from "./account.entity.js";
+import { APPROVAL_STATUSES, SERVICE_TYPES } from "./account.enum.js";
+import { ValidationError } from "../../../shared/errors/domain.errors.js";
+
+export class PppoeAccount extends Account {
+	constructor({ routerId = null, routerProfile = "default", routerPassword = null, limitUptime = 0, ...rest }) {
+		super({ ...rest, serviceType: SERVICE_TYPES.PPPOE });
+		this.routerId = routerId;
+		this.routerProfile = routerProfile;
+		this.routerPassword = routerPassword; // plaintext, in-memory only — repository encrypts before persisting, never logged or returned
+		this.limitUptime = limitUptime;
+	}
+
+	updateRouterPassword(password) {
+		if (!password) throw new ValidationError("Password cannot be empty");
+		this.routerPassword = password;
+	}
+
+	updateRouterProfile(profile) {
+		if (!profile) throw new ValidationError("Router profile cannot be empty");
+		this.routerProfile = profile;
+	}
+
+	moveToRouter(routerId) {
+		if (!routerId) throw new ValidationError("Router ID is required");
+		this.routerId = routerId;
+	}
+
+	approve() {
+		if (!this.routerId) {
+			throw new ValidationError("Router ID is required before approval");
+		}
+
+		if (!this.routerPassword) {
+			throw new ValidationError("Router password is required before approval");
+		}
+
+		super.approve();
+	}
+
+	toJSON() {
+		const obj = super.toJSON();
+		delete obj.routerPassword;
+		return obj;
+	}
+}

@@ -3,14 +3,16 @@
 import { Worker } from "bullmq";
 import { connection } from "../connection.js";
 import { container } from "../../../container/index.js";
+import { attachWorkerLifecycleLogging } from "../worker-events.js";
 
 export function createPaymentCleanupWorker() {
-    return new Worker(
+    const worker = new Worker(
         "payment-cleanup",
         async () => {
             console.log("Starting expired payment cleanup...");
 
-            const { paymentRepository } = container.cradle;
+            const paymentRepository =
+                container.resolve("paymentRepository");
 
             const cutoffDate =
                 new Date(
@@ -31,4 +33,10 @@ export function createPaymentCleanupWorker() {
             concurrency: 1,
         }
     );
+
+    attachWorkerLifecycleLogging(worker, "payment-cleanup", {
+        notifyOnFailure: true,
+    });
+
+    return worker;
 }

@@ -1,145 +1,20 @@
-// usage-snapshot.entity.js
+import { USAGE_SOURCE_LIST } from "./usage.enum.js";
+import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
-export class UsageSnapshot {
-    constructor({
-        id,
+export class Usage {
+	constructor({
+		id, subscriptionId, accountId, routerId = null, macAddress = null,
+		bytesUsed = 0, secondsUsed = 0, source = "mikrotik_sync",
+		recordedAt = new Date(), metadata = {}, createdAt = null
+	}) {
+		if (!subscriptionId) throw new ValidationError("Subscription ID is required");
+		if (!accountId) throw new ValidationError("Account ID is required");
+		if (bytesUsed < 0) throw new ValidationError("bytesUsed cannot be negative");
+		if (secondsUsed < 0) throw new ValidationError("secondsUsed cannot be negative");
+		if (!USAGE_SOURCE_LIST.includes(source)) throw new ValidationError("Invalid usage source");
 
-        accountId,
-        routerId,
+		Object.assign(this, { id, subscriptionId, accountId, routerId, macAddress, bytesUsed, secondsUsed, source, recordedAt, metadata, createdAt });
+	}
 
-        wsnId,
-
-        online = false,
-
-        ipAddress = null,
-        macAddress = null,
-
-        uptime = "0s",
-
-        downloadBytes = 0,
-        uploadBytes = 0,
-
-        lastSeenAt = null,
-
-        createdAt = null,
-        updatedAt = null
-    }) {
-
-        if (!accountId) {
-            throw new Error("Account ID is required");
-        }
-
-        if (!routerId) {
-            throw new Error("Router ID is required");
-        }
-
-        if (!wsnId) {
-            throw new Error("WSN ID is required");
-        }
-
-        this.id = id;
-
-        this.accountId = accountId;
-        this.routerId = routerId;
-
-        this.wsnId = wsnId;
-
-        this.online = online;
-
-        this.ipAddress = ipAddress;
-        this.macAddress = macAddress;
-
-        this.uptime = uptime;
-
-        this.downloadBytes = downloadBytes;
-        this.uploadBytes = uploadBytes;
-
-        this.lastSeenAt = lastSeenAt;
-
-        this.createdAt = createdAt;
-        this.updatedAt = updatedAt;
-    }
-
-    // ============================================
-    // State
-    // ============================================
-
-    markOnline({
-        ipAddress = null,
-        macAddress = null,
-        uptime = "0s"
-    }) {
-        this.online = true;
-
-        this.ipAddress = ipAddress;
-        this.macAddress = macAddress;
-
-        this.uptime = uptime;
-        this.lastSeenAt = new Date();
-    }
-
-    markOffline() {
-        this.online = false;
-        this.lastSeenAt = new Date();
-    }
-
-    // ============================================
-    // Traffic
-    // ============================================
-
-    updateTraffic({
-        downloadBytes = 0,
-        uploadBytes = 0
-    }) {
-        this.downloadBytes = downloadBytes;
-        this.uploadBytes = uploadBytes;
-    }
-
-    // ============================================
-    // Helpers
-    // ============================================
-
-    getTotalBytes() {
-        return this.downloadBytes + this.uploadBytes;
-    }
-
-    hasTraffic() {
-        return this.getTotalBytes() > 0;
-    }
-
-    isOnline() {
-        return this.online;
-    }
-
-    // ============================================
-    // Serialization
-    // ============================================
-
-    toJSON() {
-        return {
-            id: this.id,
-
-            accountId: this.accountId,
-            routerId: this.routerId,
-
-            wsnId: this.wsnId,
-
-            online: this.online,
-
-            ipAddress: this.ipAddress,
-            macAddress: this.macAddress,
-
-            uptime: this.uptime,
-
-            downloadBytes: this.downloadBytes,
-            uploadBytes: this.uploadBytes,
-
-            totalBytes: this.getTotalBytes(),
-
-            lastSeenAt: this.lastSeenAt,
-
-            createdAt: this.createdAt,
-            updatedAt: this.updatedAt
-        };
-    }
+	toJSON() { return { ...this }; }
 }

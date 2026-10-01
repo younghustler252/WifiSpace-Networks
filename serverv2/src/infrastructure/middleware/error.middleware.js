@@ -1,35 +1,23 @@
-import { AppError } from "../../shared/errors/app-error.js";
+import { AppError, ERROR_CODES } from "../../shared/errors/domain.errors.js";
+
 
 export const errorMiddleware = (err, req, res, next) => {
-	// Log the error in every environment
 	console.error(err);
 
-	let error = err;
+	const error = err instanceof AppError
+		? err
+		: new AppError(err.message || "Internal Server Error", 500, ERROR_CODES.INTERNAL_ERROR);
 
-	// If error is not an AppError, wrap it
-	if (!(error instanceof AppError)) {
-		error = new AppError(
-			error.message || "Internal Server Error",
-			500,
-			"INTERNAL_SERVER_ERROR"
-		);
-	}
-
-	// Development response
-	if (process.env.NODE_ENV === "development") {
-		return res.status(error.statusCode).json({
-			success: false,
-			code: error.code,
-			message: error.message,
-			details: error.details,
-			stack: error.stack
-		});
-	}
-
-	// Production response (no stack)
-	return res.status(error.statusCode).json({
+	const payload = {
 		success: false,
 		code: error.code,
-		message: error.message
-	});
+		message: error.message,
+		...(error.details ? { details: error.details } : {})
+	};
+
+	if (process.env.NODE_ENV === "development") {
+		payload.stack = error.stack;
+	}
+
+	return res.status(error.statusCode).json(payload);
 };

@@ -1,65 +1,32 @@
+// plan.container.js
 import { asClass } from "awilix";
 
-/*
-|--------------------------------------------------------------------------
-| REPOSITORY
-|--------------------------------------------------------------------------
-*/
-import { PlanRepositoryMongo }
-	from "./infrastructure/repositories/plan.repository.mongo.js";
+import { PlanRepositoryMongo } from "./repositories/plan.repository.mongo.js";
 
-/*
-|--------------------------------------------------------------------------
-| CONTROLLER
-|--------------------------------------------------------------------------
-*/
-import { PlanController }
-	from "./presentation/controllers/plan.controller.js";
+import { CreatePlan } from "./usecases/admin/create-plan.usecase.js";
+import { UpdatePlan } from "./usecases/admin/update-plan.usecase.js";
+import { DeletePlan } from "./usecases/admin/delete-plan.usecase.js";
+import { ActivatePlan } from "./usecases/admin/activate-plan.usecase.js";
+import { DeactivatePlan } from "./usecases/admin/deactivate-plan.usecase.js";
+import { GetPlans } from "./usecases/shared/get-plans.usecase.js";
+import { GetPlanById } from "./usecases/shared/get-plan-by-id.usecase.js";
 
-/*
-|--------------------------------------------------------------------------
-| USECASES
-|--------------------------------------------------------------------------
-*/
-import { CreatePlan } from "./usecases/admin/create-plan.js";
-import { UpdatePlan } from "./usecases/admin/update-plan.js";
-import { DeletePlan } from "./usecases/admin/delete-plan.js";
+import { PlanController } from "./controllers/plan.controller.js";
+import { AdminController } from "./controllers/admin.controller.js";
 
-import { GetAllPlans } from "./usecases/shared/get-all-plans.js";
-import { getPlanById } from "./usecases/shared/get-plan-By-Id.js";
-
-/*
-|--------------------------------------------------------------------------
-| REGISTER MODULE
-|--------------------------------------------------------------------------
-*/
 export function registerPlan(container) {
-
 	container.register({
-
-		/*
-		|--------------------------------------------------------------------------
-		| REPOSITORY
-		|--------------------------------------------------------------------------
-		*/
 		planRepository: asClass(PlanRepositoryMongo).singleton(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| USECASES
-		|--------------------------------------------------------------------------
-		*/
 		createPlan: asClass(CreatePlan).scoped(),
 		updatePlan: asClass(UpdatePlan).scoped(),
 		deletePlan: asClass(DeletePlan).scoped(),
-		getAllPlans: asClass(GetAllPlans).scoped(),
-		getPlanById: asClass(getPlanById).scoped(),
+		activatePlan: asClass(ActivatePlan).scoped(),
+		deactivatePlan: asClass(DeactivatePlan).scoped(),
+		getPlans: asClass(GetPlans).scoped(),
+		getPlanById: asClass(GetPlanById).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| CONTROLLER (IMPORTANT)
-		|--------------------------------------------------------------------------
-		*/
-		planController: asClass(PlanController).scoped()
+		planController: asClass(PlanController).scoped(),
+		adminController: asClass(AdminController).scoped()
 	});
 }

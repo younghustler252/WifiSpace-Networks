@@ -1,26 +1,35 @@
-// modules/auth/usecases/logout.usecase.js
 export class LogoutUser {
-	constructor({tokenService, auditService}) {
-		this.tokenService = tokenService; // handles token revocation / blacklist
-		this.auditService = auditService; // optional audit logging
+	constructor({ tokenBlacklistService, tokenService, auditService }) {
+		this.tokenBlacklistService = tokenBlacklistService;
+		this.tokenService = tokenService;
+		this.auditService = auditService;
 	}
 
 	async execute({ userId, accessToken, refreshToken }) {
-		// Revoke tokens
-		if (this.tokenService) {
-			if (accessToken) this.tokenService.revokeToken(accessToken);
-			if (refreshToken) this.tokenService.revokeToken(refreshToken);
-		}
+		await this._revoke(accessToken);
+		await this._revoke(refreshToken);
 
-		// Audit logout action
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId: userId,
 				action: "LOGOUT",
-				meta: {}
-			});
+				resource: "User",
+				metadata: {}
+			}).catch((err) => console.error("Audit log failed:", err.message));
 		}
 
 		return { message: "Logged out successfully" };
+	}
+
+	async _revoke(token) {
+		if (!token || !this.tokenBlacklistService) return;
+
+		const decoded = this.tokenService.decode(token);
+		if (!decoded?.exp) return;
+
+		const ttlSeconds = decoded.exp - Math.floor(Date.now() / 1000);
+		if (ttlSeconds > 0) {
+			await this.tokenBlacklistService.revoke(token, ttlSeconds);
+		}
 	}
 }

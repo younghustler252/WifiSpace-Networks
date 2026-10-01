@@ -1,0 +1,57 @@
+import { successResponse, paginatedResponse } from "../../../shared/utils/api-response.js";
+
+export class RouterController {
+	constructor({
+		createRouter, deleteRouter, getAllRouters, getRouterById,
+		syncRouterInfo, syncAllRouters, rebootRouter, getRouterProfiles
+	}) {
+		this.createRouterUseCase = createRouter;
+		this.deleteRouterUseCase = deleteRouter;
+		this.getAllRoutersUseCase = getAllRouters;
+		this.getRouterByIdUseCase = getRouterById;
+		this.syncRouterInfoUseCase = syncRouterInfo;
+		this.syncAllRoutersUseCase = syncAllRouters;
+		this.rebootRouterUseCase = rebootRouter;
+		this.getRouterProfilesUseCase = getRouterProfiles;
+	}
+
+	createRouter = async (req, res) => {
+		const router = await this.createRouterUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: router.toJSON(), message: "Router created successfully", statusCode: 201 });
+	};
+
+	getAllRouters = async (req, res) => {
+		const { data, meta } = await this.getAllRoutersUseCase.execute({ ...req.query });
+		return paginatedResponse({ res, data: data.map((r) => r.toJSON()), meta, message: "Routers fetched successfully" });
+	};
+
+	getRouterById = async (req, res) => {
+		const router = await this.getRouterByIdUseCase.execute({ routerId: req.params.id });
+		return successResponse({ res, data: router.toJSON(), message: "Router fetched successfully" });
+	};
+
+	deleteRouter = async (req, res) => {
+		const result = await this.deleteRouterUseCase.execute({ actorId: req.user.id, routerId: req.params.id, ip: req.ip });
+		return successResponse({ res, message: result.message });
+	};
+
+	syncRouterInfo = async (req, res) => {
+		const router = await this.syncRouterInfoUseCase.execute({ routerId: req.params.id });
+		return successResponse({ res, data: router.toJSON(), message: "Router synced successfully" });
+	};
+
+	syncAllRouters = async (req, res) => {
+		const result = await this.syncAllRoutersUseCase.execute();
+		return successResponse({ res, data: result, message: "Router sync completed" });
+	};
+
+	rebootRouter = async (req, res) => {
+		const result = await this.rebootRouterUseCase.execute({ actorId: req.user.id, routerId: req.params.id, ip: req.ip });
+		return successResponse({ res, message: result.message });
+	};
+
+	getRouterProfiles = async (req, res) => {
+		const profiles = await this.getRouterProfilesUseCase.execute({ routerId: req.params.id, serviceType: req.query.serviceType });
+		return successResponse({ res, data: profiles, message: "Router profiles fetched successfully" });
+	};
+}

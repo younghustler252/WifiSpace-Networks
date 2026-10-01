@@ -1,62 +1,31 @@
-// src/modules/router/router.container.js
-
 import { asClass } from "awilix";
 
-// REPOSITORIES
-import { RouterRepositoryMongo } from "./infrastructure/repositories/router.repository.mongo.js";
+import { RouterRepositoryMongo } from "./repositories/router.repository.mongo.js";
 
+import { CreateRouter } from "./usecases/admin/create-router.usecase.js";
+import { DeleteRouter } from "./usecases/admin/delete-router.usecase.js";
+import { GetAllRouters } from "./usecases/admin/get-all-routers.usecase.js";
+import { GetRouterById } from "./usecases/admin/get-router-by-id.usecase.js";
+import { SyncRouterInfo } from "./usecases/admin/sync-router-info.usecase.js";
+import { SyncAllRouters } from "./usecases/admin/sync-all-routers.usecase.js";
+import { RebootRouter } from "./usecases/admin/reboot-router.usecase.js";
+import { GetRouterProfiles } from "./usecases/admin/get-router-profiles.usecase.js";
 
-import { CheckRouterStatus } from "./usecases/account/check-router-status.js";
-import { RebootRouter } from "./usecases/account/reboot-router.js";
-
-// USE CASES - ADMIN
-import { CreateRouter } from "./usecases/admin/create-router.js";
-import { UpdateRouter } from "./usecases/admin/update-router.js";
-import { DeleteRouter } from "./usecases/admin/delete-router.js";
-import { ListRouters } from "./usecases/admin/list-routers.js";
-import { GetRouterProfiles } from "./usecases/account/get-router-profiles.js";
-import { SyncRouterInfo } from "./usecases/admin/sync-router-info.js";
-import { SyncAllRouters } from "./usecases/admin/syncAllRouter.js";
-
-import { RouterController } from "./presentation/controller/router.controller.js";
+import { RouterController } from "./controllers/router.controller.js";
 
 export function registerRouter(container) {
-
-	// -------------------------
-	// REPOSITORY
-	// -------------------------
 	container.register({
-		routerRepository: asClass(RouterRepositoryMongo).singleton()
-	});
+		routerRepository: asClass(RouterRepositoryMongo).singleton(),
 
-
-	// -------------------------
-	// USE CASES - ACCOUNT
-	// -------------------------
-	container.register({
-		checkRouterStatus: asClass(CheckRouterStatus).scoped(),
-		rebootRouter: asClass(RebootRouter).scoped()
-	});
-
-	// -------------------------
-	// USE CASES - ADMIN
-	// -------------------------
-	container.register({
 		createRouter: asClass(CreateRouter).scoped(),
-		updateRouter: asClass(UpdateRouter).scoped(),
 		deleteRouter: asClass(DeleteRouter).scoped(),
-		listRouters: asClass(ListRouters).scoped(),
-		getRouterProfiles: asClass(GetRouterProfiles).scoped(),
+		getAllRouters: asClass(GetAllRouters).scoped(),
+		getRouterById: asClass(GetRouterById).scoped(),
 		syncRouterInfo: asClass(SyncRouterInfo).scoped(),
-		syncAllRouters: asClass(SyncAllRouters).scoped()
-	});
+		syncAllRouters: asClass(SyncAllRouters).scoped(),
+		rebootRouter: asClass(RebootRouter).scoped(),
+		getRouterProfiles: asClass(GetRouterProfiles).scoped(),
 
-	
-	// -------------------------
-	// CONTROLLERS
-	// -------------------------
-	container.register({
-		routerController: asClass(RouterController).scoped(),
-		// routerProvisioningController: asClass(RouterProvisioningController).scoped(),
-	})
+		routerController: asClass(RouterController).scoped()
+	});
 }

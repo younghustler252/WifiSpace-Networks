@@ -1,26 +1,20 @@
-// infrastructure/jobs/workers/payment-expiry.worker.js
-
+// payment-expiry.worker.js
 import { Worker } from "bullmq";
 import { connection } from "../connection.js";
 import { container } from "../../../container/index.js";
+import { attachWorkerLifecycleLogging } from "../worker-events.js";
 
 export function createPaymentExpiryWorker() {
-    return new Worker(
-        "payment-expiry",
-        async () => {
-            console.log("Checking for expired pending payments...");
+	const worker = new Worker(
+		"payment-expiry",
+		async () => {
+			const expirePendingPayments = container.resolve("expirePendingPayments");
+			const result = await expirePendingPayments.execute({ olderThanMinutes: 30 });
+			console.log(`Checked ${result.checked}, reconciled ${result.reconciled}, expired ${result.expired} payment(s)`);
+		},
+		{ connection, concurrency: 1 }
+	);
 
-            const { expirePendingPayments } = container.cradle;
-
-            const result = await expirePendingPayments.execute();
-
-            console.log(
-                `Expired ${result.expiredCount} pending payment(s)`
-            );
-        },
-        {
-            connection,
-            concurrency: 1,
-        }
-    );
+	attachWorkerLifecycleLogging(worker, "payment-expiry", { notifyOnFailure: true });
+	return worker;
 }

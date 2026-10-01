@@ -1,27 +1,27 @@
 import { asClass } from "awilix";
 
-// Usecases
 import { RegisterUser } from "./usecases/register.usecase.js";
 import { LoginUser } from "./usecases/login.usecase.js";
 import { LogoutUser } from "./usecases/logout.usecase.js";
 import { ResendOtp } from "./usecases/resend-otp.usecase.js";
 import { VerifyOtp } from "./usecases/verify-otp.usecase.js";
 import { RefreshToken } from "./usecases/refresh-token.usecase.js";
+import { ForgotPassword } from "./usecases/forgot-password.usecase.js";
+import { ResetPassword } from "./usecases/reset-password.usecase.js";
 
-// Controller
-import { AuthController } from "./presentation/controllers/auth.controller.js";
+import { AuthController } from "./controllers/auth.controller.js";
 
 export function registerAuth(container) {
-  container.register({
-    // Use Cases
-    registerUser: asClass(RegisterUser).scoped(),
-    loginUser: asClass(LoginUser).scoped(),
-    logoutUser: asClass(LogoutUser).scoped(),
-    resendOtp: asClass(ResendOtp).scoped(),
-    verifyOtp: asClass(VerifyOtp).scoped(),
-    refreshTokenUseCase: asClass(RefreshToken).scoped(),
+	container.register({
+		registerUser: asClass(RegisterUser).scoped(),
+		loginUser: asClass(LoginUser).scoped(),
+		logoutUser: asClass(LogoutUser).scoped(),
+		resendOtp: asClass(ResendOtp).scoped(),
+		verifyOtp: asClass(VerifyOtp).scoped(),
+		refreshTokenUseCase: asClass(RefreshToken).scoped(),
+		forgotPassword: asClass(ForgotPassword).scoped(),
+		resetPassword: asClass(ResetPassword).scoped(),
 
-    // Controller
-    authController: asClass(AuthController).scoped(),
-  });
+		authController: asClass(AuthController).scoped()
+	});
 }

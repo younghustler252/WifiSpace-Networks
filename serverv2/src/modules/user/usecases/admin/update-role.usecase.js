@@ -1,52 +1,30 @@
-// modules/user/usecases/admin/update-role.usecase.js
-
-import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
-import { ROLE_PERMISSIONS } from "../../../../shared/constants/roles.js";
+import { NotFoundError, ForbiddenError } from "../../../../shared/errors/domain.errors.js";
+import { USER_ERROR_CODES } from "../../domain/user.enum.js";
+import { USER_ROLE } from "../../domain/user.enum.js";
 
 export class UpdateRole {
-	constructor({userRepository, permissionService, auditService}) {
+	constructor({ userRepository, auditService }) {
 		this.userRepository = userRepository;
 		this.auditService = auditService;
 	}
 
-	async execute(actor, userId, newRole) {
-		
-		// Prevent self-role update (optional but recommended)
-		if (actor.id === userId) {
-			throw new ValidationError("You cannot change your own role");
+	async execute({ actorId, actorRole, targetId, role, ip = null }) {
+		const target = await this.userRepository.findById(targetId);
+		if (!target) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
+
+		if (actorRole !== USER_ROLE.SUPERADMIN) {
+			throw new ForbiddenError("Only a superadmin can change roles", USER_ERROR_CODES.CANNOT_MODIFY_SUPERADMIN);
 		}
 
-		// Validate role
-		const validRoles = ["customer", "staff", "superadmin"];
-		if (!validRoles.includes(newRole)) {
-			throw new ValidationError("Invalid role provided");
-		}
+		const updated = await this.userRepository.update(targetId, { role });
 
-		// Find user
-		const user = await this.userRepository.findById(userId);
-		if (!user) {
-			throw new ValidationError("User not found");
-		}
-
-		const oldRole = user.role;
-
-		// Update role
-		const updatedUser = await this.userRepository.update(user.id, {
-			role: newRole,
-			permissions: ROLE_PERMISSIONS[newRole] || []
-		});
-
-		// Audit log
 		if (this.auditService) {
 			await this.auditService.log({
-				actorId: actor.id,
-				action: "UPDATE_USER_ROLE",
-				targetId: updatedUser.id,
-				meta: { oldRole, newRole }
-			});
+				actorId, action: "USER_ROLE_UPDATED", resource: "User",
+				metadata: { targetId, fromRole: target.role, toRole: role, ip }
+			}).catch((err) => console.error("Audit log failed:", err.message));
 		}
 
-		return updatedUser;
+		return updated;
 	}
 }

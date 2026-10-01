@@ -1,329 +1,159 @@
+import { SUBSCRIPTION_STATUSES, SUBSCRIPTION_STATUS_LIST, RENEWAL_STRATEGIES, MIKROTIK_SYNC_STATUSES } from "./subscription.enum.js";
+import { ValidationError } from "../../../shared/errors/domain.errors.js";
+
 export class Subscription {
 	constructor({
-		id,
-		accountId,
-		planId,
-		userId,
-		planSnapshot = {},
-		status = "pending",
-		cycles = 1,
-		totalAmount = 0,
-		startsAt = null,
-		expiresAt = null,
-		activatedAt = null,
-		expiredAt = null,
-		bonusDays = 0,
-		manualAdjustmentDays = 0,
-		suspendedAt = null,
-		totalSuspendedDuration = 0,
-		suspensionReason = null,
-		renewalStrategy = "manual",
-		autoRenewEnabled = false,
-		defaultPaymentChannel = null,
-		billingAuthorization = null,
-		authorizationReusable = false,
-		lastRenewedAt = null,
-		nextRenewalDate = null,
-		canceledAt = null,
-		cancellationReason = null,
-		lastPaymentId = null,
-		lastPaymentDate = null,
-		lastPaymentAmount = null,
-		graceEndsAt = null,
-
-		remindersSent = [],
-		currentPeriodStart = null,
-		currentPeriodEnd = null,
-		mikrotikStatus = "pending",
-		mikrotikLastSyncAt = null,
-		mikrotikError = null,
-		events = []
+		id, accountId, userId, planId,
+		status = SUBSCRIPTION_STATUSES.PENDING,
+		planSnapshot,
+		cycles = 1, totalAmount,
+		startsAt = null, expiresAt = null, graceEndsAt = null, activatedAt = null, expiredAt = null,
+		currentPeriodStart = null, currentPeriodEnd = null,
+		renewalStrategy = RENEWAL_STRATEGIES.MANUAL, autoRenewEnabled = false, nextRenewalDate = null, lastRenewedAt = null,
+		lastPaymentId = null, lastPaymentDate = null, lastPaymentAmount = null,
+		suspendedAt = null, totalSuspendedDuration = 0, suspensionReason = null,
+		canceledAt = null, cancellationReason = null,
+		bonusDays = 0, manualAdjustmentDays = 0,
+		mikrotikStatus = MIKROTIK_SYNC_STATUSES.PENDING, mikrotikLastSyncAt = null, mikrotikError = null,
+		remindersSent = [], events = [],
+		createdAt = null, updatedAt = null
 	}) {
-		this.id = id;
-		this.accountId = accountId;
-		this.planId = planId;
-		this.userId = userId;
+		if (!accountId) throw new ValidationError("Account ID is required");
+		if (!userId) throw new ValidationError("User ID is required");
+		if (!planId) throw new ValidationError("Plan ID is required");
+		if (!planSnapshot) throw new ValidationError("Plan snapshot is required");
+		if (!SUBSCRIPTION_STATUS_LIST.includes(status)) throw new ValidationError("Invalid subscription status");
+		if (totalAmount == null || totalAmount < 0) throw new ValidationError("Invalid total amount");
+		if (cycles < 1) throw new ValidationError("Cycles must be at least 1");
 
-		this.planSnapshot = planSnapshot;
-
-		this.status = status;
-		this.cycles = cycles;
-		this.totalAmount = totalAmount;
-
-		this.startsAt = startsAt ? new Date(startsAt) : null;
-		this.expiresAt = expiresAt ? new Date(expiresAt) : null;
-		this.activatedAt = activatedAt ? new Date(activatedAt) : null;
-		this.expiredAt = expiredAt ? new Date(expiredAt) : null;
-
-		this.bonusDays = bonusDays;
-		this.manualAdjustmentDays = manualAdjustmentDays;
-
-		this.suspendedAt = suspendedAt ? new Date(suspendedAt) : null;
-		this.totalSuspendedDuration = totalSuspendedDuration;
-		this.suspensionReason = suspensionReason;
-
-		this.renewalStrategy = renewalStrategy;
-		this.autoRenewEnabled = autoRenewEnabled;
-
-		this.defaultPaymentChannel = defaultPaymentChannel;
-		this.billingAuthorization = billingAuthorization;
-		this.authorizationReusable = authorizationReusable;
-
-		this.lastRenewedAt = lastRenewedAt ? new Date(lastRenewedAt) : null;
-		this.nextRenewalDate = nextRenewalDate ? new Date(nextRenewalDate) : null;
-
-		this.canceledAt = canceledAt ? new Date(canceledAt) : null;
-		this.cancellationReason = cancellationReason;
-
-		this.lastPaymentId = lastPaymentId;
-		this.lastPaymentDate = lastPaymentDate ? new Date(lastPaymentDate) : null;
-		this.lastPaymentAmount = lastPaymentAmount;
-
-		this.graceEndsAt = graceEndsAt ? new Date(graceEndsAt) : null;
-		this.currentPeriodStart = currentPeriodStart ? new Date(currentPeriodStart) : null;
-		this.currentPeriodEnd = currentPeriodEnd ? new Date(currentPeriodEnd) : null;
-
-		
-
-		this.mikrotikStatus = mikrotikStatus;
-		this.mikrotikLastSyncAt = mikrotikLastSyncAt ? new Date(mikrotikLastSyncAt) : null;
-		this.mikrotikError = mikrotikError;
-
-		this.remindersSent = remindersSent;
-		this.events = [...events];
-		
-	}
-
-	// =========================
-	// TIME / STATE SEPARATION
-	// =========================
-
-	/**
-	 * PURE TIME CHECK
-	 */
-	isPastExpiry() {
-		return this.expiresAt && new Date() > this.expiresAt;
-	}
-
-	/**
-	 * STATE CHECK (SOURCE OF TRUTH)
-	 */
-	isExpired() {
-		return this.status === "expired";
-	}
-
-	isSuspended() {
-		return this.status === "suspended";
-	}
-
-	isCanceled() {
-		return this.status === "canceled";
-	}
-
-	isActive() {
-		return (
-			this.status === "active" &&
-			!this.isSuspended() &&
-			!this.isExpired() &&
-			(!this.expiresAt || new Date() <= this.expiresAt)
-		);
-	}
-
-	isInGracePeriod() {
-		if (!this.expiresAt) return false;
-
-		const graceDays = this.planSnapshot?.gracePeriodDays || 0;
-
-		const graceEnd = new Date(
-			this.expiresAt.getTime() + graceDays * 86400000
-		);
-
-		return this.isPastExpiry() && new Date() <= graceEnd;
-	}
-
-	hasAccess() {
-		return this.isActive() || this.isInGracePeriod();
-	}
-
-	// =========================
-	// IDENTITY / IDENTITY SAFETY
-	// =========================
-
-	/**
-	 * SAFE GUARD:
-	 * prevents double processing in workers/cron
-	 */
-	isAlreadyFinalized() {
-		return this.status === "expired" || this.status === "canceled";
-	}
-
-	// =========================
-	// LIFECYCLE METHODS
-	// =========================
-
-	activate() {
-		this.status = "active";
-
-		if (!this.activatedAt) {
-			this.activatedAt = new Date();
-		}
-
-		this.addEvent("activated");
-	}
-
-	suspend(reason) {
-		if (this.isSuspended()) return;
-
-		this.status = "suspended";
-		this.suspendedAt = new Date();
-		this.suspensionReason = reason;
-
-		this.addEvent("suspended", { reason });
-	}
-
-	resume() {
-		if (!this.suspendedAt) return;
-
-		const duration = Date.now() - this.suspendedAt.getTime();
-
-		this.totalSuspendedDuration += duration;
-
-		this.suspendedAt = null;
-		this.suspensionReason = null;
-
-		if (this.expiresAt && !this.isExpired()) {
-			this.expiresAt = new Date(this.expiresAt.getTime() + duration);
-		}
-
-		this.status = "active";
-
-		this.addEvent("resumed", { duration });
-	}
-
-	cancel(reason) {
-		if (this.isCanceled()) return;
-
-		this.status = "canceled";
-		this.canceledAt = new Date();
-		this.cancellationReason = reason;
-
-		this.addEvent("canceled", { reason });
-	}
-
-	/**
-	 * IDEMPOTENT EXPIRY
-	 */
-	expire() {
-		if (this.isExpired()) return; // 👈 IMPORTANT GUARD
-
-		this.status = "expired";
-		this.expiredAt = new Date();
-
-		this.addEvent("expired");
-	}
-
-	renew({
-		newExpiresAt,
-		paymentId = null,
-		amount = 0,
-		cycles = 1,
-		metadata = {}
-	}) {
-		const now = new Date();
-
-		if (!this.startsAt) {
-			this.startsAt = now;
-		}
-
-		this.expiresAt = new Date(newExpiresAt);
-
-		this.status = "active";
-		this.expiredAt = null;
-
-		this.canceledAt = null;
-		this.cancellationReason = null;
-
-		this.lastRenewedAt = now;
-		this.cycles += cycles;
-
-		this.lastPaymentId = paymentId;
-		this.lastPaymentDate = now;
-		this.lastPaymentAmount = amount;
-
-		this.addEvent("renewed", {
-			newExpiresAt,
-			amount,
-			cycles,
-			...metadata
+		Object.assign(this, {
+			id, accountId, userId, planId, status, planSnapshot, cycles, totalAmount,
+			startsAt, expiresAt, graceEndsAt, activatedAt, expiredAt, currentPeriodStart, currentPeriodEnd,
+			renewalStrategy, autoRenewEnabled, nextRenewalDate, lastRenewedAt,
+			lastPaymentId, lastPaymentDate, lastPaymentAmount,
+			suspendedAt, totalSuspendedDuration, suspensionReason,
+			canceledAt, cancellationReason, bonusDays, manualAdjustmentDays,
+			mikrotikStatus, mikrotikLastSyncAt, mikrotikError,
+			remindersSent, events, createdAt, updatedAt
 		});
 	}
 
-	// =========================
-	// MIKROTIK SYNC
-	// =========================
+	_recordEvent(type, metadata = {}) {
+		this.events.push({ type, date: new Date(), metadata });
+	}
 
-	upgrade({
-		newPlan,
-		newExpiresAt,
-		paymentId,
-		remainingDays
-	}) {
-		const previousPlan = this.planSnapshot?.name;
+	_durationMs() {
+		const { durationValue, durationUnit } = this.planSnapshot;
+		const unitMs = { minutes: 60000, hours: 3600000, days: 86400000, months: 30 * 86400000 }[durationUnit];
+		return durationValue * unitMs;
+	}
 
-		this.planId = newPlan.id;
+	activate({ paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
+		const now = new Date();
+		const bonusMs = (this.bonusDays + this.manualAdjustmentDays) * 86400000;
 
-		this.planSnapshot = {
-			name: newPlan.name,
-			serviceType: newPlan.serviceType,
-			price: newPlan.price,
-			durationValue: newPlan.durationValue,
-			durationUnit: newPlan.durationUnit,
-			speedRate: newPlan.speedRate,
-			mikrotikProfile: newPlan.mikrotikProfile,
-			devicesAllowed: newPlan.devicesAllowed,
-			gracePeriodDays: newPlan.gracePeriodDays
-		};
-
-		this.expiresAt = new Date(newExpiresAt);
-
-		this.status = "active";
-		this.expiredAt = null;
-
-		this.lastRenewedAt = new Date();
+		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+		this.startsAt = this.startsAt || now;
+		this.activatedAt = now;
+		this.currentPeriodStart = now;
+		this.expiresAt = new Date(now.getTime() + this._durationMs() + bonusMs);
+		this.currentPeriodEnd = this.expiresAt;
+		this.graceEndsAt = this.planSnapshot.gracePeriodDays
+			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
+			: null;
 
 		if (paymentId) {
 			this.lastPaymentId = paymentId;
+			this.lastPaymentDate = paymentDate;
+			this.lastPaymentAmount = paymentAmount;
 		}
 
-		this.addEvent("upgraded", {
-			from: previousPlan,
-			to: newPlan.name,
-			remainingDays,
-			newExpiresAt
-		});
+		this._recordEvent("activated", { bonusDays: this.bonusDays });
 	}
 
-	markSynced() {
-		this.mikrotikStatus = "synced";
+	renew({ bonusDays = 0, paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
+		const now = new Date();
+		const base = this.isExpired() ? now : new Date(this.expiresAt);
+		const bonusMs = bonusDays * 86400000;
+
+		this.bonusDays = bonusDays;
+		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+		this.currentPeriodStart = base;
+		this.expiresAt = new Date(base.getTime() + this._durationMs() + bonusMs);
+		this.currentPeriodEnd = this.expiresAt;
+		this.graceEndsAt = this.planSnapshot.gracePeriodDays
+			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
+			: null;
+		this.lastRenewedAt = now;
+		this.cycles += 1;
+
+		if (paymentId) {
+			this.lastPaymentId = paymentId;
+			this.lastPaymentDate = paymentDate;
+			this.lastPaymentAmount = paymentAmount;
+		}
+
+		this._recordEvent("renewed", { cycle: this.cycles, bonusDays });
+	}
+
+	suspend(reason = null) {
+		this.status = SUBSCRIPTION_STATUSES.SUSPENDED;
+		this.suspendedAt = new Date();
+		this.suspensionReason = reason;
+		this._recordEvent("suspended", { reason });
+	}
+
+	resume() {
+		if (this.suspendedAt) this.totalSuspendedDuration += Date.now() - new Date(this.suspendedAt).getTime();
+		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+		this.suspendedAt = null;
+		this.suspensionReason = null;
+		this._recordEvent("resumed");
+	}
+
+	expire() {
+		this.status = SUBSCRIPTION_STATUSES.EXPIRED;
+		this.expiredAt = new Date();
+		this._recordEvent("expired");
+	}
+
+	cancel(reason = null) {
+		this.status = SUBSCRIPTION_STATUSES.CANCELED;
+		this.canceledAt = new Date();
+		this.cancellationReason = reason;
+		this.autoRenewEnabled = false;
+		this._recordEvent("canceled", { reason });
+	}
+
+	markMikrotikSynced() {
+		this.mikrotikStatus = MIKROTIK_SYNC_STATUSES.SYNCED;
 		this.mikrotikLastSyncAt = new Date();
 		this.mikrotikError = null;
 	}
 
-	markSyncFailed(error) {
-		this.mikrotikStatus = "failed";
+	markMikrotikFailed(error) {
+		this.mikrotikStatus = MIKROTIK_SYNC_STATUSES.FAILED;
 		this.mikrotikError = error;
-		this.mikrotikLastSyncAt = new Date();
 	}
 
-	// =========================
-	// EVENTS
-	// =========================
-
-	addEvent(type, metadata = {}) {
-		this.events.push({
-			type,
-			date: new Date(),
-			metadata
-		});
+	isActive() {
+		return this.status === SUBSCRIPTION_STATUSES.ACTIVE && this.expiresAt && new Date() < new Date(this.expiresAt);
 	}
+
+	isInGracePeriod() {
+		return this.status === SUBSCRIPTION_STATUSES.ACTIVE && this.graceEndsAt
+			&& new Date() >= new Date(this.expiresAt) && new Date() < new Date(this.graceEndsAt);
+	}
+
+	isExpired() {
+		return this.status === SUBSCRIPTION_STATUSES.EXPIRED
+			|| (this.expiresAt && new Date() >= new Date(this.graceEndsAt || this.expiresAt));
+	}
+
+	getRemainingSeconds() {
+		if (!this.expiresAt) return 0;
+		return Math.max(0, Math.floor((new Date(this.expiresAt).getTime() - Date.now()) / 1000));
+	}
+
+	toJSON() { return { ...this }; }
 }

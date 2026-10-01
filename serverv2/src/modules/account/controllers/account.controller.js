@@ -1,92 +1,36 @@
 import { successResponse } from "../../../shared/utils/api-response.js";
 
 export class AccountController {
-	constructor({
-		requestAccount,
-		getMyAccount,
-		getMyAccounts,
-		updateMyAccount
-	}) {
-		this.requestAccountUseCase = requestAccount;
+	constructor({ getMyAccount, getMyAccounts, requestAccount, addDevice, removeDevice }) {
 		this.getMyAccountUseCase = getMyAccount;
 		this.getMyAccountsUseCase = getMyAccounts;
-		this.updateMyAccountUseCase = updateMyAccount;
+		this.requestAccountUseCase = requestAccount;
+		this.addDeviceUseCase = addDevice;
+		this.removeDeviceUseCase = removeDevice;
 	}
 
-	request = async (req, res, next) => {
-		try {
-			const account =
-				await this.requestAccountUseCase.execute(
-					req.user,
-					req.body,
-					{
-						ip: req.ip,
-						userAgent: req.headers["user-agent"]
-					}
-				);
-
-			return successResponse({
-				res,
-				statusCode: 201,
-				message: "Account request submitted successfully",
-				data: account
-			});
-		} catch (error) {
-			next(error);
-		}
+	getMyAccount = async (req, res) => {
+		const account = await this.getMyAccountUseCase.execute({ userId: req.user.id, accountId: req.params.id });
+		return successResponse({ res, data: account.toJSON(), message: "Account fetched successfully" });
 	};
 
-	getMyAccounts = async (req, res, next) => {
-		try {
-			const accounts =
-				await this.getMyAccountsUseCase.execute(
-					req.user.id
-				);
-
-			return successResponse({
-				res,
-				message: "Accounts fetched successfully",
-				data: accounts
-			});
-		} catch (error) {
-			next(error);
-		}
+	getMyAccounts = async (req, res) => {
+		const accounts = await this.getMyAccountsUseCase.execute({ userId: req.user.id });
+		return successResponse({ res, data: accounts.map((a) => a.toJSON()), message: "Accounts fetched successfully" });
 	};
 
-	getMyAccount = async (req, res, next) => {
-		try {
-			const account =
-				await this.getMyAccountUseCase.execute(
-					req.user.id,
-					req.params.accountId
-				);
-
-			return successResponse({
-				res,
-				message: "Account fetched successfully",
-				data: account
-			});
-		} catch (error) {
-			next(error);
-		}
+	requestAccount = async (req, res) => {
+		const account = await this.requestAccountUseCase.execute({ userId: req.user.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: account.toJSON(), message: "Account request submitted successfully", statusCode: 201 });
 	};
 
-	updateMyAccount = async (req, res, next) => {
-		try {
-			const account =
-				await this.updateMyAccountUseCase.execute(
-					req.user.id,
-					req.params.accountId,
-					req.body
-				);
+	addDevice = async (req, res) => {
+		const account = await this.addDeviceUseCase.execute({ userId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: account.toJSON(), message: "Device added successfully" });
+	};
 
-			return successResponse({
-				res,
-				message: "Account updated successfully",
-				data: account
-			});
-		} catch (error) {
-			next(error);
-		}
+	removeDevice = async (req, res) => {
+		const account = await this.removeDeviceUseCase.execute({ userId: req.user.id, accountId: req.params.id, macAddress: req.params.mac, ip: req.ip });
+		return successResponse({ res, data: account.toJSON(), message: "Device removed successfully" });
 	};
 }

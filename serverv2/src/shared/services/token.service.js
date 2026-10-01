@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { TokenExpiredError, TokenInvalidError } from "../errors/domain-errors.js";
+import { TokenExpiredError, TokenInvalidError } from "../errors/domain.errors.js";
 
 export class TokenService {
 	constructor() {
@@ -18,6 +18,17 @@ export class TokenService {
 			sub: user.id || user._id,
 			role: user.role,
 			email: user.email
+		};
+
+		return jwt.sign(payload, this.secret, { expiresIn: this.accessExpiresIn });
+	}
+
+	generateAccessToken(user, extraClaims = {}) {
+		const payload = {
+			sub: user.id || user._id,
+			role: user.role,
+			email: user.email,
+			...extraClaims
 		};
 
 		return jwt.sign(payload, this.secret, { expiresIn: this.accessExpiresIn });

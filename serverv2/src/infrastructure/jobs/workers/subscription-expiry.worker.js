@@ -1,11 +1,12 @@
 import { Worker } from "bullmq";
 import { connection } from "../connection.js";
 import { container } from "../../../container/index.js";
+import { attachWorkerLifecycleLogging } from "../worker-events.js";
 
 
 export function createSubscriptionExpiryWorker() {
 
-	return new Worker(
+	const worker = new Worker(
 		"subscription-expiry",
 		async () => {
 
@@ -14,9 +15,8 @@ export function createSubscriptionExpiryWorker() {
 			);
 
 
-			const {
-				expireSubscriptions
-			} = container.cradle;
+			const expireSubscriptions =
+				container.resolve("expireSubscriptions");
 
 
 			const result =
@@ -32,4 +32,14 @@ export function createSubscriptionExpiryWorker() {
 			concurrency: 1
 		}
 	);
+
+
+	attachWorkerLifecycleLogging(
+		worker,
+		"subscription-expiry",
+		{ notifyOnFailure: true }
+	);
+
+
+	return worker;
 }

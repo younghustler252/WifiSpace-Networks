@@ -1,74 +1,48 @@
 export class MikrotikManager {
-	constructor({
-		accountRepository,
-		routerRepository,
-		hotspotService,
-		pppoeService
-	}) {
+	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, routerProvisioningRepository }) {
 		this.accountRepository = accountRepository;
 		this.routerRepository = routerRepository;
 		this.hotspotService = hotspotService;
 		this.pppoeService = pppoeService;
+		this.routerProvisioningRepository = routerProvisioningRepository;
 	}
 
-	// CHANGED: was `async provision({ subscription, metadata = {} })` — an
-	// object-destructured single argument. NetworkService.activate() calls
-	// this with TWO positional arguments (subscription, metadata), which
-	// silently made `subscription` undefined inside this function — the
-	// actual root cause of "Cannot read properties of undefined (reading
-	// 'accountId')". Every method below now takes plain positional args,
-	// consistently.
 	async provision(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription);
+		const { account, router } = await this.loadContext(subscription, metadata);
 
-		// NEW: refresh account-owned router config from the CURRENT
-		// subscription's plan before provisioning, instead of trusting
-		// whatever's already stored on the account. Accounts created before
-		// HotspotCheckoutFlow correctly set routerProfile at creation time
-		// (or created through a since-removed path) can be stuck on the
-		// schema default ("default") forever, since nothing was refreshing
-		// it — which is exactly what "input does not match any value of
-		// profile" means: RouterOS rejecting a profile name that was never
-		// real. This is the same sync that used to happen in the pre-rewrite
-		// ActivateHotspotAccess, lost when MikrotikManager was simplified.
 		const planSnapshot = subscription.planSnapshot || {};
 		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
 			account.routerProfile = planSnapshot.mikrotikProfile;
 			await this.accountRepository.update(account.id, account);
 		}
 
-		const service = this.getService(account); // CHANGED: was getService(subscription)
-
+		const service = this.getService(account);
 		const exists = await service.userExists(router, account.wsnId);
 
 		if (!exists) {
 			await service.createUser(router, account);
-			// NEW: RouterOS can have a brief lag between creating a hotspot
-			// user and that user actually being queryable — calling login()
-			// immediately afterward may be racing the router's own commit.
-			// This is a hypothesis for the "first activation attempt fails,
-			// retry succeeds" pattern — worth testing. If this doesn't fix
-			// it, the delay/cause is elsewhere and this can come back out.
 			await this._waitForUser(service, router, account.wsnId);
 		} else {
 			await service.updateUser(router, account);
 			await service.resumeUser(router, account.wsnId);
 		}
 
-		// CHANGED: was service.provisionAccess(router, {...}) — that method
-		// doesn't exist on HotspotService (checked: createUser, updateUser,
-		// changePassword, suspendUser, resumeUser, disconnectUser, bindMac,
-		// setUserMac, login, getProfiles, getUser, userExists,
-		// getActiveSession(s), findHost, findMacBinding — no provisionAccess).
-		// login() is RouterOS's /ip/hotspot/active/login — this is what
-		// actually makes the device auto-connect without the user re-typing
-		// credentials on the portal page, matching what "provisionAccess"
-		// was clearly meant to do.
 		const loginResult = await service.login(router, {
 			username: account.wsnId,
 			password: account.routerPassword,
 			ipAddress: metadata.ipAddress
 		});
+
+		// NEW: for hotspot accounts, record which router this account is now
+		// live on — supports "which accounts are on Router X" queries later
+		// (capacity, downtime notification) without scanning session data.
+		if (account.serviceType === "hotspot") {
+			await this.routerProvisioningRepository.markSynced({
+				accountId: account.id,
+				subscriptionId: subscription.id,
+				routerId: router.id
+			});
+		}
 
 		return { autoConnected: true, method: "login", data: loginResult };
 	}
@@ -136,26 +110,31 @@ export class MikrotikManager {
 		return this.resolveService(serviceType).getActiveSessions(router);
 	}
 
-	async loadContext(subscription) {
-		const account = await this.accountRepository.findById(subscription.accountId);
-		if (!account) throw new Error("Account not found");
+	// MikrotikManager — updated loadContext + provision signature
+async loadContext(subscription, metadata = {}) {
+	const account = await this.accountRepository.findById(subscription.accountId);
+	if (!account) throw new Error("Account not found");
 
+	let router;
+
+	if (account.serviceType === "hotspot") {
+		// Hotspot accounts carry no fixed router — the router comes from
+		// whichever physical device the customer is currently connecting
+		// through, resolved upstream (captive portal redirect) and passed
+		// in via metadata.routerId.
+		if (!metadata.routerId) throw new Error("Router ID is required in metadata for hotspot provisioning");
+		router = await this.routerRepository.findById(metadata.routerId);
+	} else {
 		if (!account.routerId) throw new Error("Account has no router assigned");
-
-		const router = await this.routerRepository.findById(account.routerId);
-		if (!router) throw new Error("Router not found");
-
-		return { account, router };
+		router = await this.routerRepository.findById(account.routerId);
 	}
 
-	// CHANGED: was getService(subscription), reading
-	// subscription.planSnapshot?.serviceType. Reads account.serviceType now —
-	// the account is already loaded by loadContext() before this is called,
-	// and it's the more durable source: it exists before any subscription
-	// does, and CreateSubscriptionUseCase validates a purchased plan's
-	// serviceType matches it, so the two can't drift apart silently. See
-	// earlier discussion in this conversation for the full reasoning.
-	getService(account) {
+	if (!router) throw new Error("Router not found");
+	return { account, router };
+}
+
+	async provision(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
 		return this.resolveService(account.serviceType);
 	}
 

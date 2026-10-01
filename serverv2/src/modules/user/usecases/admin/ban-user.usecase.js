@@ -1,66 +1,34 @@
-// modules/user/usecases/admin/ban-user.usecase.js
-
-import { UnauthorizedError } from "../../../../shared/errors/unauthorized-error.js";
-import { ValidationError } from "../../../../shared/errors/validation-error.js";
+import { NotFoundError, ForbiddenError } from "../../../../shared/errors/domain.errors.js";
+import { USER_ERROR_CODES } from "../../domain/user.enum.js";
+import { USER_ROLE } from "../../domain/user.enum.js";
 
 export class BanUser {
-	constructor({userRepository, permissionService, auditService}) {
+	constructor({ userRepository, auditService }) {
 		this.userRepository = userRepository;
-		this.permissionService = permissionService;
 		this.auditService = auditService;
 	}
 
-	/**
-	 * Execute ban user
-	 * @param {object} actor - The admin performing the action
-	 * @param {string} userId - The user to ban
-	 * @returns {string} - Ban status
-	 */
-	async execute(actor, userId) {
-		// ----------------------------
-		// 1️⃣ Check actor permission
-		// ----------------------------
-		const canBan = await this.permissionService.hasPermission(
-			actor.id,
-			"user:ban_user"
-		);
-
-		if (!canBan) {
-			throw new UnauthorizedError("You do not have permission to ban a user", "FORBIDDEN");
+	async execute({ actorId, actorRole, targetId, reason = null, ip = null }) {
+		if (actorId === targetId) {
+			throw new ForbiddenError("You cannot ban your own account", USER_ERROR_CODES.CANNOT_BAN_SELF);
 		}
 
-		// ----------------------------
-		// 2️⃣ Find the user to ban
-		// ----------------------------
-		const user = await this.userRepository.findById(userId);
+		const target = await this.userRepository.findById(targetId);
+		if (!target) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
 
-		if (!user) {
-			throw new ValidationError("User not found");
+		if (target.role === USER_ROLE.SUPERADMIN && actorRole !== USER_ROLE.SUPERADMIN) {
+			throw new ForbiddenError("Only a superadmin can ban a superadmin", USER_ERROR_CODES.CANNOT_MODIFY_SUPERADMIN);
 		}
 
-		// ----------------------------
-		// 3️⃣ Ban the user
-		// ----------------------------
-		user.ban(); // Using the ban method from the User entity
+		target.ban();
+		const updated = await this.userRepository.update(targetId, { status: target.status });
 
-		// Save updated user
-		const updatedUser = await this.userRepository.update(user.id, { status: "banned" });
-
-		// ----------------------------
-		// 4️⃣ Audit logging
-		// ----------------------------
 		if (this.auditService) {
 			await this.auditService.log({
-				actorId: actor.id,
-				action: "BAN_USER",
-				targetId: updatedUser.id,
-				meta: { email: updatedUser.email, status: "banned" }
-			});
+				actorId, action: "USER_BANNED", resource: "User", metadata: { targetId, reason, ip }
+			}).catch((err) => console.error("Audit log failed:", err.message));
 		}
 
-		// ----------------------------
-		// 5️⃣ Return success message
-		// ----------------------------
-		return "User banned successfully";
+		return updated;
 	}
 }

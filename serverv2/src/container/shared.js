@@ -1,15 +1,16 @@
-import { asClass } from "awilix";
+import { asClass, asFunction, asValue } from "awilix";
 
-import { AuditService } from "../shared/services/audit.service.js";
-import { PasswordService } from "../shared/services/password.service.js";
-import { PermissionService } from "../shared/services/permission.service.js";
-import { CloudinaryService } from "../shared/services/cloudinary.service.js";
+import { CloudinaryProvider } from "../infrastructure/storage/providers/cloudinary.provider.js";
 import { TokenService } from "../shared/services/token.service.js";
-import { MailService } from "../infrastructure/mail/services/mail.service.js";
-import { FileStorageService } from "../shared/services/file-storage.service.js";
+import { MailService } from "../infrastructure/mail/providers/mail.service.js";
+import { TokenBlacklistService } from "../shared/services/token-blacklist.service.js";
+import { PasswordService } from "../shared/services/password.service.js";
 
-import { PaystackGateway } from "../infrastructure/payments/paystack.gateway.js";
-import { PaymentGatewayRegistry } from "../infrastructure/payments/paystack.gateway.register.js";
+import { authenticateFactory } from "../infrastructure/middleware/auth.middleware.js";
+
+import { connection as redisClient } from "../infrastructure/jobs/connection.js";
+import { PaystackProvider } from "../infrastructure/payments/providers/paystack.provider.js";
+import { PaymentGatewayRegistry } from "../infrastructure/payments/payment-gateway.registry.js";
 
 import { MikrotikClient } from "../infrastructure/networking/mikrotik/mikrotik.client.js";
 import { MikrotikManager } from "../infrastructure/networking/mikrotik/mikrotik.manager.js";
@@ -17,81 +18,34 @@ import { MikrotikManager } from "../infrastructure/networking/mikrotik/mikrotik.
 import { HotspotService } from "../infrastructure/networking/mikrotik/services/hotspot.service.js";
 import { PppoeService } from "../infrastructure/networking/mikrotik/services/pppoe.service.js";
 import { RouterService } from "../infrastructure/networking/mikrotik/services/router.service.js";
-
-import { BaseRepository } from "../infrastructure/repositories/base.repository.js";
-
+import { CredentialCipherService } from "../infrastructure/security/credential-cipher.service.js";
+// ...
 import TrackAnalytics from "../modules/analytics/usecases/track-analytics.js";
-
 import AnalyticsRepositoryMongo from "../modules/analytics/infrastructure/repositories/analytics.repository.mongo.js";
-import { AuditRepositoryMongo } from "../modules/audit/infrastructure/repositories/audit.repository.mongo.js";
-
 
 export function registerShared(container) {
-
 	container.register({
+		redisClient: asValue(redisClient),
 
-		auditRepository:
-			asClass(AuditRepositoryMongo).singleton(),
+		passwordService: asClass(PasswordService).singleton(),
+		fileStorageService: asClass(CloudinaryProvider).singleton(),
+		tokenService: asClass(TokenService).singleton(),
+		tokenBlacklistService: asClass(TokenBlacklistService).singleton(),
+		mailService: asClass(MailService).singleton(),
+		credentialCipherService: asClass(CredentialCipherService).singleton(),
 
-		auditService:
-			asClass(AuditService).singleton(),
+		authenticate: asFunction(authenticateFactory).singleton(),
+		
+		analyticsRepository: asClass(AnalyticsRepositoryMongo).singleton(),
+		analyticsTracker: asClass(TrackAnalytics).singleton(),
+		
+		paystackProvider: asClass(PaystackProvider).singleton(),
+		paymentGatewayRegistry: asClass(PaymentGatewayRegistry).singleton(),
 
-		passwordService:
-			asClass(PasswordService).singleton(),
-
-		permissionService:
-			asClass(PermissionService).singleton(),
-
-		cloudinaryService:
-			asClass(CloudinaryService).singleton(),
-
-		tokenService:
-			asClass(TokenService).singleton(),
-
-		mailService:
-			asClass(MailService).singleton(),
-
-		fileStorageService:
-			asClass(FileStorageService).singleton(),
-
-
-		analyticsRepository:
-			asClass(AnalyticsRepositoryMongo).singleton(),
-
-		analyticsTracker:
-			asClass(TrackAnalytics).singleton(),
-
-
-		// Payments
-
-		paystackGateway:
-			asClass(PaystackGateway).singleton(),
-
-		paymentGatewayRegistry:
-			asClass(PaymentGatewayRegistry).singleton(),
-
-
-		// MikroTik Infrastructure
-
-		mikrotikClient:
-			asClass(MikrotikClient).singleton(),
-
-		hotspotService:
-			asClass(HotspotService).singleton(),
-
-		pppoeService:
-			asClass(PppoeService).singleton(),
-
-		routerService:
-			asClass(RouterService).singleton(),
-
-		mikrotikManager:
-			asClass(MikrotikManager).singleton(),
-
-
-		// Base
-
-		baseRepository:
-			asClass(BaseRepository).singleton()
+		mikrotikClient: asClass(MikrotikClient).singleton(),
+		hotspotService: asClass(HotspotService).singleton(),
+		pppoeService: asClass(PppoeService).singleton(),
+		routerService: asClass(RouterService).singleton(),
+		mikrotikManager: asClass(MikrotikManager).singleton()
 	});
 }

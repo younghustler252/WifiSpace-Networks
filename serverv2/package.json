@@ -6,9 +6,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
+    "start:worker": "node src/worker.js",
     "dev": "nodemon",
+    "dev:worker": "nodemon src/worker.js",
     "migrate": "node src/migrations/runner.js",
-    "script": "node src/scripts/sync-legacy-router.js",
     "postinstall": "patch-package"
   },
   "imports": {
@@ -26,6 +27,7 @@
     "bull": "^4.16.5",
     "bullmq": "^5.76.4",
     "cloudinary": "^2.9.0",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
@@ -40,7 +42,8 @@
     "node-cron": "^4.2.1",
     "node-routeros": "^1.6.8",
     "nodemailer": "^8.0.4",
-    "p-queue": "^9.1.0"
+    "p-queue": "^9.1.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

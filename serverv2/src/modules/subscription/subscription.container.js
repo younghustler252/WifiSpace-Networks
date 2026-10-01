@@ -1,184 +1,44 @@
-// ======================================================
-// subscription.container.js
-// FULL AWILIX VERSION
-// ======================================================
-
 import { asClass } from "awilix";
+import { SubscriptionRepositoryMongo } from "./repositories/subscription.repository.mongo.js";
 
-/*
-|--------------------------------------------------------------------------
-| REPOSITORY
-|--------------------------------------------------------------------------
-*/
-import { SubscriptionRepositoryMongo } from "./infrastructure/repositories/subscription.respository.mongo.js";
+import { Subscribe } from "./usecases/user/subscribe.usecase.js";
+import { GetMySubscriptions } from "./usecases/user/get-my-subscriptions.usecase.js";
 
-/*
-|--------------------------------------------------------------------------
-| CONTROLLERS
-|--------------------------------------------------------------------------
-*/
-import { SubscriptionController }
-	from "./presentation/controllers/subscription.controller.js";
+import { AdminCreateSubscription } from "./usecases/admin/create-subscription.usecase.js";
+import { GetAllSubscriptions } from "./usecases/admin/get-all-subscriptions.usecase.js";
+import { GetSubscriptionById } from "./usecases/admin/get-subscription-by-id.usecase.js";
+import { AdminSuspendSubscription } from "./usecases/admin/suspend-subscription.usecase.js";
+import { AdminResumeSubscription } from "./usecases/admin/resume-subscription.usecase.js";
+import { CancelSubscription } from "./usecases/admin/cancel-subscription.usecase.js";
+import { ExtendSubscription } from "./usecases/admin/extend-subscription.usecase.js";
+import { ForceExpireSubscription } from "./usecases/admin/force-expire-subscription.usecase.js";
+import { ExpireSubscriptions } from "./usecases/system/expire-subscriptions.usecase.js";
+import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.usecase.js";
+// ...
 
-import { SubscriptionAdminController }
-	from "./presentation/controllers/admin.controller.js";
+import { SubscriptionController } from "./controllers/subscription.controller.js";
+import { AdminController } from "./controllers/admin.controller.js";
 
-
-import { SubscriptionService } from "./services/subscription.service.js";
-/*
-|--------------------------------------------------------------------------
-| USE CASES - ACCOUNT
-|--------------------------------------------------------------------------
-*/
-import { CreateSubscriptionUseCase }
-	from "./usecases/account/create-subscription.js";
-
-import { RenewSubscriptionUseCase }
-	from "./usecases/account/renew-subscription.js";
-
-import { UpgradeSubscriptionUseCase }
-	from "./usecases/account/upgrade-subscription.js";
-
-/*
-|--------------------------------------------------------------------------
-| USE CASES - ADMIN
-|--------------------------------------------------------------------------
-*/
-import { AdminCreateSubscriptionUseCase }
-	from "./usecases/admin/create-subscription.js";
-
-import { AdminRenewSubscriptionUseCase }
-	from "./usecases/admin/renew-subscription.js";
-
-import { ExtendSubscriptionUseCase }
-	from "./usecases/admin/extend-subscription.js";
-
-import { CancelSubscriptionUseCase }
-	from "./usecases/admin/cancel-subscription.js";
-
-import { ResumeSubscriptionUseCase }
-	from "./usecases/admin/resume-subscription.js";
-
-import { SuspendSubscriptionUseCase } 
-	from "./usecases/admin/suspend-subscription.js";
-
-import { ChangePlanUseCase } from "./usecases/admin/change-plan.js";
-
-import { ForceExpireSubscriptionUseCase } from "./usecases/admin/force-expire-subscription.js";
-
-import { GetSubscriptionUseCase } from "./usecases/shared/get-subscription.js";
-import { GetCurrentSubscriptionUseCase } from "./usecases/shared/get-current-subscription.js";
-import { GetAllSubscriptionsUseCase } from "./usecases/shared/get-all-subscriptions.js";
-import { GetAccountSubscriptionsUseCase } from "./usecases/shared/get-account-subscriptions.js";
-
-import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.js";
-/*
-|--------------------------------------------------------------------------
-| SYSTEM USE CASES
-|--------------------------------------------------------------------------
-*/
-import { ExpireSubscriptionsUseCase } from "./usecases/system/expire-subscriptions.js";
-
-/*
-|--------------------------------------------------------------------------
-| REGISTER MODULE
-|--------------------------------------------------------------------------
-*/
 export function registerSubscription(container) {
-
 	container.register({
+		subscriptionRepository: asClass(SubscriptionRepositoryMongo).singleton(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| REPOSITORY
-		|--------------------------------------------------------------------------
-		*/
-		subscriptionRepository:
-			asClass(SubscriptionRepositoryMongo).singleton(),
+		subscribe: asClass(Subscribe).scoped(),
+		getMySubscriptions: asClass(GetMySubscriptions).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| ACCOUNT USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		createSubscription:
-			asClass(CreateSubscriptionUseCase).scoped(),
+		adminCreateSubscription: asClass(AdminCreateSubscription).scoped(),
+		getAllSubscriptions: asClass(GetAllSubscriptions).scoped(),
+		getSubscriptionById: asClass(GetSubscriptionById).scoped(),
+		adminSuspendSubscription: asClass(AdminSuspendSubscription).scoped(),
+		adminResumeSubscription: asClass(AdminResumeSubscription).scoped(),
+		cancelSubscription: asClass(CancelSubscription).scoped(),
+		extendSubscription: asClass(ExtendSubscription).scoped(),
+		forceExpireSubscription: asClass(ForceExpireSubscription).scoped(),
 
-		renewSubscription:
-			asClass(RenewSubscriptionUseCase).scoped(),
-
-		upgradeSubscription:
-			asClass(UpgradeSubscriptionUseCase).scoped(),
-
-		/*
-		|--------------------------------------------------------------------------
-		| ADMIN USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		adminCreateSubscription:
-			asClass(AdminCreateSubscriptionUseCase).scoped(),
-
-		adminRenewSubscription:
-			asClass(AdminRenewSubscriptionUseCase).scoped(),
-
-		extendSubscription:
-			asClass(ExtendSubscriptionUseCase).scoped(),
-
-		cancelSubscription:
-			asClass(CancelSubscriptionUseCase).scoped(),
-
-		resumeSubscription:
-			asClass(ResumeSubscriptionUseCase).scoped(),
-
-		suspendSubscription:
-			asClass(SuspendSubscriptionUseCase).scoped(),
-
-		changePlan:
-			asClass(ChangePlanUseCase).scoped(),
-
-
-		forceExpireSubscription:
-			asClass(ForceExpireSubscriptionUseCase).scoped(),
-		
-
-		/*
-		|--------------------------------------------------------------------------
-		| SHARED QUERY USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		getSubscription:
-			asClass(GetSubscriptionUseCase).scoped(),
-
-		getCurrentSubscription:
-			asClass(GetCurrentSubscriptionUseCase).scoped(),
-
-		getAllSubscriptions:
-			asClass(GetAllSubscriptionsUseCase).scoped(),
-
-		getAccountSubscriptions:
-			asClass(GetAccountSubscriptionsUseCase).scoped(),
-			
-		/*
-		|--------------------------------------------------------------------------
-		| SYSTEM USE CASES
-		|--------------------------------------------------------------------------
-		*/
-		expireSubscriptions:
-			asClass(ExpireSubscriptionsUseCase).scoped(),
+		expireSubscriptions: asClass(ExpireSubscriptions).scoped(),
 		sendSubscriptionReminder: asClass(SendSubscriptionReminder).scoped(),
 
-		/*
-		|--------------------------------------------------------------------------
-		| CONTROLLERS (IMPORTANT FOR FULL AWILIX FLOW)
-		|--------------------------------------------------------------------------
-		*/
-		subscriptionController:
-			asClass(SubscriptionController).scoped(),
-
-		subscriptionAdminController:
-			asClass(SubscriptionAdminController).scoped(),
-
-
-		subscriptionService: asClass(SubscriptionService).scoped()
+		subscriptionController: asClass(SubscriptionController).scoped(),
+		adminController: asClass(AdminController).scoped()
 	});
 }

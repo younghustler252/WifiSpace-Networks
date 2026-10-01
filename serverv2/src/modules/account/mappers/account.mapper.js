@@ -1,104 +1,75 @@
 import { Account } from "../domain/account.entity.js";
+import { PppoeAccount } from "../domain/pppoe-account.entity.js";
+import { HotspotAccount } from "../domain/hotspot-account.entity.js";
+import { SERVICE_TYPES } from "../domain/account.enum.js";
 
 export class AccountMapper {
-
 	static toDomain(raw) {
 		if (!raw) return null;
 
-		const user = raw.userId;
-		const isUserPopulated = user && typeof user === "object" && user._id;
-
-		const approver = raw.approvedBy;
-		const isApproverPopulated = approver && typeof approver === "object" && approver._id;
-
-		return new Account({
-			id: raw._id?.toString(),
-
-			userId: isUserPopulated ? user._id.toString() : user?.toString(),
-			user: isUserPopulated
-				? {
-					id: user._id.toString(),
-					firstName: user.firstName,
-					lastName: user.lastName,
-					email: user.email,
-					avatar: user.avatar,
-				}
-				: null,
-
+		const base = {
+			id: raw._id?.toString() || raw.id,
+			userId: raw.userId?._id?.toString() || raw.userId?.toString(),
+			user: raw.userId && typeof raw.userId === "object" ? raw.userId : null,
 			accountType: raw.accountType,
-
-			businessName: raw.businessName ?? null,
-			companyRegistrationNumber: raw.companyRegistrationNumber ?? null,
-			taxId: raw.taxId ?? null,
-
+			businessName: raw.businessName,
+			companyRegistrationNumber: raw.companyRegistrationNumber,
+			taxId: raw.taxId,
 			wsnId: raw.wsnId,
-			routerPassword: raw.routerPassword,
-
-			routerId: raw.routerId,
-			routerProfile: raw.routerProfile,
-
-			devices: Array.isArray(raw.devices)
-				? raw.devices.map(d => ({
-					macAddress: d.macAddress?.toUpperCase(),
-					hostname: d.hostname ?? null,
-					lastSeenAt: d.lastSeenAt ?? null
-				}))
-				: [],
-
-			serviceType: raw.serviceType,
-
+			status: raw.status,
 			approvalStatus: raw.approvalStatus,
-			approvalNote: raw.approvalNote ?? null,
-			approvedAt: raw.approvedAt ?? null,
-			approvedBy: isApproverPopulated ? approver._id.toString() : approver?.toString() ?? null,
-			approver: isApproverPopulated
-				? {
-					id: approver._id.toString(),
-					firstName: approver.firstName,
-					lastName: approver.lastName,
-					email: approver.email,
-				}
-				: null,
-
-			limitUptime: raw.limitUptime,
-
+			approvalNote: raw.approvalNote,
+			approvedAt: raw.approvedAt,
+			approvedBy: raw.approvedBy?.toString(),
+			devices: raw.devices || [],
 			createdAt: raw.createdAt,
 			updatedAt: raw.updatedAt
-		});
+		};
+
+		if (raw.serviceType === SERVICE_TYPES.PPPOE) {
+			return new PppoeAccount({
+				...base,
+				routerId: raw.routerId?.toString(),
+				routerProfile: raw.routerProfile,
+				routerPassword: raw.routerPassword ?? null,
+				limitUptime: raw.limitUptime
+			});
+		}
+
+		if (raw.serviceType === SERVICE_TYPES.HOTSPOT) {
+			return new HotspotAccount({ ...base, maxDevices: raw.maxDevices });
+		}
+
+		return new Account(base);
 	}
 
 	static toPersistence(account) {
-		return {
+		const data = {
 			userId: account.userId,
-
 			accountType: account.accountType,
-
-			businessName: account.businessName ?? null,
-			companyRegistrationNumber: account.companyRegistrationNumber ?? null,
-			taxId: account.taxId ?? null,
-
+			businessName: account.businessName,
+			companyRegistrationNumber: account.companyRegistrationNumber,
+			taxId: account.taxId,
 			wsnId: account.wsnId,
-			routerPassword: account.routerPassword,
-
-			routerId: account.routerId,
-			routerProfile: account.routerProfile,
-
-			devices: Array.isArray(account.devices)
-				? account.devices.map(d => ({
-					macAddress: d.macAddress?.toUpperCase(),
-					hostname: d.hostname ?? null,
-					lastSeenAt: d.lastSeenAt ?? null
-				}))
-				: [],
-
-			serviceType: account.serviceType,
-
+			status: account.status,
 			approvalStatus: account.approvalStatus,
 			approvalNote: account.approvalNote,
 			approvedAt: account.approvedAt,
 			approvedBy: account.approvedBy,
-
-			limitUptime: account.limitUptime,
+			devices: account.devices
 		};
+
+		if (account.serviceType === SERVICE_TYPES.PPPOE) {
+			data.routerId = account.routerId;
+			data.routerProfile = account.routerProfile;
+			data.limitUptime = account.limitUptime;
+			if (account.routerPassword) data.routerPassword = account.routerPassword;
+		}
+
+		if (account.serviceType === SERVICE_TYPES.HOTSPOT) {
+			data.maxDevices = account.maxDevices;
+		}
+
+		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 	}
 }

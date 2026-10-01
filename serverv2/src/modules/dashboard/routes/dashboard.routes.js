@@ -1,28 +1,17 @@
+// modules/dashboard/routes/dashboard.routes.js
 import { Router } from "express";
 import asyncHandler from "express-async-handler";
-import { PERMISSION } from "../../../shared/constants/permissions.js";
-import { authMiddleware } from "../../../infrastructure/middleware/auth.middleware.js";
-import { requirePermission } from "../../../infrastructure/middleware/permission.middleware.js";
+import { container } from "../../../container/index.js";
+import { requireStaff, requireSuperAdmin } from "../../../infrastructure/middleware/rbac.middleware.js";
 
-export default function dashboardRoutes({
-    dashboardController,
-    userRepository,
-}) {
-    const router = Router();
+const router = Router();
 
-    const auth = authMiddleware({ userRepository });
+const authenticate = container.resolve("authenticate");
+const dashboardController = container.resolve("dashboardController");
 
-    router.get(
-        "/admin",
-        auth(),
-        dashboardController.getAdminDashboardHandler
-    );
+router.use(authenticate, requireStaff);
 
-    router.get(
-        "/staff",
-        auth(),
-        dashboardController.getStaffDashboardHandler
-    );
+router.get("/staff", asyncHandler(dashboardController.getStaffDashboard));
+router.get("/admin", requireSuperAdmin, asyncHandler(dashboardController.getAdminDashboard));
 
-    return router;
-}
+export default router;

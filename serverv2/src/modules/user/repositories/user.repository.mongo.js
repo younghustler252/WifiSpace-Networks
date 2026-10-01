@@ -1,8 +1,8 @@
-import UserModel from "../models/user.model.js";
-import { UserMapper } from "../../domain/user.mapper.js";
+import UserModel from "../database/user.model.js";
+import { UserMapper } from "../domain/user-mapper.js";
 import { BaseRepository } from "../../../infrastructure/repositories/base.repository.js";
 
-const AUTH_FIELDS = "+password +verificationOTP +otpExpiresAt +otpAttempts +otpLockedUntil +failedLoginAttempts +lockUntil";
+const AUTH_FIELDS = "+password +verificationOTP +otpExpiresAt +otpAttempts +otpLockedUntil +failedLoginAttempts +lockUntil +resetPasswordOTP +resetPasswordOTPExpiresAt +resetPasswordAttempts +resetPasswordOTPLockedUntil +lastResetPasswordOtpSentAt";
 
 export class UserRepositoryMongo extends BaseRepository {
 	constructor() {
