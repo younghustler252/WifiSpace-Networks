@@ -6,8 +6,16 @@ export const requestAccountSchema = z.object({
 	accountType: z.enum(ACCOUNT_TYPE_LIST).optional(),
 	businessName: z.string().optional(),
 	companyRegistrationNumber: z.string().optional(),
-	taxId: z.string().optional()
-});
+	taxId: z.string().optional(),
+	requestedLocation: z.object({
+		address: z.string().min(1),
+		landmark: z.string().optional(),
+		city: z.string().optional(),
+		state: z.string().optional(),
+		coordinates: z.object({ lat: z.number(), lng: z.number() }).optional()
+	}).optional()
+}).refine((d) => d.serviceType !== SERVICE_TYPES.PPPOE || d.requestedLocation, { message: "requestedLocation is required for PPPoE requests", path: ["requestedLocation"] });
+
 export const adminCreateAccountSchema = z.object({
 	userId: z.string().min(1),
 	serviceType: z.enum(SERVICE_TYPE_LIST),

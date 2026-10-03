@@ -1,6 +1,7 @@
 import { Check, Gauge, Smartphone } from "lucide-react";
-import { formatCurrency, formatDataLimit, formatDuration } from "@/lib/format";
+import { formatCurrency, formatDataLimit, formatDate, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { getPlanPricing } from "../lib/pricing";
 import type { Plan } from "../types/plans.types";
 
 interface PlanCardProps {
@@ -11,6 +12,9 @@ interface PlanCardProps {
 }
 
 export function PlanCard({ plan, selected, highlight, onSelect }: PlanCardProps) {
+	const pricing = getPlanPricing(plan);
+	const features = (plan.features ?? []).slice(0, 3);
+
 	return (
 		<button
 			type="button"
@@ -32,8 +36,21 @@ export function PlanCard({ plan, selected, highlight, onSelect }: PlanCardProps)
 			<div className="flex items-start justify-between gap-4">
 				<div className="space-y-1">
 					<p className="text-sm text-muted-foreground">{plan.name}</p>
-					<p className="text-mono text-2xl font-semibold">{formatCurrency(plan.price)}</p>
+					<div className="flex flex-wrap items-baseline gap-x-2">
+						<p className="text-mono text-2xl font-semibold">{formatCurrency(pricing.final)}</p>
+						{pricing.hasDiscount && (
+							<p className="text-mono text-[13px] text-muted-foreground line-through">{formatCurrency(pricing.base)}</p>
+						)}
+					</div>
 					<p className="text-sm font-medium">{formatDuration(plan.durationValue, plan.durationUnit)}</p>
+					{pricing.hasDiscount && (
+						<p className="flex flex-wrap items-center gap-2 pt-0.5">
+							<span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-medium text-success">{pricing.label}</span>
+							{pricing.validUntil && (
+								<span className="text-[11px] text-muted-foreground">Ends {formatDate(pricing.validUntil)}</span>
+							)}
+						</p>
+					)}
 				</div>
 				<span
 					className={cn(
@@ -56,6 +73,17 @@ export function PlanCard({ plan, selected, highlight, onSelect }: PlanCardProps)
 					{plan.devicesAllowed} {plan.devicesAllowed === 1 ? "device" : "devices"}
 				</span>
 			</div>
+
+			{features.length > 0 && (
+				<ul className="mt-3 space-y-1 text-[12px] text-muted-foreground">
+					{features.map((feature) => (
+						<li key={feature} className="flex gap-1.5">
+							<Check className="mt-0.5 size-3 shrink-0 text-success" />
+							{feature}
+						</li>
+					))}
+				</ul>
+			)}
 		</button>
 	);
 }

@@ -1,4 +1,3 @@
-// src/modules/audit/domain/audit.repository.js
 export class AuditRepository {
 	/**
 	 * Persist an audit log
@@ -16,6 +15,18 @@ export class AuditRepository {
 	 * @param {number} limit
 	 */
 	async find(filter = {}, skip = 0, limit = 50) {
+		throw new Error("Not implemented");
+	}
+
+	/**
+	 * Fetch audit logs with pagination
+	 * @param {Object} options
+	 * @param {Object} options.filter
+	 * @param {number} options.page
+	 * @param {number} options.limit
+	 * @returns {Promise<{ data: Object[], meta: Object }>}
+	 */
+	async paginate({ filter = {}, page = 1, limit = 20 } = {}) {
 		throw new Error("Not implemented");
 	}
 }

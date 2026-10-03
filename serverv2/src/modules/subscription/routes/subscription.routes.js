@@ -12,7 +12,7 @@ const router = Router();
 
 const authenticate = container.resolve("authenticate");
 const subscriptionController = container.resolve("subscriptionController");
-const adminController = container.resolve("adminController");
+const adminController = container.resolve("subscriptionAdminController");
 
 router.use(authenticate);
 

@@ -9,7 +9,7 @@ export function formatCurrency(amount: number) {
 	}).format(amount);
 }
 
-const UNIT_DAYS: Record<string, number> = { hour: 1 / 24, day: 1, week: 7, month: 30 };
+const UNIT_DAYS: Record<string, number> = { minute: 1 / 1440, hour: 1 / 24, day: 1, week: 7, month: 30 };
 
 function normalizeUnit(unit: string) {
 	return unit.toLowerCase().replace(/s$/, "");
@@ -73,4 +73,10 @@ export function formatRelative(iso: string) {
 
 export function formatNumber(value: number) {
 	return new Intl.NumberFormat(company.currency.locale).format(value);
+}
+
+
+export function humanize(value: string) {
+	const text = value.replace(/_/g, " ");
+	return text.charAt(0).toUpperCase() + text.slice(1);
 }

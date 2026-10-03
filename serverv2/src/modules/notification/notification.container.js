@@ -5,8 +5,10 @@ import { NotificationRecipientRepositoryMongo } from "./repositories/notificatio
 
 import { EmailChannel } from "../../infrastructure/notifications/providers/email.channel.js";
 import { SmsChannel } from "../../infrastructure/notifications/providers/sms.channel.js";
+import { InAppChannel } from "../../infrastructure/notifications/providers/in-app.channel.js";
 import { WhatsAppChannel } from "../../infrastructure/notifications/providers/whatsapp.channel.js";
 import { NotificationChannelRegistry } from "../../infrastructure/notifications/channel.registry.js";
+import { AdminController } from "./controllers/admin.controller.js";
 
 import { CreateNotification } from "./usecases/admin/create-notification.usecase.js";
 import { GetAllNotifications } from "./usecases/admin/get-all-notifications.usecase.js";
@@ -25,6 +27,7 @@ export function registerNotifications(container) {
 		emailChannel: asClass(EmailChannel).singleton(),
 		smsChannel: asClass(SmsChannel).singleton(),
         whatsappChannel: asClass(WhatsAppChannel).singleton(),
+		inAppChannel: asClass(InAppChannel).singleton(),
 		channelRegistry: asClass(NotificationChannelRegistry).singleton(),
 
 		createNotification: asClass(CreateNotification).scoped(),
@@ -34,6 +37,7 @@ export function registerNotifications(container) {
 		dispatchNotifications: asClass(DispatchNotifications).scoped(),
 		sendSystemAlert: asClass(SendSystemAlert).scoped(),
 
-        notificationController: asClass(NotificationController).scoped()
+        notificationController: asClass(NotificationController).scoped(),
+		notificationAdminController: asClass(AdminController).scoped()
 	});
 }

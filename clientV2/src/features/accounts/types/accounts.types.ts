@@ -37,6 +37,8 @@ export interface OwnerInfo {
 export interface AdminAccount extends Account {
 	user?: OwnerInfo | null;
 	routerId?: string | null;
+	approvalNote?: string | null;
+	businessName?: string | null;
 }
 
 export interface AdminAccountListParams {

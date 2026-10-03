@@ -27,14 +27,14 @@ export class RefreshToken {
 		const accessToken = this.tokenService.generateAccessToken(user);
 		const newRefreshToken = this.tokenService.generateRefreshToken(user);
 
-		if (this.auditService) {
-			await this.auditService.log({
-				actorId: user.id,
-				action: "TOKEN_REFRESH",
-				resource: "User",
-				metadata: {}
-			}).catch((err) => console.error("Audit log failed:", err.message));
-		}
+		// if (this.auditService) {
+		// 	await this.auditService.log({
+		// 		actorId: user.id,
+		// 		action: "TOKEN_REFRESH",
+		// 		resource: "User",
+		// 		metadata: {}
+		// 	}).catch((err) => console.error("Audit log failed:", err.message));
+		// }
 
 		return { accessToken, refreshToken: newRefreshToken };
 	}

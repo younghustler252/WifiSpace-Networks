@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { authApi } from "../services/auth.api";
-import { SESSION_QUERY_KEY } from "../constants/auth.constants";
+import { SESSION_QUERY_KEY } from "../constants";
 import { unwrap } from "@/lib/api/unwrap";
 import { useAuthStore } from "@/stores/auth.store";
 import { useTheme } from "next-themes";

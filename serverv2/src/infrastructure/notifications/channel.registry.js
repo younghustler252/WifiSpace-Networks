@@ -4,8 +4,8 @@ import { NOTIFICATION_ERROR_CODES } from "../../modules/notification/domain/noti
 
 export class NotificationChannelRegistry {
         // registry
-    constructor({ emailChannel, smsChannel, whatsappChannel }) {
-        this.channels = { email: emailChannel, sms: smsChannel, whatsapp: whatsappChannel };
+    constructor({ emailChannel, smsChannel, whatsappChannel, inAppChannel }) {
+        this.channels = { email: emailChannel, sms: smsChannel, whatsapp: whatsappChannel, in_app: inAppChannel };
     }
     
 	get(channel) {

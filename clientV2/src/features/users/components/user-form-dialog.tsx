@@ -21,7 +21,7 @@ import {
 	editUserSchema,
 } from "../schemas/users.schemas";
 import type { AdminUpdateUserBody, UserProfile } from "../types/users.types";
-import { ERROR_CODES } from "@/types/error-codes";
+import { USER_ERROR_CODES } from "../constants";
 
 function CreateUserForm({ onDone }: { onDone: () => void }) {
 	const { create } = useAdminUserActions();
@@ -50,7 +50,7 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
 		});
 
 		if (!res.success) {
-			if (res.code === ERROR_CODES.EMAIL_ALREADY_IN_USE) {
+			if (res.code === USER_ERROR_CODES.EMAIL_ALREADY_IN_USE) {
 				setError("email", { message: "A user with this email already exists" });
 				return;
 			}

@@ -6,8 +6,9 @@ export class EmailChannel extends NotificationChannelInterface {
 		super();
 		this.mailService = mailService;
 	}
-	async send({ to, subject, message }) {
-		const result = await this.mailService.sendNotification({ to, subject, message });
+	// EmailChannel.send
+	async send({ to, name, subject, message }) {
+		const result = await this.mailService.sendNotification({ to, name, subject, message });
 		return { providerMessageId: result?.messageId ?? null, raw: result };
 	}
 }

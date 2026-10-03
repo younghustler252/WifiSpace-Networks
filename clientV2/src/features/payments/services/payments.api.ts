@@ -1,8 +1,30 @@
 import { API } from "@/lib/api/api-client";
-import type { InitPaymentBody, InitPaymentResult, Payment, VerifyPaymentResult } from "../types/payments.types";
+import { friendly } from "@/lib/api/friendly";
+import type { ApiResponse } from "@/types/api-response";
+import { PAYMENT_ERROR_MESSAGES } from "../constants";
+import type {
+	AdminPayment,
+	AdminPaymentListParams,
+	InitPaymentBody,
+	InitPaymentResult,
+	Payment,
+	RecordPaymentBody,
+	UpdatePaymentStatusBody,
+	VerifyPaymentResult,
+} from "../types/payments.types";
+
+const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res) => friendly(res, PAYMENT_ERROR_MESSAGES));
 
 export const paymentsApi = {
-	init: (body: InitPaymentBody) => API.post<InitPaymentResult>("/payments", body),
-	verify: (reference: string) => API.get<VerifyPaymentResult>(`/payments/verify/${encodeURIComponent(reference)}`),
-	listMine: (params: { page?: number; limit?: number }) => API.get<Payment[]>("/payments/me", { params }),
+	init: (body: InitPaymentBody) => withMessages(API.post<InitPaymentResult>("/payments", body)),
+	verify: (reference: string) => withMessages(API.get<VerifyPaymentResult>(`/payments/verify/${encodeURIComponent(reference)}`)),
+	listMine: (params: { page?: number; limit?: number }) => withMessages(API.get<Payment[]>("/payments/me", { params })),
+};
+
+const ADMIN = "/payments/admin";
+
+export const adminPaymentsApi = {
+	list: (params: AdminPaymentListParams) => withMessages(API.get<AdminPayment[]>(ADMIN, { params })),
+	record: (body: RecordPaymentBody) => withMessages(API.post<AdminPayment>(`${ADMIN}/record`, body)),
+	updateStatus: (id: string, body: UpdatePaymentStatusBody) => withMessages(API.patch<AdminPayment>(`${ADMIN}/${id}/status`, body)),
 };

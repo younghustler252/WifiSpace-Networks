@@ -56,10 +56,10 @@ export function useRemoveDevice(accountId: string) {
 		},
 	});
 }
-
-export function useAdminAccounts(params: AdminAccountListParams) {
+export function useAdminAccounts(params: AdminAccountListParams, enabled = true) {
 	return useQuery({
 		queryKey: [...ADMIN_ACCOUNTS_KEY, params],
+		enabled,
 		queryFn: async () => {
 			const res = unwrap(await adminAccountsApi.list({ limit: ADMIN_PAGE_SIZE, ...params }));
 			return { items: res.data, meta: res.meta };

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp";
 import { Button } from "@/components/ui/button";
 import { useCountdown } from "@/hooks/use-countdown";
-import { ERROR_CODES } from "@/types/error-codes";
+import { AUTH_ERROR_CODES } from "../constants";
 import { useCompleteAuth } from "../hooks/use-auth";
 import { authApi } from "../services/auth.api";
 
@@ -57,7 +57,7 @@ export function VerifyEmailForm() {
 		setResending(false);
 
 		if (!res.success) {
-			if (res.code === ERROR_CODES.RESEND_COOLDOWN_ACTIVE) {
+			if (res.code === AUTH_ERROR_CODES.RESEND_COOLDOWN_ACTIVE) {
 				setNextResendAt(new Date(Date.now() + COOLDOWN_MS).toISOString());
 			}
 			toast.error(res.message);

@@ -10,6 +10,7 @@ export function pickCurrentSubscription(subscriptions: Subscription[] | undefine
 }
 
 export function getSubscriptionPhase(subscription: Subscription | null, now = Date.now()): SubscriptionPhase {
+	if (subscription?.status === "pending") return "none";
 	if (!subscription || !subscription.expiresAt) return "none";
 	if (subscription.status === "suspended") return "suspended";
 	if (subscription.status === "canceled") return "canceled";
@@ -21,4 +22,25 @@ export function getSubscriptionPhase(subscription: Subscription | null, now = Da
 export function listAccountSubscriptions(subscriptions: Subscription[] | undefined, accountId: string) {
 	const time = (s: Subscription) => new Date(s.startsAt ?? s.createdAt).getTime();
 	return (subscriptions ?? []).filter((s) => s.accountId === accountId).sort((a, b) => time(b) - time(a));
+}
+
+export type SubscriptionAction = "usage" | "extend" | "renew" | "change-plan" | "suspend" | "resume" | "cancel" | "force-expire";
+
+export function getSubscriptionActions(subscription: Subscription): SubscriptionAction[] {
+	switch (getSubscriptionPhase(subscription)) {
+		case "active":
+			return ["usage", "extend", "renew", "change-plan", "suspend", "cancel", "force-expire"];
+		case "grace":
+			return ["usage", "extend", "renew", "cancel"];
+		case "expired":
+			return ["usage", "renew", "extend"];
+		case "suspended":
+			return ["usage", "resume", "cancel"];
+		default:
+			return ["usage"];
+	}
+}
+export function getDisplayStatus(subscription: Subscription) {
+	const phase = getSubscriptionPhase(subscription);
+	return phase === "none" ? subscription.status : phase;
 }

@@ -6,9 +6,12 @@ const TONES = {
 	danger: "border-destructive/30 bg-destructive/10 text-destructive",
 	info: "border-info/30 bg-info-soft text-info",
 	neutral: "border-border bg-muted text-muted-foreground",
+		
 } as const;
 
 type Tone = keyof typeof TONES;
+export type StatusTone = keyof typeof TONES;
+
 
 const STATUS_TONE: Record<string, Tone> = {
 	active: "success",
@@ -26,16 +29,26 @@ const STATUS_TONE: Record<string, Tone> = {
 	offline: "danger",
 	expired: "neutral",
 	canceled: "neutral",
+	queued: "warning",
+	processing: "info",
+	completed: "success",
+	sent: "success",
+	delivered: "success",
+	draft: "neutral",
+	cancelled: "neutral",
+	maintenance: "warning",
+	inactive: "neutral",
 };
 
 interface StatusBadgeProps {
-	status: string;
+	status?: string | null;
 	label?: string;
+	tone?: StatusTone;
 	className?: string;
 }
 
-export function StatusBadge({ status, label, className }: StatusBadgeProps) {
-	const tone = STATUS_TONE[status.toLowerCase()] ?? "neutral";
+export function StatusBadge({ status, label, tone: toneOverride, className }: StatusBadgeProps) {
+	const tone = toneOverride ?? STATUS_TONE[(status ?? "").toLowerCase()] ?? "neutral";
 
 	return (
 		<span

@@ -24,3 +24,43 @@ export interface Payment {
 	processedAt: string | null;
 	createdAt?: string;
 }
+
+
+export interface AdminPayment extends Omit<Payment, "amount"> {
+	amount: Payment["amount"] | number;
+	userId?: string;
+	accountId?: string;
+	subscriptionId?: string | null;
+	planId?: string;
+	actionType?: string;
+	cycles?: number;
+	currency?: string;
+	paymentChannel?: string | null;
+	businessProcessed?: boolean;
+	failedAt?: string | null;
+	failureReason?: string | null;
+	paymentDate?: string | null;
+	metadata?: Record<string, unknown> | null;
+}
+
+export interface AdminPaymentListParams {
+	status?: string;
+	search?: string;
+	page?: number;
+	limit?: number;
+}
+
+export interface RecordPaymentBody {
+	accountId: string;
+	planId: string;
+	cycles?: number;
+	paymentChannel?: string;
+	note?: string;
+}
+
+export type SettablePaymentStatus = "successful" | "failed" | "expired";
+
+export interface UpdatePaymentStatusBody {
+	status: SettablePaymentStatus;
+	reason?: string;
+}

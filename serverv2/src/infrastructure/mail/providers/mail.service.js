@@ -56,13 +56,12 @@ export class MailService {
 	 * @param {string} params.subject
 	 * @param {string} params.message
 	 */
-	async sendNotification({ to, name, subject, message }) {
-		const html = notificationTemplate({ name, subject, message });
-
+	async sendNotification({ to, name, subject, title, message }) {
+		const html = notificationTemplate({ name, title: title ?? subject, message });
 		return await this.client.send({
 			to,
-			subject,
-			html,
+			subject: subject ?? title,
+			html
 		});
 	}
 }

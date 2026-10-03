@@ -22,7 +22,8 @@ interface RequestCardProps {
 }
 
 function RequestCard({ account, onAction }: RequestCardProps) {
-	const { owner, isLoading } = useAccountOwner(account);
+	const { owner, isLoading } = useAccountOwner(account, { full: true });
+	const loading = "Loading…";
 
 	return (
 		<SectionCard
@@ -32,11 +33,11 @@ function RequestCard({ account, onAction }: RequestCardProps) {
 		>
 			<div className="space-y-4">
 				<div className="grid gap-3 sm:grid-cols-2">
-					<InfoTile label="Customer" value={isLoading ? "Loading…" : ownerName(owner) || "—"} mono={false} />
+					<InfoTile label="Customer" value={ownerName(owner) || "—"} mono={false} />
 					<InfoTile label="Type" value={<span className="capitalize">{account.accountType}</span>} mono={false} />
-					<InfoTile label="Phone" value={owner?.phone || "—"} />
+					<InfoTile label="Phone" value={isLoading ? loading : owner?.phone || "—"} />
 					<InfoTile label="Email" value={owner?.email || "—"} mono={false} />
-					<InfoTile label="Address" value={owner?.address || "—"} mono={false} className="sm:col-span-2" />
+					<InfoTile label="Address" value={isLoading ? loading : owner?.address || "—"} mono={false} className="sm:col-span-2" />
 				</div>
 				<div className="flex flex-wrap gap-3">
 					<Button onClick={() => onAction("approve")}>Approve…</Button>

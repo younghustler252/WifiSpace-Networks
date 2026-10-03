@@ -13,7 +13,15 @@ export class PlanController {
 	};
 
 	getPlanById = async (req, res) => {
-		const plan = await this.getPlanByIdUseCase.execute({ planId: req.params.id });
-		return successResponse({ res, data: plan.toJSON(), message: "Plan fetched successfully" });
-	};
+	console.log("GET PLAN BY ID:", req.params.id);
+
+	const plan = await this.getPlanByIdUseCase.execute({ planId: req.params.id });
+
+	return successResponse({
+		res,
+		data: plan.toJSON(),
+		message: "Plan fetched successfully"
+	});
+};
+
 }

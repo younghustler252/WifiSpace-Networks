@@ -1,12 +1,25 @@
 "use client";
 
-import { ClipboardCheck, LayoutDashboard, Network, Users } from "lucide-react";import { can, type Permission } from "@/lib/rbac";
+import {
+	CalendarClock,
+	ClipboardCheck,
+	CreditCard,
+	LayoutDashboard,
+	Megaphone,
+	Network,
+	Router as RouterIcon,
+	ScrollText,
+	Tag,
+	Users,
+} from "lucide-react";
+import { can, type Permission } from "@/lib/rbac";
 import { useAuthStore } from "@/stores/auth.store";
 import { AppShell, type NavGroup, type NavItem } from "./app-shell";
 
 interface AdminNavItem extends NavItem {
 	permission?: Permission;
 }
+
 const GROUPS: { label: string; items: AdminNavItem[] }[] = [
 	{
 		label: "Overview",
@@ -16,11 +29,23 @@ const GROUPS: { label: string; items: AdminNavItem[] }[] = [
 		label: "Manage",
 		items: [
 			{ href: "/admin/approvals", label: "Approvals", icon: ClipboardCheck, mobile: true },
-			{ href: "/admin/accounts", label: "Accounts", icon: Network, mobile: true },
-			{ href: "/admin/users", label: "Users", icon: Users, mobile: true },
+			{ href: "/admin/accounts", label: "Accounts", icon: Network },
+			{ href: "/admin/subscriptions", label: "Subscriptions", shortLabel: "Subs", icon: CalendarClock, mobile: true },
+			{ href: "/admin/payments", label: "Payments", icon: CreditCard, mobile: true },
+			{ href: "/admin/users", label: "Users", icon: Users },
+			{ href: "/admin/plans", label: "Plans", icon: Tag },
+		],
+	},
+	{
+		label: "System",
+		items: [
+			{ href: "/admin/routers", label: "Routers", icon: RouterIcon },
+			{ href: "/admin/notifications", label: "Broadcasts", icon: Megaphone },
+			{ href: "/admin/audit", label: "Audit log", icon: ScrollText },
 		],
 	},
 ];
+
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
 	const role = useAuthStore((s) => s.user?.role);

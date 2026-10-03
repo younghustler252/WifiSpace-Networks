@@ -10,6 +10,7 @@ import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ERROR_CODES } from "@/types/error-codes";
+import { USER_ERROR_CODES } from "@/features/users/constants";
 import { RegisterValues, registerSchema } from "../schemas/auth.schemas";
 import { authApi } from "../services/auth.api";
 
@@ -36,7 +37,7 @@ export function RegisterForm() {
 		});
 
 		if (!res.success) {
-			if (res.code === ERROR_CODES.CONFLICT || res.code === ERROR_CODES.EMAIL_ALREADY_IN_USE) {
+			if (res.code === ERROR_CODES.CONFLICT || res.code === USER_ERROR_CODES.EMAIL_ALREADY_IN_USE) {
 				setError("email", { message: "An account with this email already exists" });
 				return;
 			}

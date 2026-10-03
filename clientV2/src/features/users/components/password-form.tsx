@@ -9,7 +9,7 @@ import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { useChangePassword } from "../hooks/use-users";
 import { ChangePasswordValues, changePasswordSchema } from "../schemas/users.schemas";
-import { ERROR_CODES } from "@/types/error-codes";
+import { USER_ERROR_CODES } from "../constants";
 
 export function PasswordForm() {
 	const changePassword = useChangePassword();
@@ -32,11 +32,11 @@ export function PasswordForm() {
 		});
 
 		if (!res.success) {
-			if (res.code === ERROR_CODES.INVALID_OLD_PASSWORD) {
+			if (res.code === USER_ERROR_CODES.INVALID_OLD_PASSWORD) {
 				setError("oldPassword", { message: "Your current password is incorrect" });
 				return;
 			}
-			if (res.code === ERROR_CODES.WEAK_PASSWORD || res.code === ERROR_CODES.PASSWORD_SAME_AS_OLD) {
+			if (res.code === USER_ERROR_CODES.WEAK_PASSWORD || res.code === USER_ERROR_CODES.PASSWORD_SAME_AS_OLD) {
 				setError("newPassword", { message: res.message });
 				return;
 			}

@@ -39,6 +39,6 @@ export function registerSubscription(container) {
 		sendSubscriptionReminder: asClass(SendSubscriptionReminder).scoped(),
 
 		subscriptionController: asClass(SubscriptionController).scoped(),
-		adminController: asClass(AdminController).scoped()
+		subscriptionAdminController: asClass(AdminController).scoped()
 	});
 }

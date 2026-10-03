@@ -12,7 +12,6 @@ export class Router {
 		lastSeenAt = null, lastProvisionSyncAt = null,
 		connectionType = CONNECTION_TYPES.DIRECT, connectorId = null,
 		maxSessions = 0, currentSessions = 0,
-		agentLastSeenAt = null, agentStatus = "offline",
 		routerOsVersion = null, routerBoard = null, systemIdentity = null,
 		priority = 1, isDefaultRouter = false,
 		deletedAt = null, createdAt = null, updatedAt = null
@@ -22,27 +21,41 @@ export class Router {
 		if (!username) throw new ValidationError("Router username is required");
 		if (!ROUTER_STATUS_LIST.includes(status)) throw new ValidationError("Invalid router status");
 		if (!CONNECTION_TYPE_LIST.includes(connectionType)) throw new ValidationError("Invalid connection type");
-		if (supportedServices.some((s) => !SERVICE_TYPE_LIST.includes(s))) throw new ValidationError("Invalid service type in supportedServices");
+		if (supportedServices.some((s) => !SERVICE_TYPE_LIST.includes(s))) {
+			throw new ValidationError("Invalid service type in supportedServices");
+		}
 
 		Object.assign(this, {
 			id, name, code, host, port, username, password, ssl, routerUid,
 			supportedServices, location, siteCode, popName, status, lastError,
 			isEnabled, apiEnabled, lastSeenAt, lastProvisionSyncAt,
 			connectionType, connectorId, maxSessions, currentSessions,
-			agentLastSeenAt, agentStatus, routerOsVersion, routerBoard, systemIdentity,
+			routerOsVersion, routerBoard, systemIdentity,
 			priority, isDefaultRouter, deletedAt, createdAt, updatedAt
 		});
 	}
 
-	isOnline() { return this.status === ROUTER_STATUSES.ONLINE; }
-	isAtCapacity() { return this.maxSessions > 0 && this.currentSessions >= this.maxSessions; }
-	supports(serviceType) { return this.supportedServices.includes(serviceType); }
-	isDeleted() { return this.deletedAt !== null; }
+	isOnline() {
+		return this.status === ROUTER_STATUSES.ONLINE;
+	}
+
+	isAtCapacity() {
+		return this.maxSessions > 0 && this.currentSessions >= this.maxSessions;
+	}
+
+	supports(serviceType) {
+		return this.supportedServices.includes(serviceType);
+	}
+
+	isDeleted() {
+		return this.deletedAt !== null;
+	}
 
 	markOnline(info = {}) {
 		this.status = ROUTER_STATUSES.ONLINE;
 		this.lastError = null;
 		this.lastSeenAt = new Date();
+
 		if (info.identity) this.systemIdentity = info.identity;
 		if (info.version) this.routerOsVersion = info.version;
 		if (info.board) this.routerBoard = info.board;

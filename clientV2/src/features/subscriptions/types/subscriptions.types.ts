@@ -25,4 +25,28 @@ export interface Subscription {
 	autoRenewEnabled: boolean;
 	mikrotikStatus?: string;
 	createdAt: string;
+
+	// add inside interface Subscription
+	userId?: string;
+	activatedAt?: string | null;
+	suspendedAt?: string | null;
+	suspensionReason?: string | null;
+	canceledAt?: string | null;
+	cancellationReason?: string | null;
+	manualAdjustmentDays?: number;
+	mikrotikError?: string | null;
+}
+
+
+export interface AdminSubscriptionListParams {
+	status?: string;
+	page?: number;
+	limit?: number;
+}
+
+export interface AdminCreateSubscriptionBody {
+	accountId: string;
+	planId: string;
+	cycles?: number;
+	activateImmediately?: boolean;
 }

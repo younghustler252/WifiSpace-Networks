@@ -1,4 +1,6 @@
 import { Payment } from "../domain/payment.entity.js";
+import { PAYMENT_CHANNEL_LIST } from "../domain/payment.enum.js";
+
 
 const FIELDS = [
 	"userId", "accountId", "subscriptionId", "planId", "actionType", "amount", "cycles", "currency",
@@ -7,10 +9,12 @@ const FIELDS = [
 ];
 
 export class PaymentMapper {
+	
 	static toDomain(raw) {
 		if (!raw) return null;
 		const data = { id: raw._id?.toString() || raw.id };
 		for (const f of FIELDS) data[f] = raw[f];
+		data.paymentChannel = PAYMENT_CHANNEL_LIST.includes(raw.paymentChannel) ? raw.paymentChannel : null;
 		data.accountId = raw.accountId?._id?.toString() || raw.accountId?.toString();
 		data.account = raw.accountId && typeof raw.accountId === "object" ? raw.accountId : null;
 		data.planId = raw.planId?._id?.toString() || raw.planId?.toString();

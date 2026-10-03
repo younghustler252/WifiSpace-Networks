@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlanCard } from "@/features/plans/components/plan-card";
 import type { Plan } from "@/features/plans/types/plans.types";
+import { getPlanPricing } from "@/features/plans/lib/pricing";
 import { durationInDays, formatCurrency } from "@/lib/format";
 import { useHotspotPlans } from "../hooks/use-hotspot";
 import { readRememberedEmail, rememberEmail } from "../lib/remembered-email";
@@ -171,7 +172,7 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 				<div className="sticky bottom-0 -mx-4 border-t bg-background/90 px-4 py-3 backdrop-blur">
 					<Button size="lg" className="w-full" disabled={!selected || busy} onClick={handlePay}>
 						{busy && <Loader2 className="animate-spin" />}
-						{selected ? `Pay ${formatCurrency(selected.price)}` : "Select a plan"}
+						{selected ? `Pay ${formatCurrency(getPlanPricing(selected).final)}` : "Select a plan"}
 					</Button>
 					{isNewDevice && (
 						<p className="mt-3 text-center text-[13px] text-muted-foreground">

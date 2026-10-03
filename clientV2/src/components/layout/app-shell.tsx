@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import { Menu, type LucideIcon } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "./user-menu";
 
@@ -33,16 +35,27 @@ interface AppShellProps {
 
 export function AppShell({ home, groups, headerStart, headerEnd, sidebarFooter, contentClassName, children }: AppShellProps) {
 	const pathname = usePathname();
-	const mobileItems = groups.flatMap((g) => g.items).filter((item) => item.mobile);
+	const [moreOpen, setMoreOpen] = useState(false);
+
+	const allItems = groups.flatMap((g) => g.items);
+	const barItems = allItems.filter((item) => item.mobile);
+	const hiddenItems = allItems.filter((item) => !item.mobile);
+	const showMore = hiddenItems.length >= 2;
+
 	const isActive = (item: NavItem) =>
 		[item.href, ...(item.also ?? [])].some((base) => pathname === base || pathname.startsWith(`${base}/`));
+	const moreActive = hiddenItems.some(isActive);
+
+	useEffect(() => {
+		setMoreOpen(false);
+	}, [pathname]);
 
 	return (
 		<div className="min-h-svh bg-background text-foreground lg:grid lg:grid-cols-[15rem_1fr]">
 			<aside className="sticky top-0 hidden h-svh flex-col border-r bg-sidebar lg:flex">
 				<div className="flex h-14 items-center border-b border-sidebar-border px-4">
 					<Link href={home}>
-						<Logo />
+						<Logo variant="fiberlink" />
 					</Link>
 				</div>
 
@@ -97,7 +110,7 @@ export function AppShell({ home, groups, headerStart, headerEnd, sidebarFooter, 
 				</main>
 
 				<nav className="fixed inset-x-0 bottom-0 z-30 grid grid-flow-col auto-cols-fr border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
-					{mobileItems.map((item) => (
+					{barItems.map((item) => (
 						<Link
 							key={item.href}
 							href={item.href}
@@ -110,7 +123,52 @@ export function AppShell({ home, groups, headerStart, headerEnd, sidebarFooter, 
 							{item.shortLabel ?? item.label}
 						</Link>
 					))}
+					{showMore && (
+						<button
+							type="button"
+							onClick={() => setMoreOpen(true)}
+							className={cn(
+								"flex flex-col items-center gap-1 py-2.5 text-[11px] font-medium",
+								moreActive ? "text-signal" : "text-muted-foreground"
+							)}
+						>
+							<Menu className="size-5" />
+							More
+						</button>
+					)}
 				</nav>
+
+				<Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+					<SheetContent side="bottom" className="max-h-[80svh] overflow-y-auto rounded-t-2xl">
+						<SheetHeader>
+							<SheetTitle>Menu</SheetTitle>
+							<SheetDescription className="sr-only">Go to another section</SheetDescription>
+						</SheetHeader>
+						<div className="space-y-5 px-4 pb-6">
+							{groups.map((group) => (
+								<div key={group.label}>
+									<div className="pb-2 text-[10px] uppercase tracking-[0.18em] text-muted-foreground">{group.label}</div>
+									<ul className="space-y-0.5">
+										{group.items.map((item) => (
+											<li key={item.href}>
+												<Link
+													href={item.href}
+													className={cn(
+														"flex items-center gap-3 rounded-md px-2 py-2.5 text-[14px]",
+														isActive(item) ? "bg-accent text-accent-foreground" : "hover:bg-muted"
+													)}
+												>
+													<item.icon className="size-4" />
+													{item.label}
+												</Link>
+											</li>
+										))}
+									</ul>
+								</div>
+							))}
+						</div>
+					</SheetContent>
+				</Sheet>
 			</div>
 		</div>
 	);

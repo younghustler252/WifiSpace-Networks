@@ -9,6 +9,8 @@ import { ProcessSuccessfulPayment } from "./usecases/system/process-successful-p
 import { HandleWebhook } from "./usecases/system/handle-webhook.usecase.js";
 import { ExpirePendingPayments } from "./usecases/system/expire-pending-payments.usecase.js";
 
+import { RecordPayment } from "./usecases/admin/record-payment.usecase.js";
+import {UpdatePaymentStatus } from "./usecases/admin/update-payment-status.usecase.js";
 import { GetAllPayments } from "./usecases/admin/get-all-payments.usecase.js";
 import { GetPaymentById } from "./usecases/admin/get-payment-by-id.usecase.js";
 
@@ -28,11 +30,13 @@ export function registerPayment(container) {
 		handleWebhook: asClass(HandleWebhook).scoped(),
 		expirePendingPayments: asClass(ExpirePendingPayments).scoped(),
 
+		recordPayment: asClass(RecordPayment).scoped(),
+		updatePaymentStatus: asClass(UpdatePaymentStatus).scoped(),
 		getAllPayments: asClass(GetAllPayments).scoped(),
 		getPaymentById: asClass(GetPaymentById).scoped(),
 
 		paymentController: asClass(PaymentController).scoped(),
 		webhookController: asClass(WebhookController).scoped(),
-		adminController: asClass(AdminController).scoped()
+		paymentAdminController: asClass(AdminController).scoped()
 	});
 }

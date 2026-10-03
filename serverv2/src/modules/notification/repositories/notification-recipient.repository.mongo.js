@@ -31,4 +31,8 @@ export class NotificationRecipientRepositoryMongo extends BaseRepository {
 		await this.model.findByIdAndUpdate(id, NotificationRecipientMapper.toPersistence(entityOrData), { new: true });
 		return this.findById(id);
 	}
+
+	async countPendingByNotification(notificationId) {
+		return this.model.countDocuments({ notificationId, status: { $in: ["PENDING", "QUEUED"] } });
+	}
 }

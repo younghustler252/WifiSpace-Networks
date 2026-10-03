@@ -10,7 +10,7 @@ import { Field } from "@/components/shared/field";
 import { PasswordInput } from "@/components/shared/password-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ERROR_CODES } from "@/types/error-codes";
+import { AUTH_ERROR_CODES } from "../constants";
 import { useCompleteAuth } from "../hooks/use-auth";
 import { LoginValues, loginSchema } from "../schemas/auth.schemas";
 import { authApi } from "../services/auth.api";
@@ -33,11 +33,11 @@ export function LoginForm() {
 		const res = await authApi.login(values);
 
 		if (!res.success) {
-			if (res.code === ERROR_CODES.ACCOUNT_NOT_VERIFIED) {
+			if (res.code === AUTH_ERROR_CODES.ACCOUNT_NOT_VERIFIED) {
 				router.push(`/verify-email?email=${encodeURIComponent(values.email)}`);
 				return;
 			}
-			if (res.code === ERROR_CODES.INVALID_CREDENTIALS) {
+			if (res.code === AUTH_ERROR_CODES.INVALID_CREDENTIALS) {
 				setError("password", { message: "Incorrect email or password" });
 				return;
 			}

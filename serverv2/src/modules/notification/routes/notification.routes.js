@@ -10,8 +10,7 @@ const router = Router();
 
 const authenticate = container.resolve("authenticate");
 const notificationController = container.resolve("notificationController");
-const adminController = container.resolve("adminController");
-
+const adminController = container.resolve("notificationAdminController");
 router.use(authenticate);
 
 router.get("/me", asyncHandler(notificationController.getMyNotifications));

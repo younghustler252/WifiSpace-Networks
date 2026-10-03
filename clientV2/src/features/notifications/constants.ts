@@ -20,5 +20,30 @@ export const NOTIFICATION_RECIPIENT_STATUS = {
 	FAILED: "FAILED",
 	CANCELLED: "CANCELLED",
 } as const;
+export const NOTIFICATION_CHANNEL_OPTIONS = [
+	{ value: "email", label: "Email" },
+	{ value: "sms", label: "SMS" },
+	{ value: "whatsapp", label: "WhatsApp" },
+	{ value: "push", label: "Push" },
+	{ value: "in_app", label: "In-app" },
+] as const;
+
+export const NOTIFICATION_PRIORITY_OPTIONS = [
+	{ value: "LOW", label: "Low" },
+	{ value: "NORMAL", label: "Normal" },
+	{ value: "HIGH", label: "High" },
+	{ value: "CRITICAL", label: "Critical" },
+] as const;
+
+export const COMPOSER_TYPE_OPTIONS = [
+	{ value: "admin_broadcast", label: "Announcement" },
+	{ value: "system_alert", label: "System alert" },
+] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[keyof typeof NOTIFICATION_TYPES];
+
+export const NOTIFICATION_ERROR_CODES = {
+	NOTIFICATION_NOT_FOUND: "NOTIFICATION_NOT_FOUND",
+	RECIPIENT_NOT_FOUND: "RECIPIENT_NOT_FOUND",
+	UNSUPPORTED_CHANNEL: "UNSUPPORTED_CHANNEL",
+} as const;

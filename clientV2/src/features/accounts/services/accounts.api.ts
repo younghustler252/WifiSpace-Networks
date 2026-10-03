@@ -1,4 +1,6 @@
 import { API } from "@/lib/api/api-client";
+import { friendly } from "@/lib/api/friendly";
+import { ROUTER_ERROR_MESSAGES } from "@/features/routers/constants";
 import type { Account, AdminAccount, AdminAccountListParams, RequestAccountBody } from "../types/accounts.types";
 
 export const accountsApi = {
@@ -15,10 +17,16 @@ const ADMIN = "/accounts/admin";
 
 export const adminAccountsApi = {
 	list: (params: AdminAccountListParams) => API.get<AdminAccount[]>(ADMIN, { params }),
-	approve: (id: string, body: { routerId?: string }) => API.patch<AdminAccount>(`${ADMIN}/${id}/approve`, body),
+	approve: (id: string, body: { routerId?: string }) =>
+		API.patch<AdminAccount>(`${ADMIN}/${id}/approve`, body).then((res) => friendly(res, ROUTER_ERROR_MESSAGES)),
+	
 	reject: (id: string, note: string) => API.patch<AdminAccount>(`${ADMIN}/${id}/reject`, { note }),
+	
 	suspend: (id: string) => API.patch<AdminAccount>(`${ADMIN}/${id}/suspend`),
+	
 	pause: (id: string, note?: string) => API.patch<AdminAccount>(`${ADMIN}/${id}/pause`, { note }),
+	
 	resume: (id: string) => API.patch<AdminAccount>(`${ADMIN}/${id}/resume`),
+	
 	terminate: (id: string, note?: string) => API.patch<AdminAccount>(`${ADMIN}/${id}/terminate`, { note }),
 };

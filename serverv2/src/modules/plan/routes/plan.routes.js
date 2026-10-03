@@ -10,11 +10,7 @@ const router = Router();
 
 const authenticate = container.resolve("authenticate");
 const planController = container.resolve("planController");
-const adminController = container.resolve("adminController");
-
-// Public catalog — no auth required, a prospective customer should be able to browse plans before signing up
-router.get("/", asyncHandler(planController.getPlans));
-router.get("/:id", asyncHandler(planController.getPlanById));
+const adminController = container.resolve("planAdminController");
 
 const adminRouter = Router();
 adminRouter.use(authenticate, requireStaff);
@@ -28,5 +24,9 @@ adminRouter.patch("/:id/activate", asyncHandler(adminController.activatePlan));
 adminRouter.patch("/:id/deactivate", asyncHandler(adminController.deactivatePlan));
 
 router.use("/admin", adminRouter);
+
+// Public catalog — no auth required, a prospective customer should be able to browse plans before signing up
+router.get("/", asyncHandler(planController.getPlans));
+router.get("/:id", asyncHandler(planController.getPlanById));
 
 export default router;

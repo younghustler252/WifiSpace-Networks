@@ -14,6 +14,7 @@ import { AvatarUploader } from "./avatar-uploader";
 import { PasswordForm } from "./password-form";
 import { ProfileForm } from "./profile-form";
 import { ThemePicker } from "./theme-picker";
+import { ActivityCard } from "@/features/audit/components/activity-card";
 
 export function ProfileView() {
 	const { data: profile, isLoading, isError, refetch } = useProfile();
@@ -74,6 +75,8 @@ export function ProfileView() {
 						<ThemePicker />
 					</SectionCard>
 				</div>
+
+				<ActivityCard />
 			</div>
 		</div>
 	);

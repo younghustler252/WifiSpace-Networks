@@ -15,35 +15,44 @@ interface DialogProps {
 	account: AdminAccount;
 	onClose: () => void;
 }
-
 function ApproveDialog({ account, onClose }: DialogProps) {
 	const { approve } = useAdminAccountActions();
 	const needsRouter = account.serviceType === "pppoe";
-	const routers = useRouters(needsRouter);
+	const routers = useRouters({ limit: 100 }, needsRouter);
 	const [routerId, setRouterId] = useState("");
+
+	const options = (routers.data?.items ?? [])
+		.filter((r) => r.isEnabled !== false && (r.supportedServices ?? []).includes(account.serviceType))
+		.sort((a, b) => Number(!!b.isDefaultRouter) - Number(!!a.isDefaultRouter));
+	const selected = options.find((r) => r.id === routerId);
 
 	function renderRouterPicker() {
 		if (routers.isLoading) return <Skeleton className="h-11 rounded-lg" />;
 		if (routers.isError) return <p className="text-sm text-destructive">We couldn&apos;t load routers. Close this and try again.</p>;
-		if (!routers.data || routers.data.length === 0) {
-			return <p className="text-sm text-muted-foreground">No routers found. Add a router before approving.</p>;
+		if (options.length === 0) {
+			return <p className="text-sm text-muted-foreground">No enabled router supports this service. Add or enable one before approving.</p>;
 		}
 
 		return (
-			<Select value={routerId} onValueChange={setRouterId}>
-				<SelectTrigger className="w-full" aria-label="Router">
-					<SelectValue placeholder="Select a router" />
-				</SelectTrigger>
-				<SelectContent>
-					{routers.data.map((router) => (
-						<SelectItem key={router.id} value={router.id}>
-							{router.name} · {router.code}
-							{router.location ? ` · ${router.location}` : ""}
-							{router.status === "offline" ? " (offline)" : ""}
-						</SelectItem>
-					))}
-				</SelectContent>
-			</Select>
+			<div className="space-y-2">
+				<Select value={routerId} onValueChange={setRouterId}>
+					<SelectTrigger className="w-full" aria-label="Router">
+						<SelectValue placeholder="Select a router" />
+					</SelectTrigger>
+					<SelectContent>
+						{options.map((router) => (
+							<SelectItem key={router.id} value={router.id}>
+								{router.name} · {router.code}
+								{router.isDefaultRouter ? " (default)" : ""}
+								{router.status === "offline" ? " · offline" : ""}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				{selected?.status === "offline" && (
+					<p className="text-[12px] text-warning">This router is currently offline, so provisioning may be delayed.</p>
+				)}
+			</div>
 		);
 	}
 
@@ -60,7 +69,7 @@ function ApproveDialog({ account, onClose }: DialogProps) {
 			confirmLabel="Approve"
 			confirmDisabled={needsRouter && !routerId}
 			onConfirm={async () => {
-				const res = await approve.mutateAsync({ id: account.id, routerId: routerId || undefined });
+				const res = await approve.mutateAsync({ id: account.id, routerId: needsRouter ? routerId : undefined });
 				if (!res.success) {
 					toast.error(res.message);
 					return false;
@@ -72,7 +81,6 @@ function ApproveDialog({ account, onClose }: DialogProps) {
 		</ConfirmDialog>
 	);
 }
-
 function RejectDialog({ account, onClose }: DialogProps) {
 	const { reject } = useAdminAccountActions();
 	const [note, setNote] = useState("");

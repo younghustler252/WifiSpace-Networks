@@ -62,7 +62,7 @@ export function DashboardView() {
 					href="/admin/accounts"
 					linkLabel="All accounts"
 				/>
-				<StatCard label="Active subscriptions" value={formatNumber(data.activeSubscriptions ?? 0)} hint="Currently online" />
+				<StatCard label="Active subscriptions" value={formatNumber(data.activeSubscriptions ?? 0)} hint="Currently online" href="/admin/subscriptions" linkLabel="View subscriptions" />
 			</div>
 
 			{accounts && (

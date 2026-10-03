@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ROUTER_STATUS_LIST, CONNECTION_TYPE_LIST, AGENT_STATUS_LIST, SERVICE_TYPE_LIST } from "../domain/router.enum.js";
+import { ROUTER_STATUS_LIST, CONNECTION_TYPE_LIST, SERVICE_TYPE_LIST } from "../domain/router.enum.js";
 
 const routerSchema = new mongoose.Schema(
 	{
@@ -29,12 +29,13 @@ const routerSchema = new mongoose.Schema(
 		lastProvisionSyncAt: { type: Date },
 
 		connectionType: { type: String, enum: CONNECTION_TYPE_LIST, default: "direct" },
+
+		// VPN tunnel/peer identifier when connectionType is "vpn".
 		connectorId: { type: String, default: null, trim: true, index: true },
 
+		// Capacity tracking is independent of connection method.
 		maxSessions: { type: Number, default: 0 },
 		currentSessions: { type: Number, default: 0 },
-		agentLastSeenAt: { type: Date },
-		agentStatus: { type: String, enum: AGENT_STATUS_LIST, default: "offline", index: true },
 
 		routerOsVersion: { type: String },
 		routerBoard: { type: String },

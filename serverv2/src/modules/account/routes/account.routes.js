@@ -18,7 +18,7 @@ router.use(authenticate);
 
 // ---- Self-service ----
 router.get("/me", asyncHandler(accountController.getMyAccounts));
-router.get("/me/:id", requireOwnerOrStaff("id", "userId"), asyncHandler(accountController.getMyAccount));
+router.get("/me/:id", asyncHandler(accountController.getMyAccount));
 router.post("/me", validate(requestAccountSchema), asyncHandler(accountController.requestAccount));
 router.post("/me/:id/devices", validate(addDeviceSchema), asyncHandler(accountController.addDevice));
 router.delete("/me/:id/devices/:mac", asyncHandler(accountController.removeDevice));

@@ -1,0 +1,284 @@
+"use client";
+
+import { useState } from "react";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
+import { Notice } from "@/components/shared/notice";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
+import { usePlans } from "@/features/plans/hooks/use-plans";
+import type { PlanServiceType } from "@/features/plans/types/plans.types";
+import { formatCurrency, formatDateTime, formatDuration } from "@/lib/format";
+import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
+import { getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
+import type { Subscription } from "../types/subscriptions.types";
+import { SubscriptionUsageDialog } from "@/features/usage/components/subscription-usage-dialog";
+
+interface DialogProps {
+	subscription: Subscription;
+	onClose: () => void;
+}
+
+const QUICK_DAYS = [1, 3, 7, 30];
+const DAY_MS = 86_400_000;
+
+function ReasonField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+	return <Textarea value={value} onChange={(e) => onChange(e.target.value)} placeholder="Reason (optional)" aria-label="Reason" />;
+}
+
+function ExtendDialog({ subscription, onClose }: DialogProps) {
+	const { extend } = useAdminSubscriptionActions();
+	const [days, setDays] = useState("7");
+	const [reason, setReason] = useState("");
+	const [error, setError] = useState<string | null>(null);
+
+	const parsed = Number(days);
+	const valid = days.trim() !== "" && Number.isInteger(parsed) && parsed !== 0;
+	const active = getSubscriptionPhase(subscription) === "active";
+	const preview =
+		valid && active && subscription.expiresAt
+			? new Date(new Date(subscription.expiresAt).getTime() + parsed * DAY_MS).toISOString()
+			: null;
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			title="Extend subscription"
+			description={`Adjust the time on ${subscription.planSnapshot.name} without taking a payment.`}
+			confirmLabel="Apply days"
+			onConfirm={async () => {
+				if (!valid) {
+					setError("Enter a whole number of days, other than 0");
+					return false;
+				}
+				const res = await extend.mutateAsync({ id: subscription.id, days: parsed, reason: reason.trim() || undefined });
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success(`${parsed > 0 ? "Added" : "Removed"} ${Math.abs(parsed)} day${Math.abs(parsed) === 1 ? "" : "s"}`);
+			}}
+		>
+			<div className="space-y-4">
+				<Notice tone="info" title="This is free time" text="No payment is recorded. If the customer has paid you, use Renew instead." />
+
+				<div className="space-y-2">
+					<Label htmlFor="extend-days">Days to add</Label>
+					<Input
+						id="extend-days"
+						type="number"
+						inputMode="numeric"
+						step={1}
+						value={days}
+						aria-invalid={!!error}
+						onChange={(e) => {
+							setDays(e.target.value);
+							setError(null);
+						}}
+					/>
+					<div className="flex flex-wrap gap-2">
+						{QUICK_DAYS.map((d) => (
+							<Button key={d} type="button" variant="outline" size="sm" className="bg-surface-2" onClick={() => { setDays(String(d)); setError(null); }}>
+								+{d}
+							</Button>
+						))}
+					</div>
+					<p className="text-xs text-muted-foreground">Use a negative number to remove days.</p>
+					{preview && <p className="text-[12px] text-muted-foreground">New expiry: {formatDateTime(preview)}</p>}
+					{error && (
+						<p role="alert" className="text-sm text-destructive">
+							{error}
+						</p>
+					)}
+				</div>
+
+				<ReasonField value={reason} onChange={setReason} />
+			</div>
+		</ConfirmDialog>
+	);
+}
+
+function RenewDialog({ subscription, onClose }: DialogProps) {
+	const { renew } = useAdminSubscriptionActions();
+	const plan = subscription.planSnapshot;
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			title="Renew subscription?"
+			description={`Renews ${plan.name} (${formatCurrency(plan.price)} per ${formatDuration(plan.durationValue, plan.durationUnit)}) for another cycle and records a new payment. Use this when the customer has paid you. To give free time instead, use Extend.`}
+			confirmLabel="Renew and record payment"
+			onConfirm={async () => {
+				const res = await renew.mutateAsync(subscription.id);
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success("Subscription renewed");
+			}}
+		/>
+	);
+}
+
+function ChangePlanDialog({ subscription, onClose }: DialogProps) {
+	const { changePlan } = useAdminSubscriptionActions();
+	const serviceType = subscription.planSnapshot.serviceType as PlanServiceType | undefined;
+	const plans = usePlans(serviceType);
+	const [newPlanId, setNewPlanId] = useState("");
+	const options = (plans.data ?? []).filter((p) => p.id !== subscription.planId);
+
+	function renderPicker() {
+		if (plans.isLoading) return <Skeleton className="h-11 rounded-lg" />;
+		if (plans.isError) return <p className="text-sm text-destructive">We couldn&apos;t load plans. Close this and try again.</p>;
+		if (options.length === 0) return <p className="text-sm text-muted-foreground">There are no other plans to switch to.</p>;
+
+		return (
+			<Select value={newPlanId} onValueChange={setNewPlanId}>
+				<SelectTrigger className="w-full" aria-label="New plan">
+					<SelectValue placeholder="Choose a plan" />
+				</SelectTrigger>
+				<SelectContent>
+					{options.map((plan) => (
+						<SelectItem key={plan.id} value={plan.id}>
+							{plan.name} · {formatCurrency(plan.price)} · {formatDuration(plan.durationValue, plan.durationUnit)}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+		);
+	}
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			title="Change plan"
+			description={`Currently on ${subscription.planSnapshot.name}. Collect any price difference separately with Record payment if needed.`}
+			confirmLabel="Change plan"
+			confirmDisabled={!newPlanId}
+			onConfirm={async () => {
+				const res = await changePlan.mutateAsync({ id: subscription.id, newPlanId });
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success("Plan changed");
+			}}
+		>
+			{renderPicker()}
+		</ConfirmDialog>
+	);
+}
+
+function SuspendDialog({ subscription, onClose }: DialogProps) {
+	const { suspend } = useAdminSubscriptionActions();
+	const [reason, setReason] = useState("");
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			destructive
+			title="Suspend subscription?"
+			description="The customer loses service until you resume it."
+			confirmLabel="Suspend"
+			onConfirm={async () => {
+				const res = await suspend.mutateAsync({ id: subscription.id, reason: reason.trim() || undefined });
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success("Subscription suspended");
+			}}
+		>
+			<ReasonField value={reason} onChange={setReason} />
+		</ConfirmDialog>
+	);
+}
+
+function ResumeDialog({ subscription, onClose }: DialogProps) {
+	const { resume } = useAdminSubscriptionActions();
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			title="Resume subscription?"
+			description="Service is restored and the customer can go back online."
+			confirmLabel="Resume"
+			onConfirm={async () => {
+				const res = await resume.mutateAsync(subscription.id);
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success("Subscription resumed");
+			}}
+		/>
+	);
+}
+
+function EndDialog({ subscription, action, onClose }: DialogProps & { action: "cancel" | "force-expire" }) {
+	const { cancel, forceExpire } = useAdminSubscriptionActions();
+	const [reason, setReason] = useState("");
+	const isForce = action === "force-expire";
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			destructive
+			requireText={isForce ? "expire" : undefined}
+			title={isForce ? "Force expire now?" : "Cancel subscription?"}
+			description={
+				isForce
+					? "This ends access immediately and the customer goes offline right now."
+					: "The subscription is canceled and won't renew. The customer will need a new plan to get back online."
+			}
+			confirmLabel={isForce ? "Force expire" : "Cancel subscription"}
+			onConfirm={async () => {
+				const mutation = isForce ? forceExpire : cancel;
+				const res = await mutation.mutateAsync({ id: subscription.id, reason: reason.trim() || undefined });
+				if (!res.success) {
+					toast.error(res.message);
+					return false;
+				}
+				toast.success(isForce ? "Subscription expired" : "Subscription canceled");
+			}}
+		>
+			<ReasonField value={reason} onChange={setReason} />
+		</ConfirmDialog>
+	);
+}
+
+interface SubscriptionActionDialogProps extends DialogProps {
+	action: SubscriptionAction;
+}
+
+export function SubscriptionActionDialog({ action, subscription, onClose }: SubscriptionActionDialogProps) {
+	switch (action) {
+		case "extend":
+			return <ExtendDialog subscription={subscription} onClose={onClose} />;
+		case "renew":
+			return <RenewDialog subscription={subscription} onClose={onClose} />;
+		case "change-plan":
+			return <ChangePlanDialog subscription={subscription} onClose={onClose} />;
+		case "suspend":
+			return <SuspendDialog subscription={subscription} onClose={onClose} />;
+		case "resume":
+			return <ResumeDialog subscription={subscription} onClose={onClose} />;
+		case "cancel":
+		
+		case "usage":
+			return <SubscriptionUsageDialog subscription={subscription} onClose={onClose} />;
+
+		case "force-expire":
+			return <EndDialog subscription={subscription} action={action} onClose={onClose} />;
+	}
+}

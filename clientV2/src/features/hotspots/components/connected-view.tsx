@@ -26,9 +26,9 @@ export function ConnectedView({ title, text, subscription }: ConnectedViewProps)
 	const expiresAt = subscription?.expiresAt;
 	const secondsLeft = useCountdown(expiresAt);
 	const planName = subscription?.planSnapshot?.name;
-	const settingUp = !!subscription?.mikrotikStatus && subscription.mikrotikStatus !== "synced";
-
+	const sync = subscription?.mikrotikStatus;
 	return (
+	
 		<StatusMessage icon={CheckCircle2} tone="success" title={title} text={text}>
 			{(planName || expiresAt) && (
 				<div className="grid grid-cols-2 gap-3">
@@ -37,7 +37,10 @@ export function ConnectedView({ title, text, subscription }: ConnectedViewProps)
 				</div>
 			)}
 			{expiresAt && <p className="text-xs text-muted-foreground">Expires {formatDateTime(expiresAt)}</p>}
-			{settingUp && <p className="text-xs text-muted-foreground">Finishing setup… it may take a moment to go live.</p>}
+			{sync === "pending" && <p className="text-xs text-muted-foreground">Finishing setup… it may take a moment to go live.</p>}
+			{sync === "failed" && (
+				<p className="text-xs text-destructive">We&apos;re having trouble switching your internet on. If it doesn&apos;t work shortly, please contact support.</p>
+			)}
 		</StatusMessage>
 	);
 }

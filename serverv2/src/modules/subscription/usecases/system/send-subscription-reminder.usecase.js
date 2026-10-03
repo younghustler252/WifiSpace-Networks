@@ -1,12 +1,13 @@
+// subscription/usecases/system/send-subscription-reminder.usecase.js
 import { SUBSCRIPTION_STATUSES } from "../../domain/subscription.enum.js";
 
-const REMINDER_DAYS_BEFORE = [3, 1]; // send at 3 days and 1 day before expiry
+const REMINDER_DAYS_BEFORE = [3, 1];
 
 export class SendSubscriptionReminder {
-	constructor({ subscriptionRepository, accountRepository, mailService }) {
+	constructor({ subscriptionRepository, accountRepository, createNotification }) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.accountRepository = accountRepository;
-		this.mailService = mailService;
+		this.createNotification = createNotification;
 	}
 
 	async execute() {
@@ -30,12 +31,15 @@ export class SendSubscriptionReminder {
 				try {
 					const subscription = this.subscriptionRepository.mapOne(raw);
 					const account = await this.accountRepository.findById(subscription.accountId);
-					if (!account?.user?.email) continue;
+					if (!account) continue;
 
-					await this.mailService.sendNotification({
-						to: account.user.email,
-						subject: `Your ${subscription.planSnapshot.name} plan expires in ${daysBefore} day(s)`,
-						message: `Hi, your subscription expires on ${new Date(subscription.expiresAt).toLocaleDateString()}. Renew soon to avoid interruption.`
+					await this.createNotification.execute({
+						actorId: null,
+						type: "subscription_expiring",
+						title: `Your ${subscription.planSnapshot.name} plan expires in ${daysBefore} day(s)`,
+						message: `Your subscription expires on ${new Date(subscription.expiresAt).toLocaleDateString()}. Renew soon to avoid interruption.`,
+						userIds: [subscription.userId],
+						accountId: account.id
 					});
 
 					subscription.remindersSent.push(daysBefore);

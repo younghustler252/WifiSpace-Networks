@@ -27,6 +27,6 @@ export function registerPlan(container) {
 		getPlanById: asClass(GetPlanById).scoped(),
 
 		planController: asClass(PlanController).scoped(),
-		adminController: asClass(AdminController).scoped()
+		planAdminController: asClass(AdminController).scoped()
 	});
 }

@@ -30,9 +30,11 @@ export class InitiatePayment {
 		}
 
 		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
-		if (existingSub?.status === "active") {
-			throw new ConflictError("Account already has an active subscription", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
+
+		if (existingSub?.status === "pending") {
+			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
 		}
+
 
 		const user = await this.userRepository.findById(userId);
 

@@ -4,11 +4,16 @@ import { useEffect } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
-import { paymentsApi } from "../services/payments.api";
+import { adminPaymentsApi, paymentsApi } from "../services/payments.api";
+import type { AdminPaymentListParams, UpdatePaymentStatusBody } from "../types/payments.types";
 
 const VERIFY_POLL_MS = 2500;
 const VERIFY_MAX_WAIT_MS = 30_000;
 const HISTORY_PAGE_SIZE = 10;
+
+export const ADMIN_PAYMENTS_KEY = ["payments", "admin"] as const;
+const ADMIN_PAGE_SIZE = 12;
+
 
 export function useStartPayment() {
 	return useMutation({ mutationFn: paymentsApi.init });
@@ -62,4 +67,48 @@ export function usePaymentVerification(reference: string | null) {
 			query.refetch();
 		},
 	};
+}
+
+
+export function useAdminPayments(params: AdminPaymentListParams) {
+	return useQuery({
+		queryKey: [...ADMIN_PAYMENTS_KEY, params],
+		queryFn: async () => {
+			const res = unwrap(await adminPaymentsApi.list({ limit: ADMIN_PAGE_SIZE, ...params }));
+			return { items: res.data, meta: res.meta };
+		},
+		placeholderData: keepPreviousData,
+	});
+}
+
+function useRefreshAfterPaymentChange() {
+	const queryClient = useQueryClient();
+
+	return () => {
+		queryClient.invalidateQueries({ queryKey: ADMIN_PAYMENTS_KEY });
+		queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+		queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+	};
+}
+
+export function useRecordPayment() {
+	const refresh = useRefreshAfterPaymentChange();
+
+	return useMutation({
+		mutationFn: adminPaymentsApi.record,
+		onSuccess: (res) => {
+			if (res.success) refresh();
+		},
+	});
+}
+
+export function useUpdatePaymentStatus() {
+	const refresh = useRefreshAfterPaymentChange();
+
+	return useMutation({
+		mutationFn: (v: { id: string; body: UpdatePaymentStatusBody }) => adminPaymentsApi.updateStatus(v.id, v.body),
+		onSuccess: (res) => {
+			if (res.success) refresh();
+		},
+	});
 }

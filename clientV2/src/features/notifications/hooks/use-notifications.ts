@@ -3,10 +3,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap } from "@/lib/api/unwrap";
 import { normalizeNotification } from "../lib/normalize-notification";
-import { notificationsApi } from "../services/notifications.api";
 import type { NotificationsPage } from "../types/notifications.types";
+import { adminNotificationsApi, notificationsApi } from "../services/notifications.api";
+import { normalizeAdminNotification } from "../lib/normalize-admin-notifcation";
+
 
 export const NOTIFICATIONS_KEY = ["notifications", "me"] as const;
+export const ADMIN_NOTIFICATIONS_KEY = ["notifications", "admin"] as const;
 const PAGE_SIZE = 15;
 
 export function useNotifications(page: number) {
@@ -52,5 +55,28 @@ export function useMarkNotificationRead() {
 			context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
 		},
 		onSettled: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+	});
+}
+
+
+export function useAdminNotifications(page: number) {
+	return useQuery({
+		queryKey: [...ADMIN_NOTIFICATIONS_KEY, page],
+		queryFn: async () => {
+			const res = unwrap(await adminNotificationsApi.list({ page, limit: 12 }));
+			return { items: res.data.map(normalizeAdminNotification), meta: res.meta };
+		},
+		placeholderData: keepPreviousData,
+	});
+}
+
+export function useSendNotification() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: adminNotificationsApi.create,
+		onSuccess: (res) => {
+			if (res.success) queryClient.invalidateQueries({ queryKey: ADMIN_NOTIFICATIONS_KEY });
+		},
 	});
 }

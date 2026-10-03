@@ -10,7 +10,7 @@ const router = Router();
 const authenticate = container.resolve("authenticate");
 const paymentController = container.resolve("paymentController");
 const webhookController = container.resolve("webhookController");
-const adminController = container.resolve("adminController");
+const adminController = container.resolve("paymentAdminController");
 
 // Webhooks: no auth (gateway calls this directly), must stay outside authenticate
 router.post("/webhooks/paystack", asyncHandler(webhookController.paystack));

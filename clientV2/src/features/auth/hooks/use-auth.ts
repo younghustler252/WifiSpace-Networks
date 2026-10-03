@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { getHomePath, safeNextPath } from "@/lib/navigation";
 import { useAuthStore } from "@/stores/auth.store";
-import { SESSION_QUERY_KEY } from "../constants/auth.constants";
+import { SESSION_QUERY_KEY } from "../constants";
 import { authApi } from "../services/auth.api";
 import type { AuthSession } from "../types/auth.types";
 import { useTheme } from "next-themes";

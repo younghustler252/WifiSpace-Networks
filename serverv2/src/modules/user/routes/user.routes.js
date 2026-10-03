@@ -13,8 +13,7 @@ const router = Router();
 const authenticate = container.resolve("authenticate");
 const userController = container.resolve("userController");
 const adminController = container.resolve("userAdminController");
-console.log("adminController:", adminController);
-console.log("getAllUsers:", typeof adminController.getAllUsers);
+
 
 
 router.use(authenticate);

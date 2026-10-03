@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fira_Mono, Inter } from "next/font/google";
+import { company } from "@/config/company";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -7,9 +8,28 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const firaMono = Fira_Mono({ subsets: ["latin"], weight: ["400", "500"], variable: "--font-fira-mono" });
 
 export const metadata: Metadata = {
-	title: { default: "WifiSpace", template: "%s · WifiSpace" },
-	description: "Fast, reliable internet plans from WifiSpace.",
+	metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+	title: { default: `${company.name} · ${company.tagline}`, template: `%s · ${company.name}` },
+	description: company.description,
+	applicationName: company.name,
+	openGraph: {
+		title: company.name,
+		description: company.description,
+		siteName: company.name,
+		type: "website",
+	},
 };
+
+export const viewport: Viewport = {
+	width: "device-width",
+	initialScale: 1,
+	viewportFit: "cover",
+	themeColor: [
+		{ media: "(prefers-color-scheme: light)", color: "#ffffff" },
+		{ media: "(prefers-color-scheme: dark)", color: "#111827" },
+	],
+};
+
 export default function RootLayout({
 	children,
 }: {

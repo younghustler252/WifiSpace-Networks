@@ -24,6 +24,14 @@ const pppoeAccountSchema = new mongoose.Schema({
 	limitUptime: {
 		type: Number,
 		default: 0
+	},
+
+	requestedLocation: {
+		address: { type: String, trim: true },
+		landmark: { type: String, trim: true },
+		city: { type: String, trim: true },
+		state: { type: String, trim: true },
+		coordinates: { lat: Number, lng: Number }
 	}
 });
 

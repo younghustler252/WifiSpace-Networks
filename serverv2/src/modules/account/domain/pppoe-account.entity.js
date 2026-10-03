@@ -1,14 +1,37 @@
 import { Account } from "./account.entity.js";
-import { APPROVAL_STATUSES, SERVICE_TYPES } from "./account.enum.js";
+import { APPROVAL_STATUSES, PPPOE_ACCESS_METHODS, SERVICE_TYPES } from "./account.enum.js";
 import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class PppoeAccount extends Account {
-	constructor({ routerId = null, routerProfile = "default", routerPassword = null, limitUptime = 0, ...rest }) {
+	constructor({
+		routerId = null,
+		routerProfile = "default",
+		routerPassword = null,
+		limitUptime = 0,
+		accessMethod = PPPOE_ACCESS_METHODS.PPP,
+		macAddress = null,
+		staticIp = null,
+		requestedLocation = null,
+		...rest
+	}) {
 		super({ ...rest, serviceType: SERVICE_TYPES.PPPOE });
+
 		this.routerId = routerId;
 		this.routerProfile = routerProfile;
 		this.routerPassword = routerPassword; // plaintext, in-memory only — repository encrypts before persisting, never logged or returned
 		this.limitUptime = limitUptime;
+		this.accessMethod = accessMethod;
+		this.macAddress = macAddress;
+		this.staticIp = staticIp;
+		this.requestedLocation = requestedLocation;
+
+		if (accessMethod === PPPOE_ACCESS_METHODS.PPP && !routerPassword) {
+			throw new ValidationError("routerPassword is required for PPP access accounts");
+		}
+
+		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !macAddress) {
+			throw new ValidationError("macAddress is required for IPoE access accounts");
+		}
 	}
 
 	updateRouterPassword(password) {
