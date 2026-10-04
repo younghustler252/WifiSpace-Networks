@@ -20,10 +20,11 @@ const LABELS: Record<SubscriptionAction, string> = {
 	resume: "Resume",
 	cancel: "Cancel…",
 	"force-expire": "Force expire…",
+	usage: "View usage",
 };
 
 const GROUPS: SubscriptionAction[][] = [
-	["extend", "renew"],
+	["usage", "extend", "renew"],
 	["change-plan", "suspend", "resume"],
 	["cancel", "force-expire"],
 ];
