@@ -69,6 +69,7 @@ const notificationSchema = new mongoose.Schema({
         default: {}
     },
 
+    recipientCount: { type: Number, default: 0 },
     sentAt: Date,
 
     completedAt: Date,

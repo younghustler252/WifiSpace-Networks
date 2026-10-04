@@ -17,7 +17,7 @@ export class Account {
 		approvalNote = null,
 		approvedAt = null,
 		approvedBy = null,
-		deleteAt = null,
+		deletedAt = null,
 		devices = [],
 		createdAt = null,
 		updatedAt = null
@@ -41,7 +41,7 @@ export class Account {
 		this.approvalNote = approvalNote;
 		this.approvedAt = approvedAt;
 		this.approvedBy = approvedBy;
-		this.deleteAt = deleteAt;
+		this.deletedAt = deletedAt;
 		this.devices = devices;
 		this.createdAt = createdAt;
 		this.updatedAt = updatedAt;

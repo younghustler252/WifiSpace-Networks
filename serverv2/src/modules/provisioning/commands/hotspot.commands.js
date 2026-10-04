@@ -1,4 +1,4 @@
-import { formatUptime } from "../../../../shared/utils/formatUptime.js";
+import { formatUptime } from "../../../shared/utils/formatUptime.js";
 
 export class HotspotCommands {
 	static createUser({

@@ -19,6 +19,8 @@ import { ResumeAccount } from "./usecases/admin/resume-account.usecase.js";
 import { TerminateAccount } from "./usecases/admin/terminate-account.usecase.js";
 import { TransferAccount } from "./usecases/admin/transfer-account.usecase.js";
 import { DeleteAccount } from "./usecases/admin/delete-account.usecase.js";
+import { SyncIpoeToRouter } from "./usecases/admin/sync-ipoe-to-router.usecase.js";
+import { AdoptExistingIpoeAccount } from "./usecases/admin/adop-existing-ipoe-account.usecase.js";
 
 import { AccountController } from "./controllers/account.controller.js";
 import { AdminController } from "./controllers/admin.controller.js";
@@ -44,6 +46,8 @@ export function registerAccount(container) {
 		terminateAccount: asClass(TerminateAccount).scoped(),
 		transferAccount: asClass(TransferAccount).scoped(),
 		deleteAccount: asClass(DeleteAccount).scoped(),
+		syncIpoeToRouter: asClass(SyncIpoeToRouter).scoped(),
+		adoptExistingIpoeAccount: asClass(AdoptExistingIpoeAccount).scoped(),
 
 		accountController: asClass(AccountController).scoped(),
 		accountAdminController: asClass(AdminController).scoped()

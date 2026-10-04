@@ -11,7 +11,7 @@ import notificationRouter from "../modules/notification/routes/notification.rout
 import dashboardRouter from "../modules/dashboard/routes/dashboard.routes.js";
 import routerRouter from "../modules/router/routes/router.routes.js";
 import usageRouter from "../modules/usage/routes/usage.routes.js";
-
+import ticketRouter from "../modules/ticket/routes/ticket.routes.js";
 
 const router = Router();
 
@@ -27,5 +27,6 @@ router.use("/hotspot", hotspotRouter)
 router.use("/routers", routerRouter)
 router.use("/audit", auditRouter)
 router.use("/usage", usageRouter)
+router.use("/tickets", ticketRouter)
 
 export default router;

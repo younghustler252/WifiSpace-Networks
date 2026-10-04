@@ -5,7 +5,7 @@ export class Notification {
 	constructor({
 		id, accountId = null, subscriptionId = null, createdByAdminId = null,
 		type, title, message, channel = NOTIFICATION_CHANNEL.EMAIL, state = NOTIFICATION_STATE.QUEUED,
-		metadata = {}, sentAt = null, completedAt = null, cancelledAt = null, isArchived = false,
+		metadata = {}, sentAt = null, recipientCount = 0, completedAt = null, cancelledAt = null, isArchived = false,
 		createdAt = null, updatedAt = null
 	}) {
 		if (!NOTIFICATION_TYPE_LIST.includes(type)) throw new ValidationError(`Invalid notification type: ${type}`);
@@ -16,7 +16,7 @@ export class Notification {
 
 		Object.assign(this, {
 			id, accountId, subscriptionId, createdByAdminId, type, title: title.trim(), message: message.trim(),
-			channel, state, metadata, sentAt, completedAt, cancelledAt, isArchived, createdAt, updatedAt
+			channel, state, metadata, sentAt, recipientCount, completedAt, cancelledAt, isArchived, createdAt, updatedAt
 		});
 	}
 

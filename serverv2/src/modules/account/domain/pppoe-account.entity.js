@@ -1,5 +1,5 @@
 import { Account } from "./account.entity.js";
-import { APPROVAL_STATUSES, PPPOE_ACCESS_METHODS, SERVICE_TYPES } from "./account.enum.js";
+import { PPPOE_ACCESS_METHODS, SERVICE_TYPES } from "./account.enum.js";
 import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class PppoeAccount extends Account {
@@ -8,7 +8,7 @@ export class PppoeAccount extends Account {
 		routerProfile = "default",
 		routerPassword = null,
 		limitUptime = 0,
-		accessMethod = PPPOE_ACCESS_METHODS.PPP,
+		accessMethod = PPPOE_ACCESS_METHODS.IPOE,
 		macAddress = null,
 		staticIp = null,
 		requestedLocation = null,
@@ -32,6 +32,10 @@ export class PppoeAccount extends Account {
 		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !macAddress) {
 			throw new ValidationError("macAddress is required for IPoE access accounts");
 		}
+
+		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !staticIp) {
+			throw new ValidationError("staticIp is required for IPoE access accounts");
+		}
 	}
 
 	updateRouterPassword(password) {
@@ -54,8 +58,18 @@ export class PppoeAccount extends Account {
 			throw new ValidationError("Router ID is required before approval");
 		}
 
-		if (!this.routerPassword) {
+		if (this.accessMethod === PPPOE_ACCESS_METHODS.PPP && !this.routerPassword) {
 			throw new ValidationError("Router password is required before approval");
+		}
+
+		if (this.accessMethod === PPPOE_ACCESS_METHODS.IPOE) {
+			if (!this.macAddress) {
+				throw new ValidationError("MAC address is required before approval");
+			}
+
+			if (!this.staticIp) {
+				throw new ValidationError("Static IP is required before approval");
+			}
 		}
 
 		super.approve();

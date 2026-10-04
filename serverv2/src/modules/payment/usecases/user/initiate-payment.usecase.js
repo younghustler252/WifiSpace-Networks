@@ -17,7 +17,7 @@ export class InitiatePayment {
 		this.auditService = auditService;
 	}
 
-	async execute({ userId, accountId, planId, cycles = 1, gateway = undefined, callbackUrl, provisioningMetadata = {}, ip = null }) {
+	async execute({ userId, accountId, planId, cycles = 1, gateway = undefined, callbackUrl, actionTypeOverride, provisioningMetadata = {}, ip = null }) {
 		const account = await this.accountRepository.findById(accountId);
 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
 		if (account.userId !== userId) throw new ValidationError("You do not have access to this account");
@@ -35,6 +35,11 @@ export class InitiatePayment {
 			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
 		}
 
+		const actionType = actionTypeOverride || (
+			existingSub?.status === "active"
+				? PAYMENT_ACTIONS.RENEWAL
+				: PAYMENT_ACTIONS.NEW_SUBSCRIPTION
+		);
 
 		const user = await this.userRepository.findById(userId);
 
@@ -47,7 +52,7 @@ export class InitiatePayment {
 
 		const payment = new Payment({
 			userId, accountId, planId,
-			actionType: existingSub ? PAYMENT_ACTIONS.RENEWAL : PAYMENT_ACTIONS.NEW_SUBSCRIPTION,
+			actionType,
 			amount: { total, base: basePrice * cycles, discount: discount * cycles },
 			cycles, gateway: gateway || this.paymentGatewayRegistry.defaultGateway,
 			gatewayReference: reference, status: PAYMENT_STATUSES.INITIATED, idempotencyKey,

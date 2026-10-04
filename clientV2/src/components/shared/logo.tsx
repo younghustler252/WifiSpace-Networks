@@ -17,35 +17,21 @@ interface LogoImageProps {
 	square?: boolean;
 }
 
-function LogoImage({ src, srcDark, alt, height, square }: LogoImageProps) {
+function LogoImage({ src, alt, height, square }: LogoImageProps) {
 	const width = square ? height : height * 4;
-	const style = { width: square ? height : "auto", height };
 
 	return (
-		<>
-			<Image
-				src={src}
-				alt={alt}
-				width={width}
-				height={height}
-				style={style}
-				priority
-				className={cn("object-contain", srcDark && "dark:hidden")}
-			/>
-			{srcDark && (
-				<Image
-					src={srcDark}
-					alt={alt}
-					width={width}
-					height={height}
-					style={style}
-					priority
-					className="hidden object-contain dark:block"
-				/>
-			)}
-		</>
+		<Image
+			src={src}
+			alt={alt}
+			width={width}
+			height={height}
+			priority
+			className="object-contain"
+		/>
 	);
 }
+
 
 interface LogoProps {
 	className?: string;

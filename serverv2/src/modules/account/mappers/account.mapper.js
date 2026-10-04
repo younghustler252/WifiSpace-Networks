@@ -21,6 +21,7 @@ export class AccountMapper {
 			approvalNote: raw.approvalNote,
 			approvedAt: raw.approvedAt,
 			approvedBy: raw.approvedBy?.toString(),
+			deletedAt: raw.deletedAt,
 			devices: raw.devices || [],
 			createdAt: raw.createdAt,
 			updatedAt: raw.updatedAt
@@ -29,15 +30,22 @@ export class AccountMapper {
 		if (raw.serviceType === SERVICE_TYPES.PPPOE) {
 			return new PppoeAccount({
 				...base,
-				routerId: raw.routerId?.toString(),
+				routerId: raw.routerId?.toString() || null,
 				routerProfile: raw.routerProfile,
 				routerPassword: raw.routerPassword ?? null,
-				limitUptime: raw.limitUptime
+				limitUptime: raw.limitUptime,
+				accessMethod: raw.accessMethod,
+				macAddress: raw.macAddress ?? null,
+				staticIp: raw.staticIp ?? null,
+				requestedLocation: raw.requestedLocation ?? null
 			});
 		}
 
 		if (raw.serviceType === SERVICE_TYPES.HOTSPOT) {
-			return new HotspotAccount({ ...base, maxDevices: raw.maxDevices });
+			return new HotspotAccount({
+				...base,
+				maxDevices: raw.maxDevices
+			});
 		}
 
 		return new Account(base);
@@ -56,6 +64,7 @@ export class AccountMapper {
 			approvalNote: account.approvalNote,
 			approvedAt: account.approvedAt,
 			approvedBy: account.approvedBy,
+			deletedAt: account.deletedAt,
 			devices: account.devices
 		};
 
@@ -63,13 +72,18 @@ export class AccountMapper {
 			data.routerId = account.routerId;
 			data.routerProfile = account.routerProfile;
 			data.limitUptime = account.limitUptime;
-			if (account.routerPassword) data.routerPassword = account.routerPassword;
+			data.accessMethod = account.accessMethod;
+			data.macAddress = account.macAddress;
+			data.staticIp = account.staticIp;
+			data.requestedLocation = account.requestedLocation;
 		}
 
 		if (account.serviceType === SERVICE_TYPES.HOTSPOT) {
 			data.maxDevices = account.maxDevices;
 		}
 
-		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+		return Object.fromEntries(
+			Object.entries(data).filter(([, v]) => v !== undefined)
+		);
 	}
 }

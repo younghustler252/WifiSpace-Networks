@@ -15,6 +15,10 @@ const pppoeAccountSchema = new mongoose.Schema({
 		default: "default"
 	},
 
+	accessMethod: { type: String, enum: ["ppp", "ipoe"], default: "ipoe" },
+	macAddress: { type: String, uppercase: true, trim: true, default: null },
+	staticIp: { type: String, trim: true, default: null },
+
 	routerPasswordEncrypted: {
 		type: String,
 		default: null,

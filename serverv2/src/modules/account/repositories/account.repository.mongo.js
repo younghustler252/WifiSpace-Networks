@@ -7,7 +7,7 @@ import CounterModel from "../database/counter.model.js";
 import { AccountMapper } from "../mappers/account.mapper.js";
 import { SERVICE_TYPES } from "../domain/account.enum.js";
 
-const USER_POPULATE = { path: "userId", select: "firstName lastName email avatar" };
+const USER_POPULATE = { path: "userId", select: "firstName lastName email avatar phone address" };
 const NOT_DELETED = { deletedAt: null };
 
 const MODEL_BY_TYPE = {

@@ -13,6 +13,7 @@ import { registerSecrets } from "./secrets.js";
 | MODULE REGISTRARS
 |--------------------------------------------------------------------------
 */
+import { registerTicket } from "../modules/ticket/ticket.container.js";
 import { registerDashboard } from "../modules/dashboard/dashboard.container.js";
 import { registerUsage } from "../modules/usage/usage.container.js";
 import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
@@ -53,6 +54,7 @@ registerSecrets(container);
 |--------------------------------------------------------------------------
 */
 const modules = [
+	registerTicket,
 	registerNotifications,
 	registerDashboard,
 	registerHotspot,

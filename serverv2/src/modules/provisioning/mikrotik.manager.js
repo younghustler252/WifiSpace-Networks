@@ -1,14 +1,19 @@
 export class MikrotikManager {
-	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, routerProvisioningRepository }) {
+	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, ipoeService, routerProvisioningRepository }) {
 		this.accountRepository = accountRepository;
 		this.routerRepository = routerRepository;
 		this.hotspotService = hotspotService;
 		this.pppoeService = pppoeService;
+		this.ipoeService = ipoeService;
 		this.routerProvisioningRepository = routerProvisioningRepository;
 	}
 
 	async provision(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
+
+		if (account.accessMethod === "ipoe") {
+			return this._provisionIpoe(account, router, subscription);
+		}
 
 		const planSnapshot = subscription.planSnapshot || {};
 		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
@@ -47,8 +52,35 @@ export class MikrotikManager {
 		return { autoConnected: true, method: "login", data: loginResult };
 	}
 
-	async suspend(subscription) {
-		const { account, router } = await this.loadContext(subscription);
+	async _provisionIpoe(account, router, subscription) {
+		const maxLimit = subscription.planSnapshot?.speedRate || "5M/5M";
+
+		await this.ipoeService.ensureStaticLease(router, {
+			macAddress: account.macAddress,
+			ipAddress: account.staticIp,
+			comment: account.wsnId
+		});
+
+		await this.ipoeService.setSpeed(router, {
+			wsnId: account.wsnId,
+			ipAddress: account.staticIp,
+			maxLimit,
+			comment: account.wsnId
+		});
+
+		await this.ipoeService.resume(router, account.staticIp);
+
+		return { autoConnected: true, method: "ipoe_lease_and_queue" };
+	}
+
+	async suspend(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
+
+		if (account.accessMethod === "ipoe") {
+			await this.ipoeService.suspend(router, account.staticIp, account.wsnId);
+			return { success: true };
+		}
+
 		const service = this.getService(account);
 
 		await service.suspendUser(router, account.wsnId);
@@ -57,13 +89,18 @@ export class MikrotikManager {
 		return { success: true };
 	}
 
-	async resume(subscription, metadata = {}) { // CHANGED: added metadata param
-		const { account, router } = await this.loadContext(subscription);
+	async resume(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
+
+		if (account.accessMethod === "ipoe") {
+			await this.ipoeService.resume(router, account.staticIp);
+			return { autoConnected: true, method: "ipoe_lease_and_queue" };
+		}
+
 		const service = this.getService(account);
 
 		await service.resumeUser(router, account.wsnId);
 
-		// CHANGED: same fix as provision() above.
 		const loginResult = await service.login(router, {
 			username: account.wsnId,
 			password: account.routerPassword,
@@ -110,32 +147,26 @@ export class MikrotikManager {
 		return this.resolveService(serviceType).getActiveSessions(router);
 	}
 
-	// MikrotikManager — updated loadContext + provision signature
-async loadContext(subscription, metadata = {}) {
-	const account = await this.accountRepository.findById(subscription.accountId);
-	if (!account) throw new Error("Account not found");
+	async loadContext(subscription, metadata = {}) {
+		const account = await this.accountRepository.findById(subscription.accountId);
+		if (!account) throw new Error("Account not found");
 
-	let router;
+		let router;
 
-	if (account.serviceType === "hotspot") {
-		// Hotspot accounts carry no fixed router — the router comes from
-		// whichever physical device the customer is currently connecting
-		// through, resolved upstream (captive portal redirect) and passed
-		// in via metadata.routerId.
-		if (!metadata.routerId) throw new Error("Router ID is required in metadata for hotspot provisioning");
-		router = await this.routerRepository.findById(metadata.routerId);
-	} else {
-		if (!account.routerId) throw new Error("Account has no router assigned");
-		router = await this.routerRepository.findById(account.routerId);
-	}
+		if (account.serviceType === "hotspot") {
+			// Hotspot accounts carry no fixed router — the router comes from
+			// whichever physical device the customer is currently connecting
+			// through, resolved upstream (captive portal redirect) and passed
+			// in via metadata.routerId.
+			if (!metadata.routerId) throw new Error("Router ID is required in metadata for hotspot provisioning");
+			router = await this.routerRepository.findById(metadata.routerId);
+		} else {
+			if (!account.routerId) throw new Error("Account has no router assigned");
+			router = await this.routerRepository.findById(account.routerId);
+		}
 
-	if (!router) throw new Error("Router not found");
-	return { account, router };
-}
-
-	async provision(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata);
-		return this.resolveService(account.serviceType);
+		if (!router) throw new Error("Router not found");
+		return { account, router };
 	}
 
 	resolveService(type) {
@@ -149,20 +180,17 @@ async loadContext(subscription, metadata = {}) {
 		}
 	}
 
-	// NEW: waits for a just-created hotspot user to actually be visible on
-	// the router before proceeding — see the note in provision() above.
-	// Polls a few times with short delays rather than a single blind sleep,
-	// so it resolves as soon as the user actually appears instead of always
-	// waiting the maximum.
+	getService(account) {
+		return this.resolveService(account.serviceType);
+	}
+
 	async _waitForUser(service, router, username, attempts = 5, delayMs = 400) {
 		for (let i = 0; i < attempts; i++) {
 			const exists = await service.userExists(router, username);
 			if (exists) return true;
 			await new Promise((resolve) => setTimeout(resolve, delayMs));
 		}
-		// Didn't confirm within the budget — proceed anyway rather than
-		// blocking forever; login() will just fail with its own real error
-		// if the user genuinely isn't there, same as before this change.
+
 		return false;
 	}
 }

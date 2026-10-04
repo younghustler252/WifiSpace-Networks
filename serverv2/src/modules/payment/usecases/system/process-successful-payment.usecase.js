@@ -57,9 +57,16 @@ export class ProcessSuccessfulPayment {
 			subscription = await this.subscriptionRepository.create(subscription);
 		}
 
-
-		if (payment.actionType === PAYMENT_ACTIONS.RENEWAL && subscription.status !== SUBSCRIPTION_STATUSES.PENDING) {
-			const plan = await this.planRepository.findByIdOrNull(payment.planId);
+		if (payment.actionType === PAYMENT_ACTIONS.UPGRADE) {
+			const newPlan = await this.planRepository.findByIdOrNull(payment.planId);
+			subscription.upgradeNow(payment.planId, {
+				name: newPlan.name, serviceType: newPlan.serviceType, price: newPlan.getEffectivePrice(),
+				durationValue: newPlan.durationValue, durationUnit: newPlan.durationUnit,
+				speedRate: newPlan.speedRate, mikrotikProfile: newPlan.mikrotikProfile,
+				devicesAllowed: newPlan.devicesAllowed, gracePeriodDays: newPlan.gracePeriodDays
+			});
+		} else if (payment.actionType === PAYMENT_ACTIONS.RENEWAL && subscription.status !== SUBSCRIPTION_STATUSES.PENDING) {
+			const plan = await this.planRepository.findByIdOrNull(subscription.planId);
 			const bonusDays = plan?.getBonusDaysForCycle(subscription.cycles + 1) ?? 0;
 			subscription.renew({ bonusDays, paymentId: payment.id, paymentAmount: payment.totalAmount, paymentDate: payment.processedAt });
 		} else {

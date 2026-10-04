@@ -1,6 +1,6 @@
 // mappers/notification.mapper.js
 import { Notification } from "../domain/notification.entity.js";
-const FIELDS = ["accountId", "subscriptionId", "createdByAdminId", "type", "title", "message", "channel", "state", "metadata", "sentAt", "completedAt", "cancelledAt", "isArchived"];
+const FIELDS = ["accountId", "subscriptionId", "createdByAdminId", "type", "title", "message", "channel", "state", "metadata", "sentAt", "recipientCount", "completedAt", "cancelledAt", "isArchived"];
 
 export class NotificationMapper {
 	static toDomain(raw) {

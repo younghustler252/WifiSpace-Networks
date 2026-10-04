@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { PppoeAccount } from "../../domain/pppoe-account.entity.js";
 import { HotspotAccount } from "../../domain/hotspot-account.entity.js";
-import { SERVICE_TYPES, APPROVAL_STATUSES } from "../../domain/account.enum.js";
+import { SERVICE_TYPES, PPPOE_ACCESS_METHODS } from "../../domain/account.enum.js";
 import { ValidationError, NotFoundError } from "../../../../shared/errors/domain.errors.js";
 import { USER_ERROR_CODES } from "../../../user/domain/user.enum.js";
 
@@ -16,7 +16,22 @@ export class CreateAccount {
 		this.auditService = auditService;
 	}
 
-	async execute({ actorId, userId, serviceType, accountType, businessName, companyRegistrationNumber, taxId, routerId, routerProfile, maxDevices, ip = null }) {
+	async execute({
+		actorId,
+		userId,
+		serviceType,
+		accountType,
+		businessName,
+		companyRegistrationNumber,
+		taxId,
+		routerId,
+		routerProfile,
+		accessMethod,
+		macAddress,
+		staticIp,
+		maxDevices,
+		ip = null
+	}) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
 
@@ -25,15 +40,34 @@ export class CreateAccount {
 		if (serviceType === SERVICE_TYPES.PPPOE) {
 			if (!routerId) throw new ValidationError("routerId is required for a PPPoE account");
 
+			const resolvedAccessMethod = accessMethod || PPPOE_ACCESS_METHODS.IPOE;
+
+
+			if (!Object.values(PPPOE_ACCESS_METHODS).includes(resolvedAccessMethod)) {
+				throw new ValidationError("Invalid PPPoE access method");
+			}
+
+			if (resolvedAccessMethod === PPPOE_ACCESS_METHODS.IPOE) {
+				if (!macAddress) throw new ValidationError("macAddress is required for IPoE");
+				if (!staticIp) throw new ValidationError("staticIp is required for IPoE");
+			}
+
 			account = new PppoeAccount({
 				userId, accountType, businessName, companyRegistrationNumber, taxId,
-				routerId, routerProfile,
-				routerPassword: generateRouterPassword(),
-				approvalStatus: APPROVAL_STATUSES.APPROVED
+				routerId, routerProfile, accessMethod: resolvedAccessMethod,
+				routerPassword: resolvedAccessMethod === PPPOE_ACCESS_METHODS.PPP
+					? generateRouterPassword()
+					: null,
+				macAddress: resolvedAccessMethod === PPPOE_ACCESS_METHODS.IPOE ? macAddress : null,
+				staticIp: resolvedAccessMethod === PPPOE_ACCESS_METHODS.IPOE ? staticIp : null
 			});
+
+			account.approve(actorId);
 		} else if (serviceType === SERVICE_TYPES.HOTSPOT) {
 			// business fields are silently ignored here — HotspotAccount forces personal-only, always
-			account = new HotspotAccount({ userId, maxDevices, approvalStatus: APPROVAL_STATUSES.APPROVED });
+			account = new HotspotAccount({ userId, maxDevices });
+
+			account.approve(actorId);
 		} else {
 			throw new ValidationError("Invalid service type");
 		}

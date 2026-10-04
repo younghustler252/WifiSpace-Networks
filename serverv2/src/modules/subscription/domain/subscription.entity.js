@@ -6,6 +6,7 @@ export class Subscription {
 		id, accountId, userId, planId,
 		status = SUBSCRIPTION_STATUSES.PENDING,
 		planSnapshot,
+		pendingPlanId = null, pendingPlanSnapshot = null,
 		cycles = 1, totalAmount,
 		startsAt = null, expiresAt = null, graceEndsAt = null, activatedAt = null, expiredAt = null,
 		currentPeriodStart = null, currentPeriodEnd = null,
@@ -27,7 +28,9 @@ export class Subscription {
 		if (cycles < 1) throw new ValidationError("Cycles must be at least 1");
 
 		Object.assign(this, {
-			id, accountId, userId, planId, status, planSnapshot, cycles, totalAmount,
+			id, accountId, userId, planId, status, planSnapshot,
+			pendingPlanId, pendingPlanSnapshot,
+			cycles, totalAmount,
 			startsAt, expiresAt, graceEndsAt, activatedAt, expiredAt, currentPeriodStart, currentPeriodEnd,
 			renewalStrategy, autoRenewEnabled, nextRenewalDate, lastRenewedAt,
 			lastPaymentId, lastPaymentDate, lastPaymentAmount,
@@ -42,11 +45,12 @@ export class Subscription {
 		this.events.push({ type, date: new Date(), metadata });
 	}
 
-	_durationMs() {
-		const { durationValue, durationUnit } = this.planSnapshot;
+	_durationMsFor(snapshot = this.planSnapshot) {
+		const { durationValue, durationUnit } = snapshot;
 		const unitMs = { minutes: 60000, hours: 3600000, days: 86400000, months: 30 * 86400000 }[durationUnit];
 		return durationValue * unitMs;
 	}
+
 
 	activate({ paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
 		const now = new Date();
@@ -56,7 +60,7 @@ export class Subscription {
 		this.startsAt = this.startsAt || now;
 		this.activatedAt = now;
 		this.currentPeriodStart = now;
-		this.expiresAt = new Date(now.getTime() + this._durationMs() + bonusMs);
+		this.expiresAt = new Date(now.getTime() + this._durationMsFor() + bonusMs);
 		this.currentPeriodEnd = this.expiresAt;
 		this.graceEndsAt = this.planSnapshot.gracePeriodDays
 			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
@@ -79,7 +83,7 @@ export class Subscription {
 		this.bonusDays = bonusDays;
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
 		this.currentPeriodStart = base;
-		this.expiresAt = new Date(base.getTime() + this._durationMs() + bonusMs);
+		this.expiresAt = new Date(base.getTime() + this._durationMsFor() + bonusMs);
 		this.currentPeriodEnd = this.expiresAt;
 		this.graceEndsAt = this.planSnapshot.gracePeriodDays
 			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
@@ -96,6 +100,44 @@ export class Subscription {
 		this._recordEvent("renewed", { cycle: this.cycles, bonusDays });
 	}
 
+	schedulePlanChange(planId, planSnapshot) {
+		this.pendingPlanId = planId;
+		this.pendingPlanSnapshot = planSnapshot;
+		this._recordEvent("manual_adjustment", { type: "downgrade_scheduled", to: planSnapshot.name });
+	}
+
+	applyPendingPlanChange() {
+		if (!this.pendingPlanId) return false;
+		this.planId = this.pendingPlanId;
+		this.planSnapshot = this.pendingPlanSnapshot;
+		this.pendingPlanId = null;
+		this.pendingPlanSnapshot = null;
+		return true;
+	}
+
+	// domain/subscription.entity.js
+
+	upgradeNow(planId, planSnapshot) {
+		const now = new Date();
+		const remainingMs = this.isActive() ? Math.max(0, new Date(this.expiresAt).getTime() - now.getTime()) : 0;
+		const newDurationMs = this._durationMsFor(planSnapshot);
+
+		this.planId = planId;
+		this.planSnapshot = planSnapshot;
+		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+		this.activatedAt = now;
+		this.currentPeriodStart = now;
+		this.expiresAt = new Date(now.getTime() + newDurationMs + remainingMs);
+		this.currentPeriodEnd = this.expiresAt;
+		this.graceEndsAt = planSnapshot.gracePeriodDays
+			? new Date(this.expiresAt.getTime() + planSnapshot.gracePeriodDays * 86400000)
+			: null;
+
+		this._recordEvent("manual_adjustment", { type: "upgrade", carriedOverMs: remainingMs });
+	}
+
+	
+	
 	suspend(reason = null) {
 		this.status = SUBSCRIPTION_STATUSES.SUSPENDED;
 		this.suspendedAt = new Date();
