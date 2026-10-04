@@ -21,16 +21,16 @@ function LogoImage({ src, alt, height, square }: LogoImageProps) {
 	const width = square ? height : height * 4;
 
 	return (
-		<Image
+		<img
 			src={src}
 			alt={alt}
 			width={width}
 			height={height}
-			priority
 			className="object-contain"
 		/>
 	);
 }
+
 
 
 interface LogoProps {
