@@ -29,13 +29,13 @@ export class PppoeAccount extends Account {
 			throw new ValidationError("routerPassword is required for PPP access accounts");
 		}
 
-		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !macAddress) {
-			throw new ValidationError("macAddress is required for IPoE access accounts");
-		}
+		// if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !macAddress) {
+		// 	throw new ValidationError("macAddress is required for IPoE access accounts");
+		// }
 
-		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !staticIp) {
-			throw new ValidationError("staticIp is required for IPoE access accounts");
-		}
+		// if (accessMethod === PPPOE_ACCESS_METHODS.IPOE && !staticIp) {
+		// 	throw new ValidationError("staticIp is required for IPoE access accounts");
+		// }
 	}
 
 	updateRouterPassword(password) {
@@ -62,15 +62,15 @@ export class PppoeAccount extends Account {
 			throw new ValidationError("Router password is required before approval");
 		}
 
-		if (this.accessMethod === PPPOE_ACCESS_METHODS.IPOE) {
-			if (!this.macAddress) {
-				throw new ValidationError("MAC address is required before approval");
-			}
+		// if (this.accessMethod === PPPOE_ACCESS_METHODS.IPOE) {
+		// 	if (!this.macAddress) {
+		// 		throw new ValidationError("MAC address is required before approval");
+		// 	}
 
-			if (!this.staticIp) {
-				throw new ValidationError("Static IP is required before approval");
-			}
-		}
+		// 	if (!this.staticIp) {
+		// 		throw new ValidationError("Static IP is required before approval");
+		// 	}
+		// }
 
 		super.approve();
 	}
