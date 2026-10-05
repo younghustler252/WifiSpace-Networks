@@ -20,6 +20,7 @@ import { RouterFormDialog } from "./router-form-dialog";
 export function RoutersAdmin() {
 	const [page, setPage] = useState(1);
 	const [creating, setCreating] = useState(false);
+	const [editing, setEditing] = useState<NetworkRouter | null>(null);
 	const [notifying, setNotifying] = useState<NetworkRouter | null>(null);
 	const [dialog, setDialog] = useState<{ type: "reboot" | "delete"; router: NetworkRouter } | null>(null);
 	const { data, isLoading, isError, isPlaceholderData, refetch } = useRouters({ page, limit: 12 });
@@ -35,6 +36,11 @@ export function RoutersAdmin() {
 
 		if (action === "notify") {
 			setNotifying(router);
+			return;
+		}
+
+		if (action === "edit") {
+			setEditing(router);
 			return;
 		}
 
@@ -107,6 +113,7 @@ export function RoutersAdmin() {
 			{renderBody()}
 
 			{creating && <RouterFormDialog onClose={() => setCreating(false)} />}
+			{editing && <RouterFormDialog router={editing} onClose={() => setEditing(null)} />}
 			{dialog?.type === "reboot" && <RebootRouterDialog router={dialog.router} onClose={() => setDialog(null)} />}
 			{dialog?.type === "delete" && <DeleteRouterDialog router={dialog.router} onClose={() => setDialog(null)} />}
 			{notifying && <ComposeNotificationDialog preset={buildRouterOutagePreset(notifying)} onClose={() => setNotifying(null)} />}
