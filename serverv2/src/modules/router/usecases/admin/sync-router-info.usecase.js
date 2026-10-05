@@ -16,8 +16,14 @@ export class SyncRouterInfo {
 			router.markOnline({ identity: info.identity, version: info.version, board: info.board });
 			return this.routerRepository.update(router.id, router);
 		} catch (error) {
-			console.error(`[SyncRouterInfo] ${router.host}:`, error.message);
-			router.markOffline(error.message);
+			console.error(`[SyncRouterInfo] ${router.host}:`, {
+				name: error?.name,
+				message: error?.message,
+				code: error?.code,
+				stack: error?.stack,
+				error
+			});
+			router.markOffline(error?.message || "Unknown router error");
 			return this.routerRepository.update(router.id, router);
 		}
 	}
