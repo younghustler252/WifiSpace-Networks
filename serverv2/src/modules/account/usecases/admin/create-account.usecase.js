@@ -63,16 +63,6 @@ export class CreateAccount {
 				throw new ValidationError("Invalid PPPoE access method");
 			}
 
-			if (resolvedAccessMethod === PPPOE_ACCESS_METHODS.IPOE) {
-				if (!macAddress) {
-					throw new ValidationError("macAddress is required for IPoE");
-				}
-
-				if (!staticIp) {
-					throw new ValidationError("staticIp is required for IPoE");
-				}
-			}
-
 			account = new PppoeAccount({
 				userId,
 				accountType,
