@@ -47,7 +47,7 @@ export function registerAccount(container) {
 		transferAccount: asClass(TransferAccount).scoped(),
 		deleteAccount: asClass(DeleteAccount).scoped(),
 		syncIpoeToRouter: asClass(SyncIpoeToRouter).scoped(),
-		adoptExistingIpoeAccount: asClass(AdoptExistingIpoeAccount).scoped(),
+		adoptIpoeAccount: asClass(AdoptExistingIpoeAccount).scoped(),
 
 		accountController: asClass(AccountController).scoped(),
 		accountAdminController: asClass(AdminController).scoped()

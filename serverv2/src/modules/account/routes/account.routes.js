@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff, requireSuperAdmin, requireOwnerOrStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	requestAccountSchema, adminCreateAccountSchema, rejectAccountSchema,
-	pauseAccountSchema, transferAccountSchema, addDeviceSchema
+	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema
 } from "../validators/account.validators.js";
 
 const router = Router();
@@ -30,6 +30,8 @@ adminRouter.use(requireStaff);
 adminRouter.get("/", asyncHandler(adminController.getAllAccounts));
 adminRouter.post("/", validate(adminCreateAccountSchema), asyncHandler(adminController.createAccount));
 adminRouter.get("/:id", asyncHandler(adminController.getAccountById));
+adminRouter.post("/ipoe/adopt", requireSuperAdmin, validate(adoptIpoeAccountSchema), asyncHandler(adminController.adoptIpoeAccount));
+adminRouter.post("/:id/ipoe/sync", asyncHandler(adminController.syncIpoeToRouter));
 adminRouter.patch("/:id/approve", asyncHandler(adminController.approveAccount));
 adminRouter.patch("/:id/reject", validate(rejectAccountSchema), asyncHandler(adminController.rejectAccount));
 adminRouter.patch("/:id/suspend", asyncHandler(adminController.suspendAccount));

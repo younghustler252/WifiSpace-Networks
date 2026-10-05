@@ -1,19 +1,14 @@
 export class MikrotikManager {
-	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, ipoeService, routerProvisioningRepository }) {
+	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, routerProvisioningRepository }) {
 		this.accountRepository = accountRepository;
 		this.routerRepository = routerRepository;
 		this.hotspotService = hotspotService;
 		this.pppoeService = pppoeService;
-		this.ipoeService = ipoeService;
 		this.routerProvisioningRepository = routerProvisioningRepository;
 	}
 
 	async provision(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
-
-		if (account.accessMethod === "ipoe") {
-			return this._provisionIpoe(account, router, subscription);
-		}
 
 		const planSnapshot = subscription.planSnapshot || {};
 		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
@@ -32,55 +27,41 @@ export class MikrotikManager {
 			await service.resumeUser(router, account.wsnId);
 		}
 
-		const loginResult = await service.login(router, {
-			username: account.wsnId,
-			password: account.routerPassword,
-			ipAddress: metadata.ipAddress
-		});
+		if (account.accessMethod === "ipoe" && account.macAddress) {
+			await service.setUserMac(router, {
+				username: account.wsnId,
+				macAddress: account.macAddress
+			});
 
-		// NEW: for hotspot accounts, record which router this account is now
-		// live on — supports "which accounts are on Router X" queries later
-		// (capacity, downtime notification) without scanning session data.
+			await service.bindMac(router, {
+				username: account.wsnId,
+				macAddress: account.macAddress
+			});
+
+			return { autoConnected: true, method: "mac_bypass" };
+		}
+
 		if (account.serviceType === "hotspot") {
+			const loginResult = await service.login(router, {
+				username: account.wsnId,
+				password: account.routerPassword,
+				ipAddress: metadata.ipAddress
+			});
+
 			await this.routerProvisioningRepository.markSynced({
 				accountId: account.id,
 				subscriptionId: subscription.id,
 				routerId: router.id
 			});
+
+			return { autoConnected: true, method: "login", data: loginResult };
 		}
 
-		return { autoConnected: true, method: "login", data: loginResult };
-	}
-
-	async _provisionIpoe(account, router, subscription) {
-		const maxLimit = subscription.planSnapshot?.speedRate || "5M/5M";
-
-		await this.ipoeService.ensureStaticLease(router, {
-			macAddress: account.macAddress,
-			ipAddress: account.staticIp,
-			comment: account.wsnId
-		});
-
-		await this.ipoeService.setSpeed(router, {
-			wsnId: account.wsnId,
-			ipAddress: account.staticIp,
-			maxLimit,
-			comment: account.wsnId
-		});
-
-		await this.ipoeService.resume(router, account.staticIp);
-
-		return { autoConnected: true, method: "ipoe_lease_and_queue" };
+		return { autoConnected: true, method: "ppp_secret" };
 	}
 
 	async suspend(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
-
-		if (account.accessMethod === "ipoe") {
-			await this.ipoeService.suspend(router, account.staticIp, account.wsnId);
-			return { success: true };
-		}
-
 		const service = this.getService(account);
 
 		await service.suspendUser(router, account.wsnId);
@@ -91,23 +72,35 @@ export class MikrotikManager {
 
 	async resume(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
-
-		if (account.accessMethod === "ipoe") {
-			await this.ipoeService.resume(router, account.staticIp);
-			return { autoConnected: true, method: "ipoe_lease_and_queue" };
-		}
-
 		const service = this.getService(account);
 
 		await service.resumeUser(router, account.wsnId);
 
-		const loginResult = await service.login(router, {
-			username: account.wsnId,
-			password: account.routerPassword,
-			ipAddress: metadata.ipAddress
-		});
+		if (account.accessMethod === "ipoe" && account.macAddress) {
+			await service.setUserMac(router, {
+				username: account.wsnId,
+				macAddress: account.macAddress
+			});
 
-		return { autoConnected: true, method: "login", data: loginResult };
+			await service.bindMac(router, {
+				username: account.wsnId,
+				macAddress: account.macAddress
+			});
+
+			return { autoConnected: true, method: "mac_bypass" };
+		}
+
+		if (account.serviceType === "hotspot") {
+			const loginResult = await service.login(router, {
+				username: account.wsnId,
+				password: account.routerPassword,
+				ipAddress: metadata.ipAddress
+			});
+
+			return { autoConnected: true, method: "login", data: loginResult };
+		}
+
+		return { autoConnected: true, method: "ppp_secret" };
 	}
 
 	async disconnect(subscription) {
@@ -131,10 +124,6 @@ export class MikrotikManager {
 		return this.getService(account).changePassword(router, account.wsnId, password);
 	}
 
-	// CHANGED: was calling getService({ planSnapshot: { serviceType } }) —
-	// a fake subscription-shaped object to satisfy the old
-	// getService(subscription) signature. Now calls resolveService(type)
-	// directly, since getService(account) expects a real account.
 	async getProfiles(router, serviceType) {
 		return this.resolveService(serviceType).getProfiles(router);
 	}
@@ -181,7 +170,9 @@ export class MikrotikManager {
 	}
 
 	getService(account) {
-		return this.resolveService(account.serviceType);
+		if (account.serviceType === "hotspot") return this.hotspotService;
+		if (account.serviceType === "pppoe" && account.accessMethod === "ipoe") return this.hotspotService;
+		return this.pppoeService;
 	}
 
 	async _waitForUser(service, router, username, attempts = 5, delayMs = 400) {

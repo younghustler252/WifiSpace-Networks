@@ -2,10 +2,11 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
 
 export class RouterController {
 	constructor({
-		createRouter, deleteRouter, getAllRouters, getRouterById,
+		createRouter, updateRouter, deleteRouter, getAllRouters, getRouterById,
 		syncRouterInfo, syncAllRouters, rebootRouter, getRouterProfiles
 	}) {
 		this.createRouterUseCase = createRouter;
+		this.updateRouterUseCase = updateRouter;
 		this.deleteRouterUseCase = deleteRouter;
 		this.getAllRoutersUseCase = getAllRouters;
 		this.getRouterByIdUseCase = getRouterById;
@@ -18,6 +19,11 @@ export class RouterController {
 	createRouter = async (req, res) => {
 		const router = await this.createRouterUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
 		return successResponse({ res, data: router.toJSON(), message: "Router created successfully", statusCode: 201 });
+	};
+
+	updateRouter = async (req, res) => {
+		const router = await this.updateRouterUseCase.execute({ actorId: req.user.id, routerId: req.params.id, data: req.body, ip: req.ip });
+		return successResponse({ res, data: router.toJSON(), message: "Router updated successfully" });
 	};
 
 	getAllRouters = async (req, res) => {

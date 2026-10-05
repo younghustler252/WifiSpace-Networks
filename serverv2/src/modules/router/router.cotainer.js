@@ -3,6 +3,7 @@ import { asClass } from "awilix";
 import { RouterRepositoryMongo } from "./repositories/router.repository.mongo.js";
 
 import { CreateRouter } from "./usecases/admin/create-router.usecase.js";
+import { UpdateRouter } from "./usecases/admin/update-router.usecase.js";
 import { DeleteRouter } from "./usecases/admin/delete-router.usecase.js";
 import { GetAllRouters } from "./usecases/admin/get-all-routers.usecase.js";
 import { GetRouterById } from "./usecases/admin/get-router-by-id.usecase.js";
@@ -18,6 +19,7 @@ export function registerRouter(container) {
 		routerRepository: asClass(RouterRepositoryMongo).singleton(),
 
 		createRouter: asClass(CreateRouter).scoped(),
+		updateRouter: asClass(UpdateRouter).scoped(),
 		deleteRouter: asClass(DeleteRouter).scoped(),
 		getAllRouters: asClass(GetAllRouters).scoped(),
 		getRouterById: asClass(GetRouterById).scoped(),

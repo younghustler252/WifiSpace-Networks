@@ -34,9 +34,9 @@ export function createPaymentCleanupWorker() {
         }
     );
 
-    attachWorkerLifecycleLogging(worker, "payment-cleanup", {
-        notifyOnFailure: true,
-    });
+    // attachWorkerLifecycleLogging(worker, "payment-cleanup", {
+    //     notifyOnFailure: true,
+    // });
 
     return worker;
 }

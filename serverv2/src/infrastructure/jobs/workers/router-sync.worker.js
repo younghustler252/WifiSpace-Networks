@@ -1,24 +1,19 @@
 // infrastructure/jobs/workers/router-sync.worker.js
-
 import { Worker } from "bullmq";
 import { connection } from "../connection.js";
 import { container } from "../../../container/index.js";
+import { attachWorkerLifecycleLogging } from "../worker-events.js";
 
 export function createRouterSyncWorker() {
-    return new Worker(
-        "router-sync",
-        async () => {
-            console.log("Starting nightly router sync...");
-
-            const { syncAllRouters } = container.cradle;
-
-            const result = await syncAllRouters.execute();
-
-            console.log(`Finished syncing ${result.length} routers`);
-        },
-        {
-            connection,
-            concurrency: 1,
-        }
-    );
+	const worker = new Worker(
+		"router-sync",
+		async () => {
+			const syncAllRouters = container.resolve("syncAllRouters");
+			const result = await syncAllRouters.execute();
+			console.log(`Router sync: total ${result.total}, synced ${result.synced}, failed ${result.failed}`);
+		},
+		{ connection, concurrency: 1 }
+	);
+	// attachWorkerLifecycleLogging(worker, "router-sync", { notifyOnFailure: true });
+	return worker;
 }

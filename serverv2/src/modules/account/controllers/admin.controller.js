@@ -3,7 +3,7 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
 export class AdminController {
 	constructor({
 		getAccountById, getAllAccounts, createAccount, approveAccount, rejectAccount,
-		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, deleteAccount
+		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount
 	}) {
 		this.getAccountByIdUseCase = getAccountById;
 		this.getAllAccountsUseCase = getAllAccounts;
@@ -15,6 +15,8 @@ export class AdminController {
 		this.resumeAccountUseCase = resumeAccount;
 		this.terminateAccountUseCase = terminateAccount;
 		this.transferAccountUseCase = transferAccount;
+		this.syncIpoeToRouterUseCase = syncIpoeToRouter;
+		this.adoptIpoeAccountUseCase = adoptIpoeAccount;
 		this.deleteAccountUseCase = deleteAccount;
 	}
 
@@ -66,6 +68,16 @@ export class AdminController {
 	transferAccount = async (req, res) => {
 		const account = await this.transferAccountUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
 		return successResponse({ res, data: account.toJSON(), message: "Account transferred successfully" });
+	};
+
+	adoptIpoeAccount = async (req, res) => {
+		const result = await this.adoptIpoeAccountUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: { user: result.user.toJSON(), account: result.account.toJSON(), subscription: result.subscription.toJSON() }, message: "IPoE account adopted successfully", statusCode: 201 });
+	};
+
+	syncIpoeToRouter = async (req, res) => {
+		const result = await this.syncIpoeToRouterUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ip: req.ip });
+		return successResponse({ res, data: result, message: result.success ? "Synced to router successfully" : "Sync attempted, see result for details" });
 	};
 
 	deleteAccount = async (req, res) => {

@@ -15,6 +15,6 @@ export function createPaymentExpiryWorker() {
 		{ connection, concurrency: 1 }
 	);
 
-	attachWorkerLifecycleLogging(worker, "payment-expiry", { notifyOnFailure: true });
+	// attachWorkerLifecycleLogging(worker, "payment-expiry", { notifyOnFailure: true });
 	return worker;
 }

@@ -1,11 +1,11 @@
-import { APPROVAL_STATUSES, ACCOUNT_ERROR_CODES, SERVICE_TYPES } from "../../domain/account.enum.js";
+import { APPROVAL_STATUSES, ACCOUNT_ERROR_CODES } from "../../domain/account.enum.js";
 import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
+import { NOTIFICATION_TYPES } from "../../../notification/domain/notification.enum.js";
 
 export class ApproveAccount {
-	constructor({ accountRepository, subscriptionRepository, networkService, auditService }) {
+	constructor({ accountRepository, createNotification, auditService }) {
 		this.accountRepository = accountRepository;
-		this.subscriptionRepository = subscriptionRepository;
-		this.networkService = networkService;
+		this.createNotification = createNotification;
 		this.auditService = auditService;
 	}
 
@@ -16,47 +16,32 @@ export class ApproveAccount {
 		if (account.isApproved()) {
 			throw new ValidationError("Account already approved", ACCOUNT_ERROR_CODES.ACCOUNT_ALREADY_APPROVED);
 		}
-
 		if (![APPROVAL_STATUSES.PENDING, APPROVAL_STATUSES.REJECTED].includes(account.approvalStatus)) {
-			throw new ValidationError(
-				`Cannot approve account with status ${account.approvalStatus}`,
-				ACCOUNT_ERROR_CODES.INVALID_APPROVAL_TRANSITION
-			);
+			throw new ValidationError(`Cannot approve account with status ${account.approvalStatus}`, ACCOUNT_ERROR_CODES.INVALID_APPROVAL_TRANSITION);
 		}
-
-		if (account.serviceType === SERVICE_TYPES.PPPOE && !account.routerId && !routerId) {
+		if (account.serviceType === "pppoe" && !account.routerId && !routerId) {
 			throw new ValidationError("A routerId must be assigned before approving a PPPoE account");
 		}
 
 		if (routerId) account.moveToRouter(routerId);
 		if (routerProfile) account.updateRouterProfile(routerProfile);
-
-		const subscription = await this.subscriptionRepository.findCurrentByAccountId(accountId);
-		if (!subscription) {
-			throw new ValidationError("No active subscription found for this account", ACCOUNT_ERROR_CODES.NO_ACTIVE_SUBSCRIPTION);
-		}
-
-		const result = await this.networkService.activate(subscription, { accountId: account.id });
-		if (!result.success) {
-			throw new ValidationError(`Failed to provision account: ${result.error}`, ACCOUNT_ERROR_CODES.PROVISIONING_FAILED);
-		}
-
-		const previousStatus = account.approvalStatus;
 		account.approve(actorId);
 
 		const updated = await this.accountRepository.update(account.id, {
-			approvalStatus: account.approvalStatus,
-			approvedBy: account.approvedBy,
-			approvedAt: account.approvedAt,
-			approvalNote: account.approvalNote,
-			routerId: account.routerId,
-			routerProfile: account.routerProfile
+			approvalStatus: account.approvalStatus, approvedBy: account.approvedBy, approvedAt: account.approvedAt,
+			approvalNote: account.approvalNote, routerId: account.routerId, routerProfile: account.routerProfile
 		});
 
 		if (this.auditService) {
-			await this.auditService.log({
-				actorId, action: "ACCOUNT_APPROVED", entity: "Account", entityId: account.id,
-				oldValue: { approvalStatus: previousStatus }, newValue: { approvalStatus: account.approvalStatus }, ip
+			await this.auditService.log({ actorId, action: "ACCOUNT_APPROVED", entity: "Account", entityId: account.id, newValue: { approvalStatus: account.approvalStatus }, ip });
+		}
+
+		if (this.createNotification) {
+			await this.createNotification.execute({
+				actorId, type: NOTIFICATION_TYPES.ACCOUNT_APPROVED,
+				title: "Your account is approved!",
+				message: "Your installation is ready — subscribe to a plan now to get connected.",
+				userIds: [updated.userId], accountId: updated.id, entityType: "Account", entityId: updated.id
 			});
 		}
 

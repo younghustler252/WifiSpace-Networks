@@ -29,34 +29,16 @@ export const adminCreateAccountSchema = z.object({
 	taxId: z.string().optional(),
 	routerId: z.string().optional(),
 	routerProfile: z.string().optional(),
-	accessMethod: z.enum(["ppp", "ipoe"]).default("ipoe"),
+	accessMethod: z.enum(["ppp", "ipoe"]).optional(),
 	macAddress: z.string().optional(),
-	staticIp: z.string().refine((value) => isIP(value) !== 0, {
-		message: "Invalid IP address"
-	}).optional(),
-
+	staticIp: z.string().optional(),
 	maxDevices: z.number().int().min(1).optional()
 })
-	.refine((d) => d.serviceType !== SERVICE_TYPES.PPPOE || !!d.routerId, {
-		message: "routerId is required for PPPoE accounts",
-		path: ["routerId"]
-	})
-	.refine((d) => d.serviceType !== SERVICE_TYPES.PPPOE || !d.accessMethod || ["ppp", "ipoe"].includes(d.accessMethod), {
-		message: "Invalid PPPoE access method",
-		path: ["accessMethod"]
-	})
-	.refine((d) => d.accessMethod !== "ipoe" || !!d.macAddress, {
-		message: "macAddress is required for IPoE accounts",
-		path: ["macAddress"]
-	})
-	.refine((d) => d.accessMethod !== "ipoe" || !!d.staticIp, {
-		message: "staticIp is required for IPoE accounts",
-		path: ["staticIp"]
-	})
-	.refine((d) => d.serviceType === SERVICE_TYPES.PPPOE || (!d.businessName && !d.companyRegistrationNumber && !d.taxId), {
-		message: "Business fields only apply to PPPoE accounts",
-		path: ["businessName"]
-	});
+	.refine((d) => d.serviceType !== "pppoe" || !!d.routerId, { message: "routerId is required for PPPoE accounts", path: ["routerId"] })
+	.refine((d) => d.serviceType !== "pppoe" || d.accessMethod !== "ipoe" || !!d.macAddress, { message: "macAddress is required for IPoE accounts", path: ["macAddress"] })
+	.refine((d) => d.serviceType === "pppoe" || (!d.businessName && !d.companyRegistrationNumber && !d.taxId), { message: "Business fields only apply to PPPoE accounts", path: ["businessName"] });
+
+
 
 export const rejectAccountSchema = z.object({
 	note: z.string().min(1, "A rejection reason is required")
@@ -73,4 +55,16 @@ export const transferAccountSchema = z.object({
 export const addDeviceSchema = z.object({
 	macAddress: z.string().min(1),
 	hostname: z.string().optional()
+});
+
+export const adoptIpoeAccountSchema = z.object({
+	email: z.string().email(),
+	firstName: z.string().optional(),
+	lastName: z.string().optional(),
+	phone: z.string().optional(),
+	routerId: z.string().min(1),
+	macAddress: z.string().min(1),
+	staticIp: z.string().optional(),
+	planId: z.string().min(1),
+	expiresAt: z.coerce.date()
 });

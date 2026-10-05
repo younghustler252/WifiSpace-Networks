@@ -234,12 +234,126 @@ Public, no auth needed for browsing.
 - `GET /api/payments/verify/:reference` → poll this after redirect-back to confirm status: `pending | successful | failed`.
 
 ### Hotspot (`/api/hotspot`) — no auth, public captive-portal endpoints
-See Section 7 for the full flow. Key endpoints:
-- `GET /api/hotspot/session?macAddress=...&identity=...` → tells you what screen to show (see below)
-- `GET /api/hotspot/plans` → hotspot-only plan catalog
-- `POST /api/hotspot/start` → begins checkout for a new or returning customer
-- `POST /api/hotspot/login` → existing customer logging in on a new/untrusted device
-- `GET /api/hotspot/status?reference=...&macAddress=...` → poll this after payment redirect to know when internet is actually live
+
+All four endpoints below are exact — pulled from the actual validators/usecases/controllers, not approximated.
+
+#### `GET /api/hotspot/session`
+Query params: `macAddress` (required), `routerId?`, `routerUid?`, `identity?` — send whichever of the router-identifying params you actually have (see the RouterOS section below for what's realistic to send).
+
+Response `data`:
+```json
+{
+  "state": "UNKNOWN_DEVICE",
+  "router": { "id": "…", "name": "…", "code": "RT-A1B2C3D4", "location": "…", "status": "online" },
+  "session": null,
+  "subscription": null
+}
+```
+`state` is one of `UNKNOWN_DEVICE | PENDING | TRUSTED_NEEDS_PLAN | ACTIVE`. `session` is present (and populated) for every state except `UNKNOWN_DEVICE`. `subscription` is only present and non-null for `ACTIVE`. If `router` is `null`, we couldn't resolve which physical router this device is behind — treat that as a hard error state ("can't identify this hotspot"), not a normal branch.
+
+#### `POST /api/hotspot/login`
+Body:
+```json
+{
+  "email": "ada@example.com",
+  "password": "••••••••",
+  "macAddress": "AA:BB:CC:DD:EE:FF",
+  "ipAddress": "10.5.50.12",
+  "userAgent": "Mozilla/5.0 …",
+  "routerId": "…",
+  "routerUid": "…",
+  "identity": "…"
+}
+```
+`macAddress` and the email/password pair are the only required fields; send whichever router-identifying field you have for `routerId`/`routerUid`/`identity` (only one is needed, they're tried in that order server-side).
+
+Response `data`:
+```json
+{
+  "session": {
+    "id": "…", "macAddress": "AA:BB:CC:DD:EE:FF", "status": "authenticated",
+    "trustedDevice": true, "routerId": "…", "expiresAt": "2026-10-29T…"
+  },
+  "account": {
+    "id": "…", "wsnId": "HS0012", "serviceType": "hotspot",
+    "maxDevices": 2, "devices": [ { "macAddress": "…", "hostname": null, "lastSeenAt": "…" } ]
+  }
+}
+```
+If they already have an active subscription at this point (e.g. an admin activated them by phone before they reached the portal), the router is provisioned server-side automatically as part of this call — you don't need a separate "connect" step. Re-check `GET /api/hotspot/session` right after login to get the up-to-date `state` (it may already be `ACTIVE`).
+
+#### `POST /api/hotspot/start`
+Body:
+```json
+{
+  "firstName": "Ada",
+  "lastName": "Obi",
+  "email": "ada@example.com",
+  "phone": "080…",
+  "planId": "…",
+  "callbackUrl": "https://portal.wifispace.ng/checkout",
+  "macAddress": "AA:BB:CC:DD:EE:FF",
+  "ipAddress": "10.5.50.12",
+  "userAgent": "Mozilla/5.0 …",
+  "routerId": "…",
+  "routerUid": "…",
+  "identity": "…"
+}
+```
+Required: `email`, `planId`, `callbackUrl`, `macAddress`, and one of the router-identifying fields. `firstName`/`lastName`/`phone` are optional — if omitted for a brand-new customer, the account is created with placeholder name values, so it's worth collecting at least a first name in the UI if you can.
+
+Response `data` — two shapes depending on what happens:
+
+If the email belongs to an existing account on a device we don't already trust:
+```json
+{
+  "status": "EXISTING_USER",
+  "user": { "id": "…", "firstName": "Ada", "email": "ada@example.com" },
+  "requiresLogin": true,
+  "message": "Welcome back — please log in to continue."
+}
+```
+→ Show the login form and call `POST /api/hotspot/login` instead.
+
+Otherwise (new customer, or a device we already trust for this email):
+```json
+{
+  "status": "PAYMENT_REQUIRED",
+  "user": { "id": "…", "firstName": "Ada", "email": "ada@example.com" },
+  "router": { "id": "…", "name": "…", "code": "…", "location": "…" },
+  "account": { "id": "…", "wsnId": "HS0012", "serviceType": "hotspot" },
+  "plan": { "id": "…", "name": "7-Day Unlimited", "price": 1500 },
+  "payment": { "id": "…", "status": "initiated", "gatewayReference": "WSN-…" },
+  "authorizationUrl": "https://checkout.paystack.com/…"
+}
+```
+→ Redirect the browser to `authorizationUrl`.
+
+#### `GET /api/hotspot/status`
+Query params: `reference` (required — the payment reference, e.g. from the URL when Paystack redirects back to your `callbackUrl`), `macAddress` (optional but send it — without it you only get payment status, not connectivity status).
+
+Response `data`:
+```json
+{
+  "paymentStatus": "successful",
+  "businessProcessed": true,
+  "connected": true
+}
+```
+Poll this every 2–3 seconds after redirect-back. `connected: true` means the router has actually been provisioned and the device should have working internet — that's your signal to show the success screen, not `paymentStatus` alone (a payment can succeed slightly before provisioning finishes).
+
+---
+
+### RouterOS portal redirect — what you'll actually receive
+
+This needs a correction to plan around: **`identity` is not a variable RouterOS's hotspot login page exposes out of the box.** The stock variables available in a MikroTik hotspot `login.html` template are things like `$(mac)`, `$(mac-esc)`, `$(ip)`, `$(username)`, `$(link-login)`, `$(link-login-only)`, `$(link-orig)`, `$(error)`, `$(chap-id)`, `$(chap-challenge)`, `$(trial)`. There's no built-in "which router am I" variable, because from RouterOS's perspective the login page doesn't need to know that — it always talks to itself.
+
+Two ways to get router identity to your frontend, pick one before he builds against it:
+
+1. **Per-router hardcoded query param** (simplest, works today): each router's hotspot login page HTML is slightly customized at setup time to hardcode its own `routerCode` (or `routerUid`) into the redirect link it builds to your portal — e.g. the login page's "continue" link points to `https://portal.wifispace.ng/?mac=$(mac)&routerCode=RT-A1B2C3D4`. This means provisioning a new physical router involves editing one line in its login page template. Not elegant, but reliable and matches how most MikroTik hotspot deployments handle multi-router setups.
+2. **Router self-identifies via its system identity**, which MikroTik *does* expose as `$(identity)` **only if** you've set the router's System Identity to something meaningful (`/system identity set name=RT-A1B2C3D4`) and your login page template actually references `$(identity)` — this one might already be what "identity" in our backend code refers to (the resolver tries router-by-identity as a fallback), so if your router configs already set a real identity per device, this could just work as-is. Worth testing against one real router before assuming either way.
+
+**Send `mac` (via `$(mac)`) always — that one's guaranteed.** For router identification, confirm with whoever configured the MikroTik hotspot profiles which of the two approaches above is actually in place, then map that to `macAddress` + (`routerCode` if hardcoded, which the frontend would then need to send through a differently-named param than the ones above — flag this back to me and I'll add a `routerCode` lookup path server-side) or `identity` (if System Identity is set per router).
 
 ### Notifications (`/api/notifications`)
 `GET /api/notifications/me` → paginated list of the user's notifications, each with a `status` (`PENDING|SENT|DELIVERED|READ|FAILED`). `PATCH /api/notifications/me/:id/read` marks one read.
@@ -311,3 +425,65 @@ This is the more delicate UX — it needs to feel like a normal captive portal, 
 - **File uploads** (avatar) are `multipart/form-data`, not JSON.
 
 If anything here doesn't match what you see in practice once you start integrating, flag it — this document reflects the backend as currently built, and some pieces (analytics, agent tooling, customer service ticketing) are still planned but not yet implemented.
+
+---
+
+## 9. Deployment note — MikroTik walled garden
+
+Before a device authenticates, RouterOS blocks all traffic except to the router itself — a "walled garden" is the explicit allow-list of domains a device can reach *before* login. If this isn't configured, the captive portal page itself, your API, and Paystack's checkout page will all fail to load, since the device technically hasn't "logged in" yet from the router's point of view.
+
+Every router needs its walled garden (`/ip hotspot walled-garden` and `/ip hotspot walled-garden ip`) to allow, at minimum:
+- Your frontend/portal domain
+- Your API domain
+- Paystack's domains (checkout page + any CDN/asset domains it loads — check Paystack's own docs for the current list, as these can change)
+
+This is a per-router configuration step at install/provisioning time, not something the application code can control — flag it to whoever's doing physical router setup so it's part of the standard provisioning checklist for every new hotspot location, not something discovered broken after a router's already live.
+
+---
+
+## 10. Changelog — read this before your next integration pass
+
+### New: Notify customers by router
+`POST /api/notifications/admin` now accepts `routerIds: string[]` and `sinceHours?: number` (default 24) alongside the existing `userIds`/`audience`. Exactly one of `userIds`, `audience`, or `routerIds` is required. Add `preview: true` to the body to get back `{ recipientCount }` without actually sending anything — use this for the "here's how many people this will reach" confirmation before staff hit send. If the selection resolves to zero recipients, you get a `400 NO_RECIPIENTS_RESOLVED` instead of a silent no-op send.
+
+```json
+{
+	"type": "system_alert",
+	"title": "Service issue in Yaba",
+	"message": "We're aware of a network issue and are working on it.",
+	"priority": "HIGH",
+	"routerIds": ["670f...dc"],
+	"sinceHours": 24
+}
+```
+
+`GET /api/notifications/me` rows now include `metadata.type` and `metadata.accountId` on every notification going forward, so the bell icon can finally pick the right icon and deep-link correctly. Older rows sent before this change won't have them — handle `metadata.type` being `undefined` gracefully for anything created before today.
+
+**Only `email` and `in_app` channels are live right now.** Trim the composer to those two — `sms` and `whatsapp` exist in the API but aren't configured yet and will fail every send attempt if selected.
+
+### New: Customer support tickets
+Full module, base path `/api/tickets`. `POST /` creates a ticket, `GET /me` lists the logged-in user's tickets, `GET /:id` returns `{ ticket, messages }`, `POST /:id/reply` adds a message. Admin: `GET /admin`, `PATCH /admin/:id/assign` (body `{ staffId }`), `PATCH /admin/:id/status` (body `{ status }`, one of `open | in_progress | waiting_on_customer | resolved | closed`).
+
+### New: Plan upgrades carry over remaining days
+Upgrading no longer resets the countdown — remaining time on the old plan is added on top of the new plan's full duration. **Downgrading mid-cycle is intentionally not supported** — the backend will reject it with a clear `400` if attempted. Use the new `GET /api/subscriptions/upgrade-options?accountId=...` endpoint instead of the general plan catalog anywhere you're building a "change my plan" screen — it only returns plans priced higher than the customer's current one, so there's nothing to filter client-side and no way to accidentally show a downgrade option.
+
+### New: PPPoE accounts now carry an access method
+`accessMethod: "ppp" | "ipoe"` on every PPPoE account. **`ipoe` is the default** — it's what ~90% of current customers are on; `ppp` is opt-in for now and will likely flip to the default once migration completes. Functionally this is invisible to the customer experience (login, billing, plans, payments all work identically) — it only affects what happens on the router behind the scenes. You don't need to expose this anywhere in the customer-facing app; it's admin/account-creation-flow only. Admin-side account creation (`POST /api/accounts/admin`) accepts `accessMethod`, `macAddress` (required when `accessMethod` is `ipoe`), and `staticIp` (optional, informational only).
+
+### New: router location on PPPoE requests
+PPPoE account requests (`POST /api/accounts/me`) now accept an optional `requestedLocation: { address, landmark?, city?, state?, coordinates? }`. Required for PPPoE requests (not applicable to hotspot). This flows straight through to the admin approval queue's account detail — no new endpoint needed to read it back, it's just a field on the account object now.
+
+### New: router management
+`PATCH /api/routers/:id` — updates a router's config (name, host, credentials, supported services, location, connection type, priority, capacity, enabled flags). Superadmin only, same as create/delete.
+
+### Fixed: account admin list missing contact info
+`GET /api/accounts/admin` and related endpoints now embed `phone` and `address` on the populated owner object, not just name/email — no more extra per-card fetch needed.
+
+### Fixed: data integrity on older approved accounts
+Accounts approved through the admin-create path previously had `approvalStatus: "approved"` with `approvedAt`/`approvedBy` left `null`. This is fixed going forward; a one-time backfill was run on existing bad records.
+
+### Router model simplified
+`agentStatus` and `agentLastSeenAt` have been removed from the router object entirely — the architecture doesn't use a polling agent, only direct/VPN connections. `status` (`online | offline | maintenance`) is now the single source of truth for router reachability. `connectionType` is `"direct" | "vpn"` only (no `"agent"` option).
+
+### Still open from your original list
+Auth cookie names/flags, impersonation-token precedence, refresh rotation, session invalidation on password change, rate-limit `Retry-After` headers, subscription status-transition table, `/subscriptions/me` response trimming, user `suspended` status usage, nullable-field clearing on profile updates, hard-delete cascade behavior, full audit `action` value list, and dashboard timezone confirmation are all still pending — nothing shipped on those yet, don't assume otherwise.

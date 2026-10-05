@@ -13,6 +13,25 @@ export const createRouterSchema = z.object({
 	connectionType: z.enum(CONNECTION_TYPE_LIST).optional()
 });
 
+export const updateRouterSchema = z.object({
+	name: z.string().min(1).optional(),
+	host: z.string().min(1).optional(),
+	port: z.number().int().optional(),
+	username: z.string().min(1).optional(),
+	password: z.string().min(1).optional(),
+	supportedServices: z.array(z.enum(SERVICE_TYPE_LIST)).optional(),
+	location: z.string().optional(),
+	siteCode: z.string().optional(),
+	popName: z.string().optional(),
+	connectionType: z.enum(CONNECTION_TYPE_LIST).optional(),
+	priority: z.number().int().optional(),
+	isDefaultRouter: z.boolean().optional(),
+	isEnabled: z.boolean().optional(),
+	apiEnabled: z.boolean().optional(),
+	maxSessions: z.number().int().min(0).optional()
+});
+
+
 export const routerProfilesQuerySchema = z.object({
 	serviceType: z.enum(SERVICE_TYPE_LIST)
 });

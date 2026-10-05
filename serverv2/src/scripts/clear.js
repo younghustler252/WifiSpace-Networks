@@ -4,8 +4,8 @@ import mongoose from "mongoose";
 const confirm = process.argv.includes("--confirm");
 
 if (!confirm) {
-	console.error("❌ Refusing to delete audit log data without --confirm");
-	console.error("Run: node scripts/clear-audit-logs.js --confirm");
+	console.error("❌ Refusing to migrate PPPoE accounts without --confirm");
+	console.error("Run: node scripts/migrate-pppoe-to-ipoe.js --confirm");
 	process.exit(1);
 }
 
@@ -14,33 +14,45 @@ await mongoose.connect(process.env.MONGO_URI);
 console.log("MongoDB connected.");
 
 const db = mongoose.connection.db;
+const collection = db.collection("accounts");
 
-const collections = ["auditlogs"];
+const filter = {
+	serviceType: "pppoe",
+	$or: [
+		{ accessMethod: { $exists: false } },
+		{ accessMethod: { $ne: "ipoe" } }
+	]
+};
 
-for (const name of collections) {
-	const exists = await db.listCollections({ name }).hasNext();
+const count = await collection.countDocuments(filter);
 
-	if (!exists) {
-		console.log(`ℹ️ Collection "${name}" does not exist. Skipping.`);
-		continue;
-	}
+console.log(`\nPPPoE accounts requiring IPoE migration: ${count}`);
 
-	const collection = db.collection(name);
-
-	const count = await collection.countDocuments();
-
-	console.log(`\n${name}: ${count} documents`);
-
-	if (count === 0) {
-		console.log(`Nothing to delete from "${name}".`);
-		continue;
-	}
-
-	const result = await collection.deleteMany({});
-
-	console.log(`✅ Deleted ${result.deletedCount} documents from "${name}".`);
+if (count === 0) {
+	console.log("Nothing to migrate.");
+	await mongoose.disconnect();
+	console.log("\n✅ PPPoE → IPoE migration complete.");
+	process.exit(0);
 }
+
+const result = await collection.updateMany(
+	filter,
+	{
+		$set: {
+			accessMethod: "ipoe"
+		}
+	}
+);
+
+console.log(`✅ Updated ${result.modifiedCount} PPPoE accounts to IPoE.`);
+
+const remaining = await collection.countDocuments({
+	serviceType: "pppoe",
+	accessMethod: { $ne: "ipoe" }
+});
+
+console.log(`Remaining non-IPoE PPPoE accounts: ${remaining}`);
 
 await mongoose.disconnect();
 
-console.log("\n✅ Audit log cleanup complete.");
+console.log("\n✅ PPPoE → IPoE migration complete.");

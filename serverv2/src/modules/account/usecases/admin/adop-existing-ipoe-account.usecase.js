@@ -1,4 +1,3 @@
-// account/usecases/admin/adopt-existing-ipoe-account.usecase.js
 import crypto from "crypto";
 import { ConflictError, NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
 import { USER_ROLE, USER_STATUS } from "../../../user/domain/user.enum.js";
@@ -7,6 +6,10 @@ import { PppoeAccount } from "../../domain/pppoe-account.entity.js";
 import { APPROVAL_STATUSES, ACCOUNT_STATUSES } from "../../domain/account.enum.js";
 import { Subscription } from "../../../subscription/domain/subscription.entity.js";
 import { SUBSCRIPTION_STATUSES } from "../../../subscription/domain/subscription.enum.js";
+
+function generateRouterPassword() {
+	return crypto.randomBytes(9).toString("base64url");
+}
 
 export class AdoptExistingIpoeAccount {
 	constructor({ userRepository, accountRepository, subscriptionRepository, planRepository, passwordService, auditService }) {
@@ -18,9 +21,7 @@ export class AdoptExistingIpoeAccount {
 		this.auditService = auditService;
 	}
 
-	async execute({ actorId, email, firstName, lastName, phone, routerId, macAddress, staticIp, planId, expiresAt, ip = null }) {
-		if (!expiresAt) throw new ValidationError("expiresAt is required — this is what the system will enforce renewal against");
-
+	async execute({ actorId, email, firstName, lastName, phone, routerId, macAddress, staticIp = null, planId, expiresAt, ip = null }) {
 		let user = await this.userRepository.findByEmail(email);
 		if (!user) {
 			const randomPassword = crypto.randomBytes(16).toString("hex");
@@ -39,7 +40,8 @@ export class AdoptExistingIpoeAccount {
 
 		const account = new PppoeAccount({
 			userId: user.id, routerId, accessMethod: "ipoe", macAddress, staticIp,
-			routerPassword: null, approvalStatus: APPROVAL_STATUSES.APPROVED, status: ACCOUNT_STATUSES.ACTIVE
+			routerPassword: generateRouterPassword(), routerProfile: plan.mikrotikProfile,
+			approvalStatus: APPROVAL_STATUSES.APPROVED, status: ACCOUNT_STATUSES.ACTIVE
 		});
 		account.approve(actorId);
 		const createdAccount = await this.accountRepository.create(account);
@@ -53,19 +55,17 @@ export class AdoptExistingIpoeAccount {
 
 		const subscription = new Subscription({
 			accountId: createdAccount.id, userId: user.id, planId,
-			status: SUBSCRIPTION_STATUSES.ACTIVE, planSnapshot,
-			cycles: 1, totalAmount: planSnapshot.price,
+			status: SUBSCRIPTION_STATUSES.ACTIVE, planSnapshot, cycles: 1, totalAmount: planSnapshot.price,
 			startsAt: new Date(), activatedAt: new Date(),
-			currentPeriodStart: new Date(), currentPeriodEnd: new Date(expiresAt),
-			expiresAt: new Date(expiresAt)
+			currentPeriodStart: new Date(), currentPeriodEnd: new Date(expiresAt), expiresAt: new Date(expiresAt)
 		});
-		subscription.markMikrotikSynced(); // deliberately NOT calling networkService.activate — see note above
+		subscription.markMikrotikSynced();
 		const createdSubscription = await this.subscriptionRepository.create(subscription);
 
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId, action: "IPOE_ACCOUNT_ADOPTED", entity: "Account", entityId: createdAccount.id,
-				newValue: { macAddress, staticIp, routerId, expiresAt }, ip
+				newValue: { macAddress, routerId, expiresAt }, ip
 			});
 		}
 
