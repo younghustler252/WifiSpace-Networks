@@ -80,3 +80,7 @@ export function useSendNotification() {
 		},
 	});
 }
+
+export function usePreviewNotification() {
+	return useMutation({ mutationFn: adminNotificationsApi.preview });
+}

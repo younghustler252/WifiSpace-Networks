@@ -20,11 +20,9 @@ export const NOTIFICATION_RECIPIENT_STATUS = {
 	FAILED: "FAILED",
 	CANCELLED: "CANCELLED",
 } as const;
+
 export const NOTIFICATION_CHANNEL_OPTIONS = [
 	{ value: "email", label: "Email" },
-	{ value: "sms", label: "SMS" },
-	{ value: "whatsapp", label: "WhatsApp" },
-	{ value: "push", label: "Push" },
 	{ value: "in_app", label: "In-app" },
 ] as const;
 
@@ -46,4 +44,6 @@ export const NOTIFICATION_ERROR_CODES = {
 	NOTIFICATION_NOT_FOUND: "NOTIFICATION_NOT_FOUND",
 	RECIPIENT_NOT_FOUND: "RECIPIENT_NOT_FOUND",
 	UNSUPPORTED_CHANNEL: "UNSUPPORTED_CHANNEL",
+	NO_RECIPIENTS_RESOLVED: "NO_RECIPIENTS_RESOLVED",
 } as const;
+

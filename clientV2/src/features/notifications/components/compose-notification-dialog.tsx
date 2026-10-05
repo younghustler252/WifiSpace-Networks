@@ -14,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useRouters } from "@/features/routers/hooks/use-routers";
 import { UserPicker } from "@/features/users/components/user-picker";
 import type { UserProfile } from "@/features/users/types/users.types";
-import { featureFlags } from "@/lib/feature-flags";
 import { formatNumber } from "@/lib/format";
 import {
 	COMPOSER_TYPE_OPTIONS,
@@ -22,8 +21,8 @@ import {
 	NOTIFICATION_ERROR_CODES,
 	NOTIFICATION_PRIORITY_OPTIONS,
 } from "../constants";
-import { useSendNotification } from "../hooks/use-notifications";
-import { fetchActiveCustomerCount, fetchAudienceIds } from "../lib/audience";
+import { usePreviewNotification, useSendNotification } from "../hooks/use-notifications";
+import { fetchAudienceIds } from "../lib/audience";
 import { routerNotice } from "../lib/presets";
 import type { ComposePreset } from "../types/notifications.types";
 import { RouterAudiencePicker } from "./router-audience-picker";
@@ -34,12 +33,27 @@ type Step = "compose" | "review";
 const DEFAULT_CHANNEL = "default";
 const STAFF_ROLES = ["staff", "superadmin"];
 
+const SINCE_OPTIONS = [
+	{ value: "6", label: "6 hours" },
+	{ value: "12", label: "12 hours" },
+	{ value: "24", label: "24 hours" },
+	{ value: "48", label: "2 days" },
+	{ value: "72", label: "3 days" },
+	{ value: "168", label: "7 days" },
+];
+
 const AUDIENCE_LABELS: Record<Audience, string> = {
 	specific: "Selected people",
 	customers: "All active customers",
 	staff: "All active staff and admins",
 	routers: "Customers on selected routers",
 };
+
+function buildRecipients(audience: Audience, ids: string[], routerIds: string[], sinceHours: string) {
+	if (audience === "customers") return { audience: "all_customers" as const };
+	if (audience === "routers") return { routerIds, sinceHours: Number(sinceHours) };
+	return { userIds: ids };
+}
 
 interface FormErrors {
 	title?: string;
@@ -54,7 +68,8 @@ interface ComposeNotificationDialogProps {
 
 export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificationDialogProps) {
 	const send = useSendNotification();
-	const routers = useRouters({ limit: 100 }, featureFlags.routerBroadcast);
+	const preview = usePreviewNotification();
+	const routers = useRouters({ limit: 100 });
 	const [step, setStep] = useState<Step>("compose");
 	const [type, setType] = useState(preset?.type ?? "admin_broadcast");
 	const [title, setTitle] = useState(preset?.title ?? "");
@@ -62,15 +77,25 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 	const [audience, setAudience] = useState<Audience>(preset?.routerIds?.length ? "routers" : "specific");
 	const [picked, setPicked] = useState<UserProfile[]>([]);
 	const [routerIds, setRouterIds] = useState<string[]>(preset?.routerIds ?? []);
+	const [sinceHours, setSinceHours] = useState("24");
 	const [channel, setChannel] = useState(DEFAULT_CHANNEL);
 	const [priority, setPriority] = useState(preset?.priority ?? "NORMAL");
 	const [recipientIds, setRecipientIds] = useState<string[]>([]);
-	const [recipientCount, setRecipientCount] = useState<number | null>(0);
+	const [recipientCount, setRecipientCount] = useState(0);
 	const [errors, setErrors] = useState<FormErrors>({});
 	const [preparing, setPreparing] = useState(false);
 
 	const selectedRouters = (routers.data?.items ?? []).filter((r) => routerIds.includes(r.id));
-	const onlineEstimate = selectedRouters.reduce((sum, r) => sum + (r.currentSessions ?? 0), 0);
+
+	function baseBody() {
+		return {
+			type,
+			title: title.trim(),
+			message: message.trim(),
+			priority,
+			channel: channel === DEFAULT_CHANNEL ? undefined : channel,
+		};
+	}
 
 	function placeLabel() {
 		const places = Array.from(new Set(selectedRouters.map((r) => r.location || r.name)));
@@ -98,67 +123,56 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 		if (Object.keys(next).length > 0) return;
 
 		if (audience === "specific") {
-			setRecipientIds(picked.map((u) => u.id));
-			setRecipientCount(picked.length);
-			setStep("review");
-			return;
-		}
-
-		if (audience === "routers") {
-			setRecipientIds([]);
-			setRecipientCount(null);
+			const ids = picked.map((u) => u.id);
+			setRecipientIds(ids);
+			setRecipientCount(ids.length);
 			setStep("review");
 			return;
 		}
 
 		setPreparing(true);
 
-		if (audience === "customers") {
-			const total = await fetchActiveCustomerCount();
+		if (audience === "staff") {
+			const ids = await fetchAudienceIds(STAFF_ROLES);
 			setPreparing(false);
-			if (total === 0) {
-				setErrors({ audience: "There are no active customers yet" });
+			if (!ids) {
+				toast.error("We couldn't build that recipient list. Try again or pick people individually.");
 				return;
 			}
-			setRecipientIds([]);
-			setRecipientCount(total);
+			if (ids.length === 0) {
+				setErrors({ audience: "No active users in that group" });
+				return;
+			}
+			setRecipientIds(ids);
+			setRecipientCount(ids.length);
 			setStep("review");
 			return;
 		}
 
-		const ids = await fetchAudienceIds(STAFF_ROLES);
+		const res = await preview.mutateAsync({ ...baseBody(), ...buildRecipients(audience, [], routerIds, sinceHours) });
 		setPreparing(false);
 
-		if (!ids) {
-			toast.error("We couldn't build that recipient list. Try again or pick people individually.");
-			return;
-		}
-		if (ids.length === 0) {
-			setErrors({ audience: "No active users in that group" });
+		if (!res.success) {
+			if (res.code === NOTIFICATION_ERROR_CODES.NO_RECIPIENTS_RESOLVED) {
+				setErrors({
+					audience:
+						audience === "routers"
+							? "No customers were found on those routers in that time window. Try a longer window or different routers."
+							: "There are no customers to notify yet.",
+				});
+				return;
+			}
+			toast.error(res.message);
 			return;
 		}
 
-		setRecipientIds(ids);
-		setRecipientCount(ids.length);
+		setRecipientIds([]);
+		setRecipientCount(res.data.recipientCount);
 		setStep("review");
 	}
 
 	async function submit() {
-		const recipients =
-			audience === "customers"
-				? { audience: "all_customers" as const }
-				: audience === "routers"
-					? { routerIds }
-					: { userIds: recipientIds };
-
-		const res = await send.mutateAsync({
-			type,
-			title: title.trim(),
-			message: message.trim(),
-			channel: channel === DEFAULT_CHANNEL ? undefined : channel,
-			priority,
-			...recipients,
-		});
+		const res = await send.mutateAsync({ ...baseBody(), ...buildRecipients(audience, recipientIds, routerIds, sinceHours) });
 
 		if (!res.success) {
 			if (res.code === NOTIFICATION_ERROR_CODES.UNSUPPORTED_CHANNEL) {
@@ -166,44 +180,36 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 				setStep("compose");
 				return;
 			}
+			if (res.code === NOTIFICATION_ERROR_CODES.NO_RECIPIENTS_RESOLVED) {
+				toast.error("No one matched that audience, so nothing was sent.");
+				setStep("compose");
+				return;
+			}
 			toast.error(res.message);
 			return;
 		}
 
-		toast.success(
-			audience === "routers"
-				? `Queued for customers on ${routerIds.length} router${routerIds.length === 1 ? "" : "s"}`
-				: recipientCount === null
-					? "Queued for all active customers"
-					: `Queued for ${formatNumber(recipientCount)} recipient${recipientCount === 1 ? "" : "s"}`
-		);
+		toast.success(`Queued for ${formatNumber(recipientCount)} recipient${recipientCount === 1 ? "" : "s"}`);
 		onClose();
 	}
 
 	const channelLabel = NOTIFICATION_CHANNEL_OPTIONS.find((o) => o.value === channel)?.label ?? "Default";
 	const priorityLabel = NOTIFICATION_PRIORITY_OPTIONS.find((o) => o.value === priority)?.label ?? priority;
 	const typeLabel = COMPOSER_TYPE_OPTIONS.find((o) => o.value === type)?.label ?? type;
+	const windowLabel = SINCE_OPTIONS.find((o) => o.value === sinceHours)?.label ?? `${sinceHours} hours`;
 
-	const recipientRows =
-		audience === "routers"
+	const reviewRows = [
+		{ label: "Recipients", value: `${formatNumber(recipientCount)} · ${AUDIENCE_LABELS[audience]}` },
+		...(audience === "routers"
 			? [
-					{ label: "Audience", value: AUDIENCE_LABELS.routers },
 					{ label: "Routers", value: selectedRouters.map((r) => r.name).join(", ") || `${routerIds.length} selected` },
-					{ label: "Online now", value: `≈ ${formatNumber(onlineEstimate)} live sessions (estimate)` },
+					{ label: "Time window", value: `Last ${windowLabel}` },
 				]
-			: [
-					{
-						label: "Recipients",
-						value: recipientCount === null ? AUDIENCE_LABELS[audience] : `${formatNumber(recipientCount)} · ${AUDIENCE_LABELS[audience]}`,
-					},
-				];
-
-	const sendLabel =
-		audience === "routers"
-			? "Send to affected customers"
-			: recipientCount === null
-				? "Send to all customers"
-				: `Send to ${formatNumber(recipientCount)}`;
+			: []),
+		{ label: "Type", value: typeLabel },
+		{ label: "Channel", value: channelLabel },
+		{ label: "Priority", value: priorityLabel },
+	];
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && !send.isPending && onClose()}>
@@ -290,15 +296,13 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 									selected={audience === "customers"}
 									onSelect={() => setAudience("customers")}
 								/>
-								{featureFlags.routerBroadcast && (
-									<OptionCard
-										icon={RouterIcon}
-										title="By router or area"
-										description="Customers on the routers you choose."
-										selected={audience === "routers"}
-										onSelect={() => setAudience("routers")}
-									/>
-								)}
+								<OptionCard
+									icon={RouterIcon}
+									title="By router or area"
+									description="Customers on the routers you choose."
+									selected={audience === "routers"}
+									onSelect={() => setAudience("routers")}
+								/>
 								<OptionCard
 									icon={ShieldCheck}
 									title="Staff & admins"
@@ -319,6 +323,22 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 											setErrors((x) => ({ ...x, audience: undefined }));
 										}}
 									/>
+
+									<Field label="Include customers active on these routers in the last" htmlFor="notif-since">
+										<Select value={sinceHours} onValueChange={setSinceHours}>
+											<SelectTrigger id="notif-since" className="w-full sm:w-48">
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent>
+												{SINCE_OPTIONS.map((o) => (
+													<SelectItem key={o.value} value={o.value}>
+														{o.label}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+									</Field>
+
 									<div className="flex flex-wrap items-center gap-2">
 										<span className="text-[12px] text-muted-foreground">Fill in a template:</span>
 										<Button type="button" variant="outline" size="sm" className="bg-surface-2" onClick={() => applyTemplate("outage")}>
@@ -366,19 +386,12 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 							<p className="whitespace-pre-line text-[12px] text-muted-foreground">{message}</p>
 						</div>
 
-						<DetailList
-							rows={[
-								...recipientRows,
-								{ label: "Type", value: typeLabel },
-								{ label: "Channel", value: channelLabel },
-								{ label: "Priority", value: priorityLabel },
-							]}
-						/>
+						<DetailList rows={reviewRows} />
 
 						<div className="flex flex-col gap-3 sm:flex-row-reverse">
 							<Button size="lg" className="sm:flex-1" disabled={send.isPending} onClick={submit}>
 								{send.isPending && <Loader2 className="animate-spin" />}
-								{sendLabel}
+								Send to {formatNumber(recipientCount)}
 							</Button>
 							<Button size="lg" variant="outline" className="bg-surface-2 sm:flex-1" disabled={send.isPending} onClick={() => setStep("compose")}>
 								Back

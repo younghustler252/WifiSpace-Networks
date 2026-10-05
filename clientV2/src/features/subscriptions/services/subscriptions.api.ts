@@ -1,13 +1,19 @@
 import { API } from "@/lib/api/api-client";
 import { friendly } from "@/lib/api/friendly";
 import type { ApiResponse } from "@/types/api-response";
+import type { Plan } from "@/features/plans/types/plans.types";
 import { SUBSCRIPTION_ERROR_MESSAGES } from "../constants";
-import type { AdminCreateSubscriptionBody, AdminSubscriptionListParams, Subscription } from "../types/subscriptions.types";
+import type { AdminCreateSubscriptionBody, AdminSubscriptionListParams, Subscription, UpgradeOption } from "../types/subscriptions.types";
 
 const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res) => friendly(res, SUBSCRIPTION_ERROR_MESSAGES));
 
 export const subscriptionsApi = {
 	listMine: () => withMessages(API.get<Subscription[]>("/subscriptions/me")),
+	upgradeOptions: async (accountId: string): Promise<ApiResponse<Plan[]>> =>
+		friendly(
+			await API.get<Plan[]>("/subscriptions/upgrade-options", { params: { accountId } }),
+			SUBSCRIPTION_ERROR_MESSAGES
+		),
 };
 
 const ADMIN = "/subscriptions/admin";

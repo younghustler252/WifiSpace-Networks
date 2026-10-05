@@ -12,11 +12,10 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { featureFlags } from "@/lib/feature-flags";
-import { formatRelative } from "@/lib/format";
+import { formatRelative, humanize } from "@/lib/format";
 import type { NetworkRouter } from "../types/routers.types";
 
-export type RouterAction = "sync" | "reboot" | "delete" | "notify";
+export type RouterAction = "sync" | "edit" | "notify" | "reboot" | "delete";
 
 interface RouterCardProps {
 	router: NetworkRouter;
@@ -42,11 +41,12 @@ export function RouterCard({ router, onAction }: RouterCardProps) {
 								<MoreHorizontal className="size-4" />
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-44">
+						<DropdownMenuContent align="end" className="w-48">
 							<DropdownMenuItem onSelect={() => onAction("sync")}>Sync now</DropdownMenuItem>
-							{featureFlags.routerBroadcast && (
-								<DropdownMenuItem onSelect={() => onAction("notify")}>Notify customers…</DropdownMenuItem>
-							)}
+							<DropdownMenuItem onSelect={() => onAction("notify")}>Notify customers…</DropdownMenuItem>
+							<Can permission="routers:manage">
+								<DropdownMenuItem onSelect={() => onAction("edit")}>Edit…</DropdownMenuItem>
+							</Can>
 							<Can permission="routers:reboot">
 								<DropdownMenuSeparator />
 								<DropdownMenuItem onSelect={() => onAction("reboot")}>Reboot…</DropdownMenuItem>
@@ -74,25 +74,17 @@ export function RouterCard({ router, onAction }: RouterCardProps) {
 
 				{router.lastError && <Notice tone="danger" title="Last error" text={router.lastError} />}
 
-				{featureFlags.routerBroadcast && router.status !== "online" && (
+				{router.status !== "online" && (
 					<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => onAction("notify")}>
 						Notify affected customers
 					</Button>
 				)}
 
 				<div className="grid grid-cols-2 gap-3">
-					<InfoTile
-						label="Sessions"
-						value={sessions}
-						hint={router.maxSessions ? `of ${router.maxSessions}` : "online now"}
-					/>
+					<InfoTile label="Sessions" value={sessions} hint={router.maxSessions ? `of ${router.maxSessions}` : "online now"} />
 					<InfoTile label="Last seen" value={router.lastSeenAt ? formatRelative(router.lastSeenAt) : "Never"} mono={false} />
 					<InfoTile label="RouterOS" value={router.routerOsVersion ?? "—"} />
-					<InfoTile
-						label="Agent"
-						value={router.agentStatus ? <StatusBadge status={router.agentStatus} /> : "—"}
-						mono={false}
-					/>
+					<InfoTile label="Connection" value={router.connectionType ? humanize(router.connectionType) : "—"} mono={false} />
 					<InfoTile label="Address" value={router.host ? `${router.host}${router.port ? `:${router.port}` : ""}` : "—"} className="col-span-2" />
 				</div>
 			</div>

@@ -15,6 +15,8 @@ export interface Account {
 	status: string;
 	approvalStatus: "pending" | "approved" | "rejected" | (string & {});
 	routerProfile?: string | null;
+	requestedLocation?: RequestedLocation | null;
+
 	maxDevices?: number;
 	devices?: AccountDevice[];
 	createdAt: string;
@@ -24,6 +26,7 @@ export interface RequestAccountBody {
 	serviceType: PlanServiceType;
 	accountType?: "personal" | "business";
 	businessName?: string;
+	requestedLocation?: RequestedLocation;
 }
 
 export interface OwnerInfo {
@@ -37,6 +40,9 @@ export interface OwnerInfo {
 export interface AdminAccount extends Account {
 	user?: OwnerInfo | null;
 	routerId?: string | null;
+	accessMethod?: "ppp" | "ipoe";
+	macAddress?: string | null;
+	staticIp?: string | null;
 	approvalNote?: string | null;
 	businessName?: string | null;
 }
@@ -48,4 +54,26 @@ export interface AdminAccountListParams {
 	search?: string;
 	page?: number;
 	limit?: number;
+}
+
+export interface RequestedLocation {
+	address: string;
+	landmark?: string;
+	city?: string;
+	state?: string;
+	coordinates?: unknown;
+}
+
+export interface AdminCreateAccountBody {
+	userId: string;
+	serviceType: PlanServiceType;
+	accountType?: "personal" | "business";
+	businessName?: string;
+	companyRegistrationNumber?: string;
+	taxId?: string;
+	routerId?: string;
+	accessMethod?: "ppp" | "ipoe";
+	macAddress?: string;
+	staticIp?: string;
+	maxDevices?: number;
 }

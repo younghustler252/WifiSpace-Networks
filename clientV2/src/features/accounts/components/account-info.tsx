@@ -3,11 +3,13 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate } from "@/lib/format";
 import { getAccountTitle } from "../lib/account-meta";
 import type { Account } from "../types/accounts.types";
+import { formatLocation } from "../lib/account-meta";
 
 export function AccountInfo({ account }: { account: Account }) {
 	const isPppoe = account.serviceType === "pppoe";
 
 	const rows: { label: string; value: React.ReactNode }[] = [
+		...(account.requestedLocation?.address ? [{ label: "Install address", value: formatLocation(account.requestedLocation) }] : []),
 		{ label: "Account ID", value: <span className="text-mono">{account.wsnId}</span> },
 		{ label: "Service", value: getAccountTitle(account) },
 		...(isPppoe ? [{ label: "Type", value: <span className="capitalize">{account.accountType}</span> }] : []),

@@ -15,6 +15,7 @@ import type { AdminAccount } from "../types/accounts.types";
 import type { AccountAction } from "./account-actions-menu";
 import { AccountActionDialog } from "./account-dialogs";
 import { ownerName, useAccountOwner } from "./owner-cell";
+import { formatLocation } from "../lib/account-meta";
 
 interface RequestCardProps {
 	account: AdminAccount;
@@ -22,8 +23,8 @@ interface RequestCardProps {
 }
 
 function RequestCard({ account, onAction }: RequestCardProps) {
-	const { owner, isLoading } = useAccountOwner(account, { full: true });
-	const loading = "Loading…";
+	const { owner } = useAccountOwner(account);
+	const installAt = formatLocation(account.requestedLocation) ?? owner?.address ?? null;
 
 	return (
 		<SectionCard
@@ -35,9 +36,10 @@ function RequestCard({ account, onAction }: RequestCardProps) {
 				<div className="grid gap-3 sm:grid-cols-2">
 					<InfoTile label="Customer" value={ownerName(owner) || "—"} mono={false} />
 					<InfoTile label="Type" value={<span className="capitalize">{account.accountType}</span>} mono={false} />
-					<InfoTile label="Phone" value={isLoading ? loading : owner?.phone || "—"} />
+					<InfoTile label="Phone" value={owner?.phone || "—"} />
 					<InfoTile label="Email" value={owner?.email || "—"} mono={false} />
-					<InfoTile label="Address" value={isLoading ? loading : owner?.address || "—"} mono={false} className="sm:col-span-2" />
+					<InfoTile label="Install location" value={installAt || "—"} mono={false} className="sm:col-span-2 [&>div:nth-child(2)]:whitespace-normal" />
+					{account.accessMethod && <InfoTile label="Access method" value={account.accessMethod === "ppp" ? "PPP" : "IPoE"} />}
 				</div>
 				<div className="flex flex-wrap gap-3">
 					<Button onClick={() => onAction("approve")}>Approve…</Button>

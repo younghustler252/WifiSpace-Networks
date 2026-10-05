@@ -42,6 +42,8 @@ export interface CreateNotificationBody {
 	channel?: string;
 	priority?: string;
 	accountId?: string;
+	sinceHours?: number;
+	preview?: boolean;
 }
 
 export interface ComposePreset {
@@ -52,3 +54,6 @@ export interface ComposePreset {
 	message?: string;
 }
 
+export interface NotificationPreview {
+	recipientCount: number;
+}

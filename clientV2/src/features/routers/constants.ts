@@ -2,7 +2,6 @@ export const ROUTER_STATUS = { ONLINE: "online", OFFLINE: "offline", MAINTENANCE
 
 export const CONNECTION_TYPE_OPTIONS = [
 	{ value: "direct", label: "Direct" },
-	{ value: "agent", label: "Agent" },
 	{ value: "vpn", label: "VPN" },
 ] as const;
 

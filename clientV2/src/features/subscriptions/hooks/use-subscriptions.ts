@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap } from "@/lib/api/unwrap";
 import type { ApiResponse } from "@/types/api-response";
+import type { Plan } from "@/features/plans/types/plans.types";
 import { adminSubscriptionsApi, subscriptionsApi } from "../services/subscriptions.api";
 import type { AdminSubscriptionListParams } from "../types/subscriptions.types";
 
@@ -58,4 +59,16 @@ export function useAdminSubscriptionActions() {
 			adminSubscriptionsApi.forceExpire(v.id, v.reason)
 		),
 	};
+}
+
+export function useUpgradeOptions(accountId: string | undefined, enabled = true) {
+	return useQuery({
+		queryKey: ["subscriptions", "upgrade-options", accountId],
+		enabled: !!accountId && enabled,
+		queryFn: async (): Promise<Plan[]> => {
+			const plans = unwrap(await subscriptionsApi.upgradeOptions(accountId!)).data;
+			return [...plans].sort((a, b) => a.price - b.price);
+		},
+		staleTime: 60_000,
+	});
 }

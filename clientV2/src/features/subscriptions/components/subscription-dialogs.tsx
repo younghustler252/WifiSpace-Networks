@@ -10,10 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { usePlans } from "@/features/plans/hooks/use-plans";
-import type { PlanServiceType } from "@/features/plans/types/plans.types";
+import type { Plan } from "@/features/plans/types/plans.types";
 import { formatCurrency, formatDateTime, formatDuration } from "@/lib/format";
-import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
+import { useAdminSubscriptionActions, useUpgradeOptions } from "../hooks/use-subscriptions";
 import { getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
 import type { Subscription } from "../types/subscriptions.types";
 import { SubscriptionUsageDialog } from "@/features/usage/components/subscription-usage-dialog";
@@ -128,15 +127,15 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 
 function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 	const { changePlan } = useAdminSubscriptionActions();
-	const serviceType = subscription.planSnapshot.serviceType as PlanServiceType | undefined;
-	const plans = usePlans(serviceType);
+	const options = useUpgradeOptions(subscription.accountId);
 	const [newPlanId, setNewPlanId] = useState("");
-	const options = (plans.data ?? []).filter((p) => p.id !== subscription.planId);
 
 	function renderPicker() {
-		if (plans.isLoading) return <Skeleton className="h-11 rounded-lg" />;
-		if (plans.isError) return <p className="text-sm text-destructive">We couldn&apos;t load plans. Close this and try again.</p>;
-		if (options.length === 0) return <p className="text-sm text-muted-foreground">There are no other plans to switch to.</p>;
+		if (options.isLoading) return <Skeleton className="h-11 rounded-lg" />;
+		if (options.isError) return <p className="text-sm text-destructive">We couldn&apos;t load upgrade options. Close this and try again.</p>;
+		if (!options.data || options.data.length === 0) {
+			return <p className="text-sm text-muted-foreground">This customer is already on our highest plan, so there's nothing to upgrade to.</p>;
+		}
 
 		return (
 			<Select value={newPlanId} onValueChange={setNewPlanId}>
@@ -144,7 +143,7 @@ function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 					<SelectValue placeholder="Choose a plan" />
 				</SelectTrigger>
 				<SelectContent>
-					{options.map((plan) => (
+					{options.data.map((plan: Plan) => (
 						<SelectItem key={plan.id} value={plan.id}>
 							{plan.name} · {formatCurrency(plan.price)} · {formatDuration(plan.durationValue, plan.durationUnit)}
 						</SelectItem>
@@ -158,9 +157,9 @@ function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 		<ConfirmDialog
 			open
 			onOpenChange={(open) => !open && onClose()}
-			title="Change plan"
-			description={`Currently on ${subscription.planSnapshot.name}. Collect any price difference separately with Record payment if needed.`}
-			confirmLabel="Change plan"
+			title="Upgrade plan"
+			description={`Currently on ${subscription.planSnapshot.name}. Their remaining time carries over and the new plan's full duration is added on top. Moving to a cheaper plan mid-cycle isn't supported.`}
+			confirmLabel="Upgrade plan"
 			confirmDisabled={!newPlanId}
 			onConfirm={async () => {
 				const res = await changePlan.mutateAsync({ id: subscription.id, newPlanId });
@@ -168,7 +167,7 @@ function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 					toast.error(res.message);
 					return false;
 				}
-				toast.success("Plan changed");
+				toast.success("Plan upgraded");
 			}}
 		>
 			{renderPicker()}

@@ -4,6 +4,7 @@ export interface NetworkRouter {
 	code: string;
 	host?: string;
 	port?: number;
+	username?: string;
 	ssl?: boolean;
 	routerUid?: string | null;
 	supportedServices?: string[];
@@ -12,13 +13,14 @@ export interface NetworkRouter {
 	status?: string;
 	lastError?: string | null;
 	isEnabled?: boolean;
+	apiEnabled?: boolean;
 	lastSeenAt?: string | null;
 	connectionType?: string;
 	maxSessions?: number;
 	currentSessions?: number;
-	agentStatus?: string | null;
 	routerOsVersion?: string | null;
 	systemIdentity?: string | null;
+	priority?: number;
 	isDefaultRouter?: boolean;
 	createdAt?: string;
 }
@@ -32,4 +34,12 @@ export interface CreateRouterBody {
 	supportedServices?: string[];
 	isDefaultRouter?: boolean;
 	location?: string;
+	connectionType?: string;
+}
+
+export interface UpdateRouterBody extends Partial<CreateRouterBody> {
+	priority?: number;
+	maxSessions?: number;
+	isEnabled?: boolean;
+	apiEnabled?: boolean;
 }

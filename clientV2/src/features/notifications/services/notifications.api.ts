@@ -1,5 +1,5 @@
 import { API } from "@/lib/api/api-client";
-import type { CreateNotificationBody } from "../types/notifications.types";
+import type { CreateNotificationBody, NotificationPreview } from "../types/notifications.types";
 
 export const notificationsApi = {
 	listMine: (params: { page?: number; limit?: number }) =>
@@ -11,4 +11,5 @@ export const notificationsApi = {
 export const adminNotificationsApi = {
 	list: (params: { page?: number; limit?: number }) => API.get<Record<string, unknown>[]>("/notifications/admin", { params }),
 	create: (body: CreateNotificationBody) => API.post<unknown>("/notifications/admin", body),
+	preview: (body: CreateNotificationBody) => API.post<NotificationPreview>("/notifications/admin", { ...body, preview: true }),
 };

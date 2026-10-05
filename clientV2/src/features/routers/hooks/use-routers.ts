@@ -5,6 +5,7 @@ import { normalizeProfiles } from "../lib/normalize-profiles";
 import { unwrap } from "@/lib/api/unwrap";
 import type { ApiResponse } from "@/types/api-response";
 import { routersApi } from "../services/routers.api";
+import type { UpdateRouterBody } from "../types/routers.types";
 
 export const ROUTERS_KEY = ["routers"] as const;
 
@@ -35,10 +36,12 @@ function useRouterAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiResponse<un
 export function useRouterActions() {
 	return {
 		create: useRouterAction(routersApi.create),
+		update: useRouterAction((v: { id: string; body: UpdateRouterBody }) => routersApi.update(v.id, v.body)),
 		sync: useRouterAction(routersApi.sync),
 		syncAll: useRouterAction(() => routersApi.syncAll()),
 		reboot: useRouterAction(routersApi.reboot),
 		remove: useRouterAction(routersApi.remove),
+
 	};
 }
 

@@ -83,6 +83,7 @@ function useAdminAccountAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiRespo
 
 export function useAdminAccountActions() {
 	return {
+		create: useAdminAccountAction(adminAccountsApi.create),
 		approve: useAdminAccountAction((v: { id: string; routerId?: string }) =>
 			adminAccountsApi.approve(v.id, { routerId: v.routerId })
 		),

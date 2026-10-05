@@ -4,14 +4,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useAdminUser } from "@/features/users/hooks/use-users";
 import type { AdminAccount, OwnerInfo } from "../types/accounts.types";
 
-export function useAccountOwner(account: AdminAccount, options: { full?: boolean } = {}) {
+export function useAccountOwner(account: AdminAccount) {
 	const embedded: OwnerInfo | null = account.user && (account.user.firstName || account.user.email) ? account.user : null;
-	const needFetch = !!options.full || !embedded;
-	const fetched = useAdminUser(account.userId, needFetch);
+	const fetched = useAdminUser(account.userId, !embedded);
 
 	return {
-		owner: options.full ? (fetched.data ?? embedded) : (embedded ?? fetched.data ?? null),
-		isLoading: needFetch && fetched.isLoading,
+		owner: embedded ?? fetched.data ?? null,
+		isLoading: !embedded && fetched.isLoading,
 	};
 }
 

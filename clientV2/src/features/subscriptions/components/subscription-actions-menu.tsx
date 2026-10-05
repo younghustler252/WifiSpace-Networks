@@ -15,13 +15,14 @@ import type { Subscription } from "../types/subscriptions.types";
 const LABELS: Record<SubscriptionAction, string> = {
 	extend: "Extend (free days)…",
 	renew: "Renew (records payment)…",
-	"change-plan": "Change plan…",
+	"change-plan": "Upgrade plan…",
 	suspend: "Suspend…",
 	resume: "Resume",
 	cancel: "Cancel…",
 	"force-expire": "Force expire…",
 	usage: "View usage",
 };
+
 
 const GROUPS: SubscriptionAction[][] = [
 	["usage", "extend", "renew"],

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Network, Search, WifiOff } from "lucide-react";
+import { Network, Plus, Search, WifiOff } from "lucide-react";
 import { FILTER_ALL as ALL, FilterSelect } from "@/components/shared/filter-select";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
@@ -17,6 +17,7 @@ import type { AdminAccount } from "../types/accounts.types";
 import type { AccountAction } from "./account-actions-menu";
 import { AccountActionDialog } from "./account-dialogs";
 import { AdminAccountsTable } from "./admin-accounts-table";
+import { AdminCreateAccountDialog } from "./admin-create-account-dialog";
 
 export function AccountsAdmin() {
 	const [search, setSearch] = useState("");
@@ -24,6 +25,7 @@ export function AccountsAdmin() {
 	const [status, setStatus] = useState(ALL);
 	const [approval, setApproval] = useState(ALL);
 	const [page, setPage] = useState(1);
+	const [creating, setCreating] = useState(false);
 	const [dialog, setDialog] = useState<{ action: AccountAction; account: AdminAccount } | null>(null);
 	const debouncedSearch = useDebouncedValue(search, 350);
 
@@ -92,7 +94,16 @@ export function AccountsAdmin() {
 
 	return (
 		<div className="space-y-6">
-			<PageHeader title="Accounts" description="PPPoE lines and hotspot identities across all customers." />
+			<PageHeader
+				title="Accounts"
+				description="PPPoE lines and hotspot identities across all customers."
+				actions={
+					<Button onClick={() => setCreating(true)}>
+						<Plus />
+						Create account
+					</Button>
+				}
+			/>
 
 			<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
 				<div className="relative min-w-52 flex-1">
@@ -113,6 +124,8 @@ export function AccountsAdmin() {
 			{renderBody()}
 
 			{dialog && <AccountActionDialog action={dialog.action} account={dialog.account} onClose={() => setDialog(null)} />}
+
+			{creating && <AdminCreateAccountDialog onClose={() => setCreating(false)} />}
 		</div>
 	);
 }

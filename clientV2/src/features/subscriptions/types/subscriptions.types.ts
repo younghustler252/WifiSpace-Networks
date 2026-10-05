@@ -50,3 +50,16 @@ export interface AdminCreateSubscriptionBody {
 	cycles?: number;
 	activateImmediately?: boolean;
 }
+
+
+export interface UpgradeOption {
+	id: string;
+	name: string;
+	price: number;
+	serviceType?: string;
+	durationValue: number;
+	durationUnit: string;
+	speedRate?: string;
+	devicesAllowed?: number;
+	gracePeriodDays?: number;
+}
