@@ -75,7 +75,7 @@ export function ComposeNotificationDialog({ preset, onClose }: ComposeNotificati
 	const [title, setTitle] = useState(preset?.title ?? "");
 	const [message, setMessage] = useState(preset?.message ?? "");
 	const [audience, setAudience] = useState<Audience>(preset?.routerIds?.length ? "routers" : "specific");
-	const [picked, setPicked] = useState<UserProfile[]>([]);
+	const [picked, setPicked] = useState<UserProfile[]>(preset?.users ?? []);
 	const [routerIds, setRouterIds] = useState<string[]>(preset?.routerIds ?? []);
 	const [sinceHours, setSinceHours] = useState("24");
 	const [channel, setChannel] = useState(DEFAULT_CHANNEL);

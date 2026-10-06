@@ -1,5 +1,6 @@
 import type { PaginationMeta } from "@/types/api-response";
 import type { NotificationType } from "../constants";
+import type { UserProfile } from "@/features/users/types/users.types";
 
 export interface NotificationItem {
 	id: string;
@@ -10,6 +11,8 @@ export interface NotificationItem {
 	channel?: string;
 	priority?: string;
 	accountId: string | null;
+	entityType: string | null;
+	entityId: string | null;
 	createdAt: string;
 	readAt: string | null;
 	isRead: boolean;
@@ -29,7 +32,18 @@ export interface AdminNotification {
 	priority?: string;
 	channel?: string;
 	recipientCount?: number;
+	sentBy: string | null;
 	createdAt: string;
+}
+
+export interface NotificationRecipientRow {
+	id: string;
+	name: string;
+	email: string | null;
+	channel: string | null;
+	status: string;
+	failedReason: string | null;
+	providerMessageId: string | null;
 }
 
 export interface CreateNotificationBody {
@@ -48,6 +62,7 @@ export interface CreateNotificationBody {
 
 export interface ComposePreset {
 	routerIds?: string[];
+	users?: UserProfile[];
 	type?: string;
 	priority?: string;
 	title?: string;

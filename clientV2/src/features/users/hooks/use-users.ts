@@ -86,7 +86,7 @@ export function useAdminUsers(params: Omit<UserListParams, "limit">) {
 	});
 }
 
-function useAdminUserAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiResponse<unknown>>) {
+function useAdminUserAction<TArg, TData>(mutationFn: (arg: TArg) => Promise<ApiResponse<TData>>) {
 	const queryClient = useQueryClient();
 
 	return useMutation({
@@ -96,6 +96,7 @@ function useAdminUserAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiResponse
 		},
 	});
 }
+
 
 export function useAdminUserActions() {
 	return {

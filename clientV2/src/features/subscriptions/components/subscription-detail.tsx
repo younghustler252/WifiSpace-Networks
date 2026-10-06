@@ -117,7 +117,14 @@ function LinkedAccountCard({ detail }: { detail: AdminSubscriptionDetail }) {
 
 	const location = formatLocation(account.requestedLocation);
 	const rows = [
-		{ label: "Account ID", value: <span className="text-mono">{account.wsnId}</span> },
+		{
+			label: "Account ID",
+			value: (
+				<Link href={`/admin/accounts/${account.id}`} className="text-mono hover:text-signal">
+					{account.wsnId}
+				</Link>
+			),
+		},
 		{ label: "Service", value: getAccountTitle(account) },
 		...(account.accessMethod ? [{ label: "Access method", value: account.accessMethod === "ppp" ? "PPP" : "IPoE" }] : []),
 		{ label: "Status", value: <StatusBadge status={account.status} /> },

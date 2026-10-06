@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Search, Users, WifiOff } from "lucide-react";
-import { toast } from "sonner";
+import { FILTER_ALL as ALL, FilterSelect } from "@/components/shared/filter-select";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { SimplePagination } from "@/components/shared/simple-pagination";
@@ -11,22 +11,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { FILTER_ALL as ALL, FilterSelect } from "@/components/shared/filter-select";
 import { useAuthStore } from "@/stores/auth.store";
-import { useAdminUserActions, useAdminUsers, useImpersonation } from "../hooks/use-users";
+import { useAdminUsers } from "../hooks/use-users";
 import { ROLE_OPTIONS, USER_SORT_OPTIONS, USER_STATUS_OPTIONS } from "../schemas/users.schemas";
-import type { UserProfile } from "../types/users.types";
-import type { UserAction } from "./user-actions-menu";
-import { BanUserDialog, DeleteUserDialog, PasswordDialog, RoleDialog } from "./user-dialogs";
+import { useUserActionHost } from "./user-action-host";
 import { UserFormDialog } from "./user-form-dialog";
 import { UsersTable } from "./users-table";
 
-type DialogState = { type: Exclude<UserAction, "unban" | "impersonate">; user: UserProfile } | null;
-
 export function UsersAdmin() {
 	const selfId = useAuthStore((s) => s.user?.id);
-	const actions = useAdminUserActions();
-	const impersonation = useImpersonation();
+	const host = useUserActionHost();
 
 	const [search, setSearch] = useState("");
 	const [role, setRole] = useState(ALL);
@@ -34,7 +28,6 @@ export function UsersAdmin() {
 	const [sort, setSort] = useState("newest");
 	const [page, setPage] = useState(1);
 	const [creating, setCreating] = useState(false);
-	const [dialog, setDialog] = useState<DialogState>(null);
 	const debouncedSearch = useDebouncedValue(search, 350);
 
 	useEffect(() => {
@@ -50,29 +43,11 @@ export function UsersAdmin() {
 	});
 
 	const filtered = !!debouncedSearch.trim() || role !== ALL || status !== ALL;
-	const close = () => setDialog(null);
 
 	function clearFilters() {
 		setSearch("");
 		setRole(ALL);
 		setStatus(ALL);
-	}
-
-	async function handleAction(action: UserAction, user: UserProfile) {
-		if (action === "unban") {
-			const res = await actions.unban.mutateAsync(user.id);
-			if (res.success) toast.success("User unbanned");
-			else toast.error(res.message);
-			return;
-		}
-
-		if (action === "impersonate") {
-			const res = await impersonation.start(user.id);
-			if (!res.success) toast.error(res.message);
-			return;
-		}
-
-		setDialog({ type: action, user });
 	}
 
 	function renderBody() {
@@ -110,7 +85,7 @@ export function UsersAdmin() {
 					title="All users"
 					description={data.meta ? `${data.meta.total} user${data.meta.total === 1 ? "" : "s"}` : undefined}
 				>
-					<UsersTable items={data.items} selfId={selfId} onAction={handleAction} />
+					<UsersTable items={data.items} selfId={selfId} onAction={host.handle} />
 				</SectionCard>
 				<SimplePagination page={page} totalPages={data.meta?.totalPages ?? 1} onChange={setPage} className="mt-4" />
 			</div>
@@ -149,11 +124,7 @@ export function UsersAdmin() {
 			{renderBody()}
 
 			{creating && <UserFormDialog onClose={() => setCreating(false)} />}
-			{dialog?.type === "edit" && <UserFormDialog user={dialog.user} onClose={close} />}
-			{dialog?.type === "ban" && <BanUserDialog user={dialog.user} onClose={close} />}
-			{dialog?.type === "role" && <RoleDialog user={dialog.user} onClose={close} />}
-			{dialog?.type === "password" && <PasswordDialog user={dialog.user} onClose={close} />}
-			{dialog?.type === "delete" && <DeleteUserDialog user={dialog.user} onClose={close} />}
+			{host.element}
 		</div>
 	);
 }

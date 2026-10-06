@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
@@ -33,7 +34,9 @@ export function AdminAccountsTable({ items, onAction }: AdminAccountsTableProps)
 									<OwnerCell account={account} />
 								</TableCell>
 								<TableCell>
-									<p className="text-mono text-[13px]">{account.wsnId}</p>
+									<Link href={`/admin/accounts/${account.id}`} className="text-mono text-[13px] hover:text-signal">
+										{account.wsnId}
+									</Link>
 									<p className="text-[11px] text-muted-foreground">{getAccountTitle(account)}</p>
 								</TableCell>
 								<TableCell>

@@ -13,7 +13,7 @@ import {
 import { useAuthStore } from "@/stores/auth.store";
 import type { UserProfile } from "../types/users.types";
 
-export type UserAction = "edit" | "password" | "role" | "ban" | "unban" | "delete" | "impersonate";
+export type UserAction = "edit" | "add-account" | "notify" | "password" | "role" | "ban" | "unban" | "delete" | "impersonate";
 
 interface UserActionsMenuProps {
 	user: UserProfile;
@@ -33,10 +33,12 @@ export function UserActionsMenu({ user, isSelf, onAction }: UserActionsMenuProps
 					<MoreHorizontal className="size-4" />
 				</Button>
 			</DropdownMenuTrigger>
-			<DropdownMenuContent align="end" className="w-48">
+			<DropdownMenuContent align="end" className="w-52">
 				<DropdownMenuItem disabled={locked} onSelect={() => onAction("edit")}>
 					Edit details
 				</DropdownMenuItem>
+				<DropdownMenuItem onSelect={() => onAction("add-account")}>Add account…</DropdownMenuItem>
+				<DropdownMenuItem onSelect={() => onAction("notify")}>Send notification…</DropdownMenuItem>
 				<DropdownMenuItem disabled={locked} onSelect={() => onAction("password")}>
 					Set password
 				</DropdownMenuItem>
@@ -60,11 +62,7 @@ export function UserActionsMenu({ user, isSelf, onAction }: UserActionsMenuProps
 						Ban user
 					</DropdownMenuItem>
 				)}
-				<DropdownMenuItem
-					disabled={isSelf || locked}
-					className="text-destructive focus:text-destructive"
-					onSelect={() => onAction("delete")}
-				>
+				<DropdownMenuItem disabled={isSelf || locked} className="text-destructive focus:text-destructive" onSelect={() => onAction("delete")}>
 					Delete…
 				</DropdownMenuItem>
 			</DropdownMenuContent>

@@ -10,7 +10,7 @@ import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMarkNotificationRead, useNotifications } from "../hooks/use-notifications";
-import { getNotificationMeta } from "../lib/notification-meta";
+import { getNotificationHref } from "../lib/notification-meta";
 import type { NotificationItem } from "../types/notifications.types";
 import { NotificationRow } from "./notification-row";
 
@@ -22,7 +22,7 @@ export function NotificationsList() {
 
 	function open(item: NotificationItem) {
 		if (!item.isRead) markRead.mutate(item.id);
-		const href = getNotificationMeta(item.type).href(item.accountId);
+		const href = getNotificationHref(item);
 		if (href) router.push(href);
 	}
 

@@ -2,6 +2,7 @@ import {
 	Bell,
 	CalendarClock,
 	CheckCircle2,
+	LifeBuoy,
 	Mail,
 	Megaphone,
 	MessageCircle,
@@ -15,6 +16,7 @@ import {
 	type LucideIcon,
 } from "lucide-react";
 import { NOTIFICATION_TYPES } from "../constants";
+import type { NotificationItem } from "../types/notifications.types";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
 
@@ -61,11 +63,27 @@ const META: Record<string, TypeMeta> = {
 	[NOTIFICATION_TYPES.ACCOUNT_SUSPENDED]: { icon: ShieldAlert, tone: "warning", href: accountHref },
 	[NOTIFICATION_TYPES.ADMIN_BROADCAST]: { icon: Megaphone, tone: "info", href: () => null },
 	[NOTIFICATION_TYPES.SYSTEM_ALERT]: { icon: TriangleAlert, tone: "warning", href: () => null },
+	[NOTIFICATION_TYPES.TICKET_REPLY]: { icon: LifeBuoy, tone: "info", href: () => "/support" },
+	[NOTIFICATION_TYPES.TICKET_STATUS_CHANGED]: { icon: LifeBuoy, tone: "info", href: () => "/support" },
+};
+
+const ENTITY_HREF: Record<string, (id: string) => string> = {
+	Ticket: (id) => `/support/${id}`,
+	Account: (id) => `/accounts/${id}`,
+	Payment: () => "/payments",
 };
 
 export function getNotificationMeta(type: string | null, channel?: string): TypeMeta {
 	const known = type ? META[type] : undefined;
 	return known ?? { icon: CHANNEL_ICONS[channel ?? ""] ?? Bell, tone: "neutral", href: () => null };
+}
+
+export function getNotificationHref(item: NotificationItem) {
+	if (item.entityType && item.entityId) {
+		const build = ENTITY_HREF[item.entityType];
+		if (build) return build(item.entityId);
+	}
+	return getNotificationMeta(item.type, item.channel).href(item.accountId);
 }
 
 export function getChannelLabel(channel?: string) {

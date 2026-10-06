@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { hotspotsApi, hotspotsAdminApi } from "../services/hotspots.api";
@@ -65,17 +65,27 @@ export function useConnectionStatus(reference: string | null, macAddress: string
 	};
 }
 
+const CONNECTIONS_PAGE_SIZE = 8;
 
-export function useHotspotDevices(accountId: string) {
+export function useHotspotDevices(params: { accountId?: string; userId?: string }, page: number) {
 	return useQuery({
-		queryKey: ["hotspot", "admin", "devices", accountId],
-		queryFn: async () => unwrap(await hotspotsAdminApi.devices({ accountId })).data,
+		queryKey: ["hotspot", "admin", "devices", params, page],
+		enabled: !!(params.accountId || params.userId),
+		queryFn: async () => {
+			const res = unwrap(await hotspotsAdminApi.devices({ ...params, page, limit: CONNECTIONS_PAGE_SIZE }));
+			return { items: res.data, meta: res.meta };
+		},
+		placeholderData: keepPreviousData,
 	});
 }
 
-export function useHotspotLocations(accountId: string) {
+export function useHotspotLocations(accountId: string, page: number) {
 	return useQuery({
-		queryKey: ["hotspot", "admin", "locations", accountId],
-		queryFn: async () => unwrap(await hotspotsAdminApi.locations({ accountId })).data,
+		queryKey: ["hotspot", "admin", "locations", accountId, page],
+		queryFn: async () => {
+			const res = unwrap(await hotspotsAdminApi.locations({ accountId, page, limit: CONNECTIONS_PAGE_SIZE }));
+			return { items: res.data, meta: res.meta };
+		},
+		placeholderData: keepPreviousData,
 	});
 }

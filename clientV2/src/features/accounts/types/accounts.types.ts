@@ -51,6 +51,7 @@ export interface AdminAccount extends Account {
 }
 
 export interface AdminAccountListParams {
+	userId?: string;
 	serviceType?: string;
 	status?: string;
 	approvalStatus?: string;

@@ -2,7 +2,7 @@
 
 import { Clock, Wifi, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useConnectionStatus } from "../hooks/use-hotspot";
+import { useConnectionStatus } from "../hooks/use-hotspots";
 import { ConnectedView } from "./connected-view";
 import { StatusMessage } from "../../../components/shared/status-message";
 

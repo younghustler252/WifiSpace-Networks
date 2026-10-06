@@ -10,19 +10,22 @@ import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateTime, humanize } from "@/lib/format";
+import { formatDateTime, formatNumber, humanize } from "@/lib/format";
 import { useAdminNotifications } from "../hooks/use-notifications";
 import { getChannelLabel } from "../lib/notification-meta";
 import type { AdminNotification } from "../types/notifications.types";
 import { ComposeNotificationDialog } from "./compose-notification-dialog";
+import { NotificationRecipientsDialog } from "./notification-recipients-dialog";
 
 const date = (n: AdminNotification) => (n.createdAt ? formatDateTime(n.createdAt) : "—");
+const count = (n: AdminNotification) => (n.recipientCount && n.recipientCount > 0 ? formatNumber(n.recipientCount) : "—");
 const meta = (n: AdminNotification) =>
 	[getChannelLabel(n.channel), n.priority && humanize(n.priority.toLowerCase())].filter(Boolean).join(" · ");
 
 export function NotificationsAdmin() {
 	const [page, setPage] = useState(1);
 	const [composing, setComposing] = useState(false);
+	const [viewing, setViewing] = useState<AdminNotification | null>(null);
 	const { data, isLoading, isError, isPlaceholderData, refetch } = useAdminNotifications(page);
 
 	function renderBody() {
@@ -60,9 +63,11 @@ export function NotificationsAdmin() {
 								<TableRow>
 									<TableHead>Sent</TableHead>
 									<TableHead>Notification</TableHead>
+									<TableHead>Sent by</TableHead>
 									<TableHead>Delivery</TableHead>
 									<TableHead className="text-right">Recipients</TableHead>
 									<TableHead className="text-right">State</TableHead>
+									<TableHead className="w-24" />
 								</TableRow>
 							</TableHeader>
 							<TableBody>
@@ -73,9 +78,15 @@ export function NotificationsAdmin() {
 											<p className="truncate text-[13px] font-medium">{n.title}</p>
 											<p className="line-clamp-1 text-[12px] text-muted-foreground">{n.message}</p>
 										</TableCell>
+										<TableCell className="text-[13px] text-muted-foreground">{n.sentBy ?? "—"}</TableCell>
 										<TableCell className="text-[13px] text-muted-foreground">{meta(n) || "—"}</TableCell>
-										<TableCell className="text-mono text-right text-[13px]">{n.recipientCount ?? "—"}</TableCell>
+										<TableCell className="text-mono text-right text-[13px]">{count(n)}</TableCell>
 										<TableCell className="text-right">{n.state ? <StatusBadge status={n.state} /> : "—"}</TableCell>
+										<TableCell className="text-right">
+											<Button variant="ghost" size="sm" onClick={() => setViewing(n)}>
+												Delivery
+											</Button>
+										</TableCell>
 									</TableRow>
 								))}
 							</TableBody>
@@ -84,17 +95,20 @@ export function NotificationsAdmin() {
 
 					<ul className="divide-y md:hidden">
 						{data.items.map((n) => (
-							<li key={n.id} className="space-y-1.5 py-3 first:pt-0 last:pb-0">
-								<div className="flex items-start justify-between gap-3">
-									<p className="text-[13px] font-medium">{n.title}</p>
-									{n.state && <StatusBadge status={n.state} />}
-								</div>
-								<p className="line-clamp-2 text-[12px] text-muted-foreground">{n.message}</p>
-								<p className="text-[11px] text-muted-foreground">
-									{date(n)}
-									{meta(n) ? ` · ${meta(n)}` : ""}
-									{n.recipientCount !== undefined ? ` · ${n.recipientCount} recipients` : ""}
-								</p>
+							<li key={n.id}>
+								<button type="button" onClick={() => setViewing(n)} className="w-full space-y-1.5 py-3 text-left first:pt-0 last:pb-0">
+									<div className="flex items-start justify-between gap-3">
+										<p className="text-[13px] font-medium">{n.title}</p>
+										{n.state && <StatusBadge status={n.state} />}
+									</div>
+									<p className="line-clamp-2 text-[12px] text-muted-foreground">{n.message}</p>
+									<p className="text-[11px] text-muted-foreground">
+										{date(n)}
+										{n.sentBy ? ` · ${n.sentBy}` : ""}
+										{meta(n) ? ` · ${meta(n)}` : ""}
+										{count(n) !== "—" ? ` · ${count(n)} recipients` : ""}
+									</p>
+								</button>
 							</li>
 						))}
 					</ul>
@@ -118,6 +132,7 @@ export function NotificationsAdmin() {
 			/>
 			{renderBody()}
 			{composing && <ComposeNotificationDialog onClose={() => setComposing(false)} />}
+			{viewing && <NotificationRecipientsDialog notification={viewing} onClose={() => setViewing(null)} />}
 		</div>
 	);
 }

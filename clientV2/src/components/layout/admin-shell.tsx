@@ -28,12 +28,12 @@ const GROUPS: { label: string; items: AdminNavItem[] }[] = [
 	{
 		label: "Manage",
 		items: [
-			{ href: "/admin/approvals", label: "Approvals", icon: ClipboardCheck, mobile: true },
 			{ href: "/admin/accounts", label: "Accounts", icon: Network },
 			{ href: "/admin/subscriptions", label: "Subscriptions", shortLabel: "Subs", icon: CalendarClock, mobile: true },
 			{ href: "/admin/payments", label: "Payments", icon: CreditCard, mobile: true },
 			{ href: "/admin/users", label: "Users", icon: Users },
 			{ href: "/admin/plans", label: "Plans", icon: Tag },
+			{ href: "/admin/approvals", label: "Approvals", icon: ClipboardCheck, mobile: true },
 		],
 	},
 	{

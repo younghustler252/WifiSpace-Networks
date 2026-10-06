@@ -35,6 +35,7 @@ const STATUS_TONE: Record<string, Tone> = {
 	completed: "success",
 	sent: "success",
 	delivered: "success",
+	read: "success",
 	draft: "neutral",
 	cancelled: "neutral",
 	maintenance: "warning",

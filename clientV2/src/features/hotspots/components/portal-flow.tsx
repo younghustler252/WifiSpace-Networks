@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MapPinOff, Unplug, Wifi, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useHotspotSession } from "../hooks/use-hotspot";
+import { useHotspotSession } from "../hooks/use-hotspots";
 import { usePortalParams } from "../hooks/use-portal-params";
 import { ConnectedView } from "./connected-view";
 import { ConnectingView } from "./connecting-view";

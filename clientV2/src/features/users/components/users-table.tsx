@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,9 +23,9 @@ function UserCell({ user }: { user: UserProfile }) {
 				<AvatarFallback className="bg-signal/15 text-[11px] font-semibold text-signal">{initials}</AvatarFallback>
 			</Avatar>
 			<div className="min-w-0">
-				<p className="truncate text-[13px] font-medium">
+				<Link href={`/admin/users/${user.id}`} className="block truncate text-[13px] font-medium hover:text-signal">
 					{user.firstName} {user.lastName}
-				</p>
+				</Link>
 				<p className="truncate text-[11px] text-muted-foreground">{user.email}</p>
 			</div>
 		</div>

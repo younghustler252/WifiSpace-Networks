@@ -10,8 +10,13 @@ function recipientCount(raw: Raw) {
 	const direct = num(raw.recipientCount) ?? num(raw.totalRecipients) ?? num(raw.recipientsCount) ?? num(stats.total);
 	if (direct !== undefined) return direct;
 	if (Array.isArray(raw.userIds)) return raw.userIds.length;
-	if (Array.isArray(raw.recipients)) return raw.recipients.length;
 	return undefined;
+}
+
+function adminName(raw: unknown) {
+	const admin = raw && typeof raw === "object" ? (raw as Raw) : null;
+	if (!admin) return null;
+	return `${str(admin.firstName) ?? ""} ${str(admin.lastName) ?? ""}`.trim() || str(admin.email) || null;
 }
 
 export function normalizeAdminNotification(raw: Raw): AdminNotification {
@@ -26,6 +31,7 @@ export function normalizeAdminNotification(raw: Raw): AdminNotification {
 		priority: str(raw.priority),
 		channel: str(raw.channel),
 		recipientCount: recipientCount(raw),
+		sentBy: adminName(raw.createdByAdmin),
 		createdAt: str(raw.createdAt) ?? "",
 	};
 }

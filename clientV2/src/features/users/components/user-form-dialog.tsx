@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/router";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
@@ -24,6 +25,7 @@ import type { AdminUpdateUserBody, UserProfile } from "../types/users.types";
 import { USER_ERROR_CODES } from "../constants";
 
 function CreateUserForm({ onDone }: { onDone: () => void }) {
+	const router = useRouter();
 	const { create } = useAdminUserActions();
 	const actorRole = useAuthStore((s) => s.user?.role);
 	const canSetRole = can(actorRole, "users:change-role");
@@ -58,7 +60,9 @@ function CreateUserForm({ onDone }: { onDone: () => void }) {
 			return;
 		}
 
-		toast.success("User created");
+		toast.success("User created", {
+			action: { label: "Open profile", onClick: () => router.push(`/admin/users/${res.data.id}`) },
+		});
 		onDone();
 	}
 

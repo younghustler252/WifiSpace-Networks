@@ -23,8 +23,9 @@ export const hotspotsApi = {
 		API.get<HotspotStatus>("/hotspot/status", { params }),
 };
 
-
 export const hotspotsAdminApi = {
-	devices: (params: { accountId?: string; userId?: string }) => API.get<HotspotDevice[]>("/hotspot/admin/devices", { params }),
-	locations: (params: { accountId?: string }) => API.get<HotspotLocation[]>("/hotspot/admin/locations", { params }),
+	devices: (params: { accountId?: string; userId?: string; page?: number; limit?: number }) =>
+		API.get<HotspotDevice[]>("/hotspot/admin/devices", { params }),
+	locations: (params: { accountId?: string; page?: number; limit?: number }) =>
+		API.get<HotspotLocation[]>("/hotspot/admin/locations", { params }),
 };

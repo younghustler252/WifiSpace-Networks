@@ -26,6 +26,8 @@ export function normalizeNotification(raw: Raw): NotificationItem {
 		channel: str(raw.channel),
 		priority: str(raw.priority),
 		accountId: str(metadata.accountId) ?? null,
+		entityType: str(metadata.entityType) ?? null,
+		entityId: str(metadata.entityId) ?? null,
 		createdAt: str(raw.createdAt) ?? "",
 		readAt,
 		isRead: status === NOTIFICATION_RECIPIENT_STATUS.READ || !!readAt,

@@ -22,9 +22,16 @@ export function useMyAudit(limit = 8) {
 	});
 }
 
-export function useEntityAudit(entity: string, entityId: string, limit = 8) {
+interface AuditFeedParams {
+	entity?: string;
+	entityId?: string;
+	actorId?: string;
+}
+
+export function useAuditFeed(params: AuditFeedParams, limit = 8) {
 	return useQuery({
-		queryKey: ["audit", "entity", entity, entityId, limit],
-		queryFn: async () => unwrap(await auditApi.listAll({ page: 1, limit, entity, entityId })).data,
+		queryKey: ["audit", "feed", params, limit],
+		enabled: !!(params.entityId || params.actorId),
+		queryFn: async () => unwrap(await auditApi.listAll({ page: 1, limit, ...params })).data,
 	});
 }

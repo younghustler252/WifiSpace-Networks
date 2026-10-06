@@ -8,6 +8,8 @@ export const NOTIFICATION_TYPES = {
 	ACCOUNT_REJECTED: "account_rejected",
 	ACCOUNT_SUSPENDED: "account_suspended",
 	ADMIN_BROADCAST: "admin_broadcast",
+	TICKET_REPLY: "ticket_reply",
+	TICKET_STATUS_CHANGED: "ticket_status_changed",
 	SYSTEM_ALERT: "system_alert",
 } as const;
 

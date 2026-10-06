@@ -13,7 +13,7 @@ import { PlanCard } from "@/features/plans/components/plan-card";
 import type { Plan } from "@/features/plans/types/plans.types";
 import { getPlanPricing } from "@/features/plans/lib/pricing";
 import { durationInDays, formatCurrency } from "@/lib/format";
-import { useHotspotPlans } from "../hooks/use-hotspot";
+import { useHotspotPlans } from "../hooks/use-hotspots";
 import { readRememberedEmail, rememberEmail } from "../lib/remembered-email";
 import { hotspotsApi } from "../services/hotspots.api";
 import type { HotspotClientInfo, HotspotRouter } from "../types/hotspots.types";

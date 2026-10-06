@@ -6,7 +6,7 @@ import { normalizeNotification } from "../lib/normalize-notification";
 import type { NotificationsPage } from "../types/notifications.types";
 import { adminNotificationsApi, notificationsApi } from "../services/notifications.api";
 import { normalizeAdminNotification } from "../lib/normalize-admin-notifcation";
-
+import { normalizeRecipient } from "../lib/normalize-recipent";
 
 export const NOTIFICATIONS_KEY = ["notifications", "me"] as const;
 export const ADMIN_NOTIFICATIONS_KEY = ["notifications", "admin"] as const;
@@ -83,4 +83,15 @@ export function useSendNotification() {
 
 export function usePreviewNotification() {
 	return useMutation({ mutationFn: adminNotificationsApi.preview });
+}
+
+export function useNotificationRecipients(id: string, page: number) {
+	return useQuery({
+		queryKey: [...ADMIN_NOTIFICATIONS_KEY, "recipients", id, page],
+		queryFn: async () => {
+			const res = unwrap(await adminNotificationsApi.recipients(id, { page, limit: 15 }));
+			return { items: res.data.map(normalizeRecipient), meta: res.meta };
+		},
+		placeholderData: keepPreviousData,
+	});
 }
