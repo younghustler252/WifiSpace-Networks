@@ -14,10 +14,11 @@ export class AdminController {
 		return paginatedResponse({ res, data: data.map((p) => p.toJSON()), meta, message: "Payments fetched successfully" });
 	};
 
-	getPaymentById = async (req, res) => {
-		const payment = await this.getPaymentByIdUseCase.execute({ paymentId: req.params.id });
-		return successResponse({ res, data: payment.toJSON(), message: "Payment fetched successfully" });
-	};
+	// payment/controllers/admin.controller.js — getPaymentById updated
+getPaymentById = async (req, res) => {
+	const result = await this.getPaymentByIdUseCase.execute({ paymentId: req.params.id });
+	return successResponse({ res, data: { payment: result.payment.toJSON(), router: result.router?.toJSON() ?? null }, message: "Payment fetched successfully" });
+};	
 
 	recordPayment = async (req, res) => {
 		const result = await this.recordPaymentUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });

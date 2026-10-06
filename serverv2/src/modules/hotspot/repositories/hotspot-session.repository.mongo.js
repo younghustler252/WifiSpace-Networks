@@ -2,9 +2,16 @@ import { BaseRepository } from "../../../infrastructure/repositories/base.reposi
 import { HotspotSessionModel } from "../database/hotspot-session.model.js";
 import { HotspotSessionMapper } from "../mappers/hotspot-session.mapper.js";
 
+
+const ROUTER_POPULATE = { path: "routerId", select: "name code location" };
+
 export class HotspotSessionRepositoryMongo extends BaseRepository {
 	constructor() {
 		super(HotspotSessionModel, HotspotSessionMapper);
+	}
+
+	async findById(id) {
+		return super.findById(id, { populates: [ROUTER_POPULATE] });
 	}
 
 	async findByMac(macAddress) {
@@ -25,5 +32,9 @@ export class HotspotSessionRepositoryMongo extends BaseRepository {
 			{ upsert: true, new: true, setDefaultsOnInsert: true }
 		);
 		return this.mapOne(doc);
+	}
+
+	async paginate(opts = {}) {
+		return super.paginate({ ...opts, populates: [ROUTER_POPULATE] });
 	}
 }

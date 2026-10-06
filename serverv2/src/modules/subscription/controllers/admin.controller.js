@@ -5,7 +5,7 @@ export class AdminController {
 	constructor({
 		adminCreateSubscription, getAllSubscriptions, getSubscriptionById,
 		adminSuspendSubscription, adminResumeSubscription, cancelSubscription, extendSubscription,
-		forceExpireSubscription
+		forceExpireSubscription, resyncSubscription
 	}) {
 		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
 		this.getAllSubscriptionsUseCase = getAllSubscriptions;
@@ -15,6 +15,7 @@ export class AdminController {
 		this.cancelSubscriptionUseCase = cancelSubscription;
 		this.extendSubscriptionUseCase = extendSubscription;
 		this.forceExpireSubscriptionUseCase = forceExpireSubscription;
+		this.resyncSubscriptionUseCase = resyncSubscription;
 	}
 
 	createSubscription = async (req, res) => {
@@ -28,8 +29,22 @@ export class AdminController {
 	};
 
 	getSubscriptionById = async (req, res) => {
-		const subscription = await this.getSubscriptionByIdUseCase.execute({ subscriptionId: req.params.id });
-		return successResponse({ res, data: subscription.toJSON(), message: "Subscription fetched successfully" });
+		const result = await this.getSubscriptionByIdUseCase.execute({ subscriptionId: req.params.id });
+		return successResponse({
+			res,
+			data: {
+				subscription: result.subscription.toJSON(),
+				account: result.account?.toJSON() ?? null,
+				router: result.router?.toJSON() ?? null,
+				routers: result.routers ?? null
+			},
+			message: "Subscription fetched successfully"
+		});
+	};
+
+	resync = async (req, res) => {
+		const result = await this.resyncSubscriptionUseCase.execute({ actorId: req.user.id, subscriptionId: req.params.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: result, message: result.success ? "Resynced successfully" : "Resync attempted, check result for details" });
 	};
 
 	suspendSubscription = async (req, res) => {

@@ -7,9 +7,10 @@ export class HotspotSessionMapper {
 		if (!raw) return null;
 		const data = { id: raw._id?.toString() || raw.id, createdAt: raw.createdAt, updatedAt: raw.updatedAt };
 		for (const f of FIELDS) data[f] = raw[f];
-		data.userId = raw.userId?.toString() ?? null;
-		data.accountId = raw.accountId?.toString() ?? null;
-		data.routerId = raw.routerId?.toString();
+		data.userId = raw.userId?._id?.toString() || raw.userId?.toString() || null;
+		data.accountId = raw.accountId?._id?.toString() || raw.accountId?.toString() || null;
+		data.routerId = raw.routerId?._id?.toString() || raw.routerId?.toString() || null;
+		data.router = raw.routerId && typeof raw.routerId === "object" ? raw.routerId : null;
 		return new HotspotSession(data);
 	}
 

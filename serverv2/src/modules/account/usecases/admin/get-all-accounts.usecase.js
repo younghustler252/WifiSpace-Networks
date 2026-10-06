@@ -12,13 +12,14 @@ export class GetAllAccounts {
 		this.accountRepository = accountRepository;
 	}
 
-	async execute({ serviceType, accountType, status, approvalStatus, search, sort = "newest", page = 1, limit = 20 } = {}) {
+	async execute({ serviceType, accountType, status, approvalStatus, userId, search, sort = "newest", page = 1, limit = 20 } = {}) {
 		const filter = {};
 
 		if (serviceType) filter.serviceType = serviceType;
 		if (accountType) filter.accountType = accountType;
 		if (status) filter.status = status;
 		if (approvalStatus) filter.approvalStatus = approvalStatus;
+		if (userId) filter.userId = userId;
 
 		if (search) {
 			const safeSearch = escapeRegex(search);

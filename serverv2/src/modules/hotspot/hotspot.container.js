@@ -14,7 +14,13 @@ import { HotspotCheckoutFlow } from "./usecases/user/hotspot-checkout.usecase.js
 import { StartHotspot } from "./usecases/user/start-hotspot.usecase.js";
 import { ConfirmHotspot } from "./usecases/system/confirm-hotspot.usecase.js";
 
+import { GetAccountDevices } from "./usecases/admin/get-account-devices.usecase.js";
+import { GetAccountLocations } from "./usecases/admin/get-account-locations.usecase.js";
+
+
 import { HotspotController } from "./controllers/hotspot.controller.js";
+import { AdminController } from "./controllers/admin.controller.js";
+
 
 export function registerHotspot(container) {
 	container.register({
@@ -32,6 +38,11 @@ export function registerHotspot(container) {
 		startHotspot: asClass(StartHotspot).scoped(),
 		confirmHotspot: asClass(ConfirmHotspot).scoped(),
 
+		getAccountDevices: asClass(GetAccountDevices).scoped(),
+		getAccountLocations: asClass(GetAccountLocations).scoped(),
+		
+		
+		hotspotAdminController: asClass(AdminController).scoped(),
 		hotspotController: asClass(HotspotController).scoped()
 	});
 }

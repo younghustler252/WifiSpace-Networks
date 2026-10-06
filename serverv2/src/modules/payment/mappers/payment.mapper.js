@@ -1,7 +1,6 @@
 import { Payment } from "../domain/payment.entity.js";
 import { PAYMENT_CHANNEL_LIST } from "../domain/payment.enum.js";
 
-
 const FIELDS = [
 	"userId", "accountId", "subscriptionId", "planId", "actionType", "amount", "cycles", "currency",
 	"paymentChannel", "gateway", "gatewayReference", "status", "businessProcessed",
@@ -9,7 +8,6 @@ const FIELDS = [
 ];
 
 export class PaymentMapper {
-	
 	static toDomain(raw) {
 		if (!raw) return null;
 		const data = { id: raw._id?.toString() || raw.id };
@@ -19,7 +17,8 @@ export class PaymentMapper {
 		data.account = raw.accountId && typeof raw.accountId === "object" ? raw.accountId : null;
 		data.planId = raw.planId?._id?.toString() || raw.planId?.toString();
 		data.plan = raw.planId && typeof raw.planId === "object" ? raw.planId : null;
-		data.userId = raw.userId?.toString();
+		data.userId = raw.userId?._id?.toString() || raw.userId?.toString();
+		data.user = raw.userId && typeof raw.userId === "object" ? raw.userId : null;
 		data.subscriptionId = raw.subscriptionId?.toString() ?? null;
 		data.createdAt = raw.createdAt;
 		data.updatedAt = raw.updatedAt;

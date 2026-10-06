@@ -3,12 +3,19 @@ import { BaseRepository } from "../../../infrastructure/repositories/base.reposi
 import NotificationRecipientModel from "../database/notification-recipient.model.js";
 import { NotificationRecipientMapper } from "../mappers/notification-recipient.mapper.js";
 
+
+const USER_POPULATE = { path: "userId", select: "firstName lastName email phone" };
+
 export class NotificationRecipientRepositoryMongo extends BaseRepository {
 	constructor() { super(NotificationRecipientModel, NotificationRecipientMapper); }
 
 	async findByNotificationId(notificationId) {
-		const docs = await this.model.find({ notificationId }).lean();
+		const docs = await this.model.find({ notificationId }).populate(USER_POPULATE).lean();
 		return this.mapArray(docs);
+	}
+
+	async paginate(opts = {}) {
+		return super.paginate({ ...opts, populates: [USER_POPULATE] });
 	}
 
 	async findByUser(userId, { status } = {}) {

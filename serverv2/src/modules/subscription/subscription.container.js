@@ -12,10 +12,12 @@ import { AdminResumeSubscription } from "./usecases/admin/resume-subscription.us
 import { GetUpgradeOptions } from "./usecases/user/get-upgrade-options.usecase.js";
 import { CancelSubscription } from "./usecases/admin/cancel-subscription.usecase.js";
 import { ExtendSubscription } from "./usecases/admin/extend-subscription.usecase.js";
+import { ResyncSubscription } from "./usecases/admin/resync-subscription.usecase.js";
+
 import { ForceExpireSubscription } from "./usecases/admin/force-expire-subscription.usecase.js";
 import { ExpireSubscriptions } from "./usecases/system/expire-subscriptions.usecase.js";
+
 import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.usecase.js";
-// ...
 
 import { SubscriptionController } from "./controllers/subscription.controller.js";
 import { AdminController } from "./controllers/admin.controller.js";
@@ -35,6 +37,7 @@ export function registerSubscription(container) {
 		adminResumeSubscription: asClass(AdminResumeSubscription).scoped(),
 		cancelSubscription: asClass(CancelSubscription).scoped(),
 		extendSubscription: asClass(ExtendSubscription).scoped(),
+		resyncSubscription: asClass(ResyncSubscription).scoped(),
 		forceExpireSubscription: asClass(ForceExpireSubscription).scoped(),
 
 		expireSubscriptions: asClass(ExpireSubscriptions).scoped(),

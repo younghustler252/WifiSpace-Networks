@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	subscribeSchema, adminCreateSubscriptionSchema, suspendSubscriptionSchema,
-	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema
+	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, resyncSubscriptionSchema
 } from "../validators/subscription.validators.js";
 
 const router = Router();
@@ -32,7 +32,7 @@ adminRouter.patch("/:id/resume", asyncHandler(adminController.resumeSubscription
 adminRouter.patch("/:id/cancel", validate(cancelSubscriptionSchema), asyncHandler(adminController.cancelSubscription));
 adminRouter.patch("/:id/extend", validate(extendSubscriptionSchema), asyncHandler(adminController.extendSubscription));
 adminRouter.patch("/:id/force-expire", validate(cancelSubscriptionSchema), asyncHandler(adminController.forceExpireSubscription));
-
+adminRouter.post("/:id/resync", validate(resyncSubscriptionSchema), asyncHandler(adminController.resync));
 router.use("/admin", adminRouter);
 
 export default router;
