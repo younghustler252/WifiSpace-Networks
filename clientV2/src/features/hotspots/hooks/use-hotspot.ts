@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
-import { hotspotsApi } from "../services/hotspots.api";
+import { hotspotsApi, hotspotsAdminApi } from "../services/hotspots.api";
 import type { HotspotClientInfo } from "../types/hotspots.types";
 
 const STATUS_POLL_MS = 2500;
@@ -63,4 +63,19 @@ export function useConnectionStatus(reference: string | null, macAddress: string
 			query.refetch();
 		},
 	};
+}
+
+
+export function useHotspotDevices(accountId: string) {
+	return useQuery({
+		queryKey: ["hotspot", "admin", "devices", accountId],
+		queryFn: async () => unwrap(await hotspotsAdminApi.devices({ accountId })).data,
+	});
+}
+
+export function useHotspotLocations(accountId: string) {
+	return useQuery({
+		queryKey: ["hotspot", "admin", "locations", accountId],
+		queryFn: async () => unwrap(await hotspotsAdminApi.locations({ accountId })).data,
+	});
 }

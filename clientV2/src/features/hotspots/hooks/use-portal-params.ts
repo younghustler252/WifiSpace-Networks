@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useSearchParams } from "next/navigation";
+import { formatMac } from "@/lib/format";
 import type { HotspotClientInfo } from "../types/hotspots.types";
 
 const MAC_KEYS = ["mac", "macAddress"];
@@ -21,7 +22,8 @@ export function usePortalParams() {
 
 	return useMemo(() => {
 		const params = new URLSearchParams(query);
-		const macAddress = pick(params, MAC_KEYS);
+		const rawMac = pick(params, MAC_KEYS);
+		const macAddress = rawMac ? formatMac(rawMac) : undefined;
 
 		const client: HotspotClientInfo | null = macAddress
 			? {

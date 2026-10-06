@@ -13,3 +13,14 @@ export function formatLocation(location?: RequestedLocation | null) {
 		.filter(Boolean)
 		.join(" · ");
 }
+
+export const approvalOf = (account: { approvalStatus?: string | null }) => account.approvalStatus ?? "approved";
+export const isApproved = (account: { approvalStatus?: string | null }) => approvalOf(account) === "approved";
+
+export function accountBlocker(account: { approvalStatus?: string | null; status?: string }) {
+	const approval = approvalOf(account);
+	if (approval === "pending") return "Awaiting approval";
+	if (approval === "rejected") return "Request rejected";
+	if (account.status === "terminated") return "Terminated";
+	return null;
+}

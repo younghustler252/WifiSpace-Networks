@@ -16,4 +16,6 @@ export const routersApi = {
 	remove: (id: string) => withMessages(API.delete<unknown>(`/routers/${id}`)),
 	profiles: (id: string, serviceType: string) =>
 	withMessages(API.get<unknown>(`/routers/${id}/profiles`, { params: { serviceType } })),
+
+	
 };

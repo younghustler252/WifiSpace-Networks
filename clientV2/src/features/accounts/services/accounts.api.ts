@@ -2,7 +2,7 @@ import { API } from "@/lib/api/api-client";
 import { friendly } from "@/lib/api/friendly";
 import { ROUTER_ERROR_MESSAGES } from "@/features/routers/constants";
 import type { Account, AdminAccount, AdminAccountListParams, RequestAccountBody } from "../types/accounts.types";
-import { AdminCreateAccountBody } from "../types/accounts.types";
+import { AdminCreateAccountBody, AdminAccountDetailResponse } from "../types/accounts.types";
 
 export const accountsApi = {
 	listMine: () => API.get<Account[]>("/accounts/me"),
@@ -19,6 +19,7 @@ const ADMIN = "/accounts/admin";
 export const adminAccountsApi = {
 
 	create: (body: AdminCreateAccountBody) => API.post<AdminAccount>(ADMIN, body),
+	get: (id: string) => API.get<AdminAccountDetailResponse>(`${ADMIN}/${id}`),
 	list: (params: AdminAccountListParams) => API.get<AdminAccount[]>(ADMIN, { params }),
 	approve: (id: string, body: { routerId?: string }) =>
 		API.patch<AdminAccount>(`${ADMIN}/${id}/approve`, body).then((res) => friendly(res, ROUTER_ERROR_MESSAGES)),

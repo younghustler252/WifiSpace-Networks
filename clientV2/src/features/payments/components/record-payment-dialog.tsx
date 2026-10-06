@@ -10,18 +10,18 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { AccountPicker } from "@/features/accounts/components/account-picker";
+import { OwnerCell } from "@/features/accounts/components/owner-cell";
+import { getAccountTitle } from "@/features/accounts/lib/account-meta";
 import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
 import { PAYMENT_CHANNEL_OPTIONS } from "../constants";
 import { useRecordPayment } from "../hooks/use-payments";
-import { AccountPicker } from "@/features/accounts/components/account-picker";
 
-
-
-export function RecordPaymentDialog({ onClose }: { onClose: () => void }) {
+export function RecordPaymentDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const record = useRecordPayment();
-	const [account, setAccount] = useState<AdminAccount | null>(null);
+	const [account, setAccount] = useState<AdminAccount | null>(preset ?? null);
 	const [planId, setPlanId] = useState<string | null>(null);
 	const [cycles, setCycles] = useState("1");
 	const [channel, setChannel] = useState("cash");
@@ -74,9 +74,18 @@ export function RecordPaymentDialog({ onClose }: { onClose: () => void }) {
 				</DialogHeader>
 
 				<div className="space-y-5">
-					<Field label="Account" htmlFor="record-account">
-						<AccountPicker value={account} onChange={pickAccount} />
-					</Field>
+					{preset ? (
+						<div className="card-elevated space-y-1 bg-surface-2 p-3">
+							<OwnerCell account={preset} />
+							<p className="text-[11px] text-muted-foreground">
+								<span className="text-mono">{preset.wsnId}</span> · {getAccountTitle(preset)}
+							</p>
+						</div>
+					) : (
+						<Field label="Account" htmlFor="record-account">
+							<AccountPicker value={account} onChange={pickAccount} />
+						</Field>
+					)}
 
 					{account && (
 						<div className="space-y-2">
@@ -142,3 +151,4 @@ export function RecordPaymentDialog({ onClose }: { onClose: () => void }) {
 		</Dialog>
 	);
 }
+	

@@ -94,3 +94,11 @@ export function useAdminAccountActions() {
 		terminate: useAdminAccountAction((v: { id: string; note?: string }) => adminAccountsApi.terminate(v.id, v.note)),
 	};
 }
+
+
+export function useAdminAccount(id: string) {
+	return useQuery({
+		queryKey: [...ADMIN_ACCOUNTS_KEY, "detail", id],
+		queryFn: async () => unwrap(await adminAccountsApi.get(id)).data,
+	});
+}

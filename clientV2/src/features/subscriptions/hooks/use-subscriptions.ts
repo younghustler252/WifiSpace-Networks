@@ -58,6 +58,7 @@ export function useAdminSubscriptionActions() {
 		forceExpire: useAdminSubscriptionAction((v: { id: string; reason?: string }) =>
 			adminSubscriptionsApi.forceExpire(v.id, v.reason)
 		),
+		resync: useAdminSubscriptionAction((v: { id: string; routerId?: string }) => adminSubscriptionsApi.resync(v.id, v.routerId)),
 	};
 }
 
@@ -71,4 +72,15 @@ export function useUpgradeOptions(accountId: string | undefined, enabled = true)
 		},
 		staleTime: 60_000,
 	});
+}
+
+export function useAdminSubscription(id: string) {
+	return useQuery({
+		queryKey: [...ADMIN_SUBSCRIPTIONS_KEY, "detail", id],
+		queryFn: async () => unwrap(await adminSubscriptionsApi.get(id)).data,
+	});
+}
+
+export function useAccountSubscriptions(accountId: string) {
+	return useAdminSubscriptions({ accountId, limit: 20 });
 }

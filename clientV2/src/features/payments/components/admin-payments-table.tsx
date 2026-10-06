@@ -3,10 +3,10 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserNameCell } from "@/features/users/components/user-name-cell";
 import { formatCurrency, formatDateTime, humanize } from "@/lib/format";
-import { isSettlable, paymentDateOf, paymentTotal } from "../lib/payment-helpers";
+import { getProvisioning, isSettlable, paymentDateOf, paymentTotal } from "../lib/payment-helpers";
 import type { AdminPayment } from "../types/payments.types";
+import { PayerCell } from "./payer-cell";
 
 export type PaymentAction = "details" | "status";
 
@@ -36,6 +36,8 @@ const dateLabel = (payment: AdminPayment) => {
 	return date ? formatDateTime(date) : "—";
 };
 
+const method = (payment: AdminPayment) => humanize(payment.paymentChannel ?? payment.gateway);
+
 export function AdminPaymentsTable({ items, onAction }: AdminPaymentsTableProps) {
 	return (
 		<>
@@ -45,7 +47,7 @@ export function AdminPaymentsTable({ items, onAction }: AdminPaymentsTableProps)
 						<TableRow>
 							<TableHead>Date</TableHead>
 							<TableHead>Customer</TableHead>
-							<TableHead>Reference</TableHead>
+							<TableHead>Plan</TableHead>
 							<TableHead>Method</TableHead>
 							<TableHead className="text-right">Amount</TableHead>
 							<TableHead className="text-right">Status</TableHead>
@@ -53,23 +55,33 @@ export function AdminPaymentsTable({ items, onAction }: AdminPaymentsTableProps)
 						</TableRow>
 					</TableHeader>
 					<TableBody>
-						{items.map((payment) => (
-							<TableRow key={payment.id}>
-								<TableCell className="whitespace-nowrap text-[13px] text-muted-foreground">{dateLabel(payment)}</TableCell>
-								<TableCell className="max-w-56">
-									<UserNameCell userId={payment.userId} />
-								</TableCell>
-								<TableCell className="text-mono max-w-40 truncate text-[12px] text-muted-foreground">{payment.gatewayReference}</TableCell>
-								<TableCell className="text-[13px]">{humanize(payment.paymentChannel ?? payment.gateway)}</TableCell>
-								<TableCell className="text-mono text-right text-[13px]">{formatCurrency(paymentTotal(payment))}</TableCell>
-								<TableCell className="text-right">
-									<StatusBadge status={payment.status} />
-								</TableCell>
-								<TableCell className="text-right">
-									<RowMenu payment={payment} onAction={(a) => onAction(a, payment)} />
-								</TableCell>
-							</TableRow>
-						))}
+						{items.map((payment) => {
+							const device = getProvisioning(payment)?.macAddress;
+
+							return (
+								<TableRow key={payment.id}>
+									<TableCell className="whitespace-nowrap text-[13px] text-muted-foreground">{dateLabel(payment)}</TableCell>
+									<TableCell className="max-w-56">
+										<PayerCell payment={payment} />
+									</TableCell>
+									<TableCell>
+										<p className="text-[13px]">{payment.plan?.name ?? "—"}</p>
+										{payment.account?.wsnId && <p className="text-mono text-[11px] text-muted-foreground">{payment.account.wsnId}</p>}
+									</TableCell>
+									<TableCell>
+										<p className="text-[13px]">{method(payment)}</p>
+										{device && <p className="text-mono text-[11px] text-muted-foreground">{device}</p>}
+									</TableCell>
+									<TableCell className="text-mono text-right text-[13px]">{formatCurrency(paymentTotal(payment))}</TableCell>
+									<TableCell className="text-right">
+										<StatusBadge status={payment.status} />
+									</TableCell>
+									<TableCell className="text-right">
+										<RowMenu payment={payment} onAction={(a) => onAction(a, payment)} />
+									</TableCell>
+								</TableRow>
+							);
+						})}
 					</TableBody>
 				</Table>
 			</div>
@@ -78,11 +90,12 @@ export function AdminPaymentsTable({ items, onAction }: AdminPaymentsTableProps)
 				{items.map((payment) => (
 					<li key={payment.id} className="flex items-center gap-2 py-3 first:pt-0 last:pb-0">
 						<div className="min-w-0 flex-1 space-y-1.5">
-							<UserNameCell userId={payment.userId} />
+							<PayerCell payment={payment} />
 							<p className="text-mono text-[13px]">{formatCurrency(paymentTotal(payment))}</p>
 							<p className="text-[11px] text-muted-foreground">
-								{dateLabel(payment)} · {humanize(payment.paymentChannel ?? payment.gateway)}
+								{[payment.plan?.name, payment.account?.wsnId, method(payment)].filter(Boolean).join(" · ")}
 							</p>
+							<p className="text-[11px] text-muted-foreground">{dateLabel(payment)}</p>
 							<StatusBadge status={payment.status} />
 						</div>
 						<RowMenu payment={payment} onAction={(a) => onAction(a, payment)} />

@@ -91,6 +91,16 @@ function useRefreshAfterPaymentChange() {
 	};
 }
 
+
+export function useAdminPaymentDetail(id: string) {
+	return useQuery({
+		queryKey: [...ADMIN_PAYMENTS_KEY, "detail", id],
+		queryFn: async () => unwrap(await adminPaymentsApi.get(id)).data,
+		staleTime: 60_000,
+	});
+}
+
+
 export function useRecordPayment() {
 	const refresh = useRefreshAfterPaymentChange();
 
@@ -112,3 +122,5 @@ export function useUpdatePaymentStatus() {
 		},
 	});
 }
+
+

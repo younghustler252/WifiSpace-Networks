@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -9,11 +10,11 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { UserNameCell } from "@/features/users/components/user-name-cell";
 import { formatCurrency, formatDateTime, humanize } from "@/lib/format";
 import { SETTABLE_STATUS_OPTIONS } from "../constants";
-import { useUpdatePaymentStatus } from "../hooks/use-payments";
-import { paymentDateOf, paymentDiscount, paymentTotal } from "../lib/payment-helpers";
+import { useAdminPaymentDetail, useUpdatePaymentStatus } from "../hooks/use-payments";
+import { getProvisioning, paymentDateOf, paymentDiscount, paymentTotal } from "../lib/payment-helpers";
+import { PayerCell } from "./payer-cell";
 import type { AdminPayment, SettablePaymentStatus } from "../types/payments.types";
 
 interface PaymentDialogProps {
@@ -22,28 +23,57 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDetailsDialog({ payment, onClose }: PaymentDialogProps) {
-	const date = paymentDateOf(payment);
-	const discount = paymentDiscount(payment);
-	const note = typeof payment.metadata?.note === "string" ? payment.metadata.note : null;
+	const detail = useAdminPaymentDetail(payment.id);
+	const full = detail.data?.payment ?? payment;
+	const router = detail.data?.router ?? null;
+	const provisioning = getProvisioning(full);
+	const date = paymentDateOf(full);
+	const discount = paymentDiscount(full);
+	const note = typeof full.metadata?.note === "string" ? full.metadata.note : null;
+
+	const routerLabel = router
+		? [router.name, router.location].filter(Boolean).join(" · ")
+		: detail.isLoading && provisioning?.routerId
+			? "Loading…"
+			: provisioning?.routerId
+				? `…${provisioning.routerId.slice(-6)}`
+				: null;
 
 	const rows = [
-		{ label: "Reference", value: <span className="text-mono text-[12px]">{payment.gatewayReference}</span> },
-		{ label: "Customer", value: <UserNameCell userId={payment.userId} /> },
-		{ label: "Amount", value: <span className="text-mono">{formatCurrency(paymentTotal(payment))}</span> },
+		{ label: "Reference", value: <span className="text-mono text-[12px]">{full.gatewayReference}</span> },
+		{ label: "Customer", value: <PayerCell payment={full} /> },
+		...(full.account?.wsnId ? [{ label: "Account", value: <span className="text-mono">{full.account.wsnId}</span> }] : []),
+		...(full.plan?.name ? [{ label: "Plan", value: full.plan.name }] : []),
+		{ label: "Amount", value: <span className="text-mono">{formatCurrency(paymentTotal(full))}</span> },
 		...(discount > 0 ? [{ label: "Discount", value: formatCurrency(discount) }] : []),
-		{ label: "Method", value: humanize(payment.paymentChannel ?? payment.gateway) },
-		{ label: "Status", value: <StatusBadge status={payment.status} /> },
+		{ label: "Method", value: humanize(full.paymentChannel ?? full.gateway) },
+		{ label: "Status", value: <StatusBadge status={full.status} /> },
 		{ label: "Date", value: date ? formatDateTime(date) : "—" },
-		...(payment.cycles ? [{ label: "Cycles", value: String(payment.cycles) }] : []),
-		...(payment.actionType ? [{ label: "Type", value: humanize(payment.actionType) }] : []),
-		{ label: "Plan activated", value: payment.businessProcessed ? "Yes" : "No" },
-		...(payment.failureReason ? [{ label: "Failure reason", value: payment.failureReason }] : []),
+		...(full.cycles ? [{ label: "Cycles", value: String(full.cycles) }] : []),
+		...(full.actionType ? [{ label: "Type", value: humanize(full.actionType) }] : []),
+		{ label: "Plan activated", value: full.businessProcessed ? "Yes" : "No" },
+		...(routerLabel ? [{ label: "Paid at", value: routerLabel }] : []),
+		...(provisioning?.macAddress ? [{ label: "Device", value: <span className="text-mono">{provisioning.macAddress}</span> }] : []),
+		...(provisioning?.ipAddress ? [{ label: "IP address", value: <span className="text-mono">{provisioning.ipAddress}</span> }] : []),
+		...(full.failureReason ? [{ label: "Failure reason", value: full.failureReason }] : []),
 		...(note ? [{ label: "Note", value: note }] : []),
+		...(full.subscriptionId
+			? [
+					{
+						label: "Subscription",
+						value: (
+							<Link href={`/admin/subscriptions/${full.subscriptionId}`} className="text-signal hover:underline" onClick={onClose}>
+								View subscription →
+							</Link>
+						),
+					},
+				]
+			: []),
 	];
 
 	return (
 		<Dialog open onOpenChange={(open) => !open && onClose()}>
-			<DialogContent>
+			<DialogContent className="max-h-[90svh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>Payment details</DialogTitle>
 					<DialogDescription>Everything we have on this payment.</DialogDescription>

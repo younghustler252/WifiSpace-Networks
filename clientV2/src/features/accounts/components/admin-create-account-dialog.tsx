@@ -17,9 +17,9 @@ import { SERVICE_TYPE_OPTIONS } from "../constants";
 import { useAdminAccountActions } from "../hooks/use-accounts";
 import { AdminCreateAccountValues, adminCreateAccountSchema } from "../schemas/accounts.schemas";
 
-export function AdminCreateAccountDialog({ onClose }: { onClose: () => void }) {
+export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?: UserProfile; onClose: () => void }) {
 	const { create } = useAdminAccountActions();
-	const [user, setUser] = useState<UserProfile | null>(null);
+	const [user, setUser] = useState<UserProfile | null>(presetUser ?? null);
 	const [userError, setUserError] = useState<string | null>(null);
 
 	const {
@@ -93,15 +93,17 @@ export function AdminCreateAccountDialog({ onClose }: { onClose: () => void }) {
 				</DialogHeader>
 
 				<form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-					<Field label="Customer" htmlFor="create-user" error={userError ?? undefined}>
-						<UserSelect
-							value={user}
-							onChange={(next) => {
-								setUser(next);
-								setUserError(null);
-							}}
-						/>
-					</Field>
+					{!presetUser && (
+						<Field label="Customer" htmlFor="create-user" error={userError ?? undefined}>
+							<UserSelect
+								value={user}
+								onChange={(next) => {
+									setUser(next);
+									setUserError(null);
+								}}
+							/>
+						</Field>
+					)}
 
 					<div className="grid gap-4 sm:grid-cols-2">
 						<Field label="Service" htmlFor="create-service">

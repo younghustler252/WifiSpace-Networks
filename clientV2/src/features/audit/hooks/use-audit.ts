@@ -21,3 +21,10 @@ export function useMyAudit(limit = 8) {
 		queryFn: async () => unwrap(await auditApi.listMine({ page: 1, limit })).data,
 	});
 }
+
+export function useEntityAudit(entity: string, entityId: string, limit = 8) {
+	return useQuery({
+		queryKey: ["audit", "entity", entity, entityId, limit],
+		queryFn: async () => unwrap(await auditApi.listAll({ page: 1, limit, entity, entityId })).data,
+	});
+}

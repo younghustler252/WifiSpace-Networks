@@ -11,14 +11,16 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AccountPicker } from "@/features/accounts/components/account-picker";
+import { OwnerCell } from "@/features/accounts/components/owner-cell";
+import { getAccountTitle } from "@/features/accounts/lib/account-meta";
 import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
 
-export function CreateSubscriptionDialog({ onClose }: { onClose: () => void }) {
+export function CreateSubscriptionDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const { create } = useAdminSubscriptionActions();
-	const [account, setAccount] = useState<AdminAccount | null>(null);
+	const [account, setAccount] = useState<AdminAccount | null>(preset ?? null);
 	const [planId, setPlanId] = useState<string | null>(null);
 	const [cycles, setCycles] = useState("1");
 	const [activate, setActivate] = useState(true);
@@ -75,9 +77,18 @@ export function CreateSubscriptionDialog({ onClose }: { onClose: () => void }) {
 						text="If the customer paid you in cash or by transfer, use Record payment on the Payments page instead."
 					/>
 
-					<Field label="Account" htmlFor="sub-account">
-						<AccountPicker value={account} onChange={pickAccount} />
-					</Field>
+					{preset ? (
+						<div className="card-elevated space-y-1 bg-surface-2 p-3">
+							<OwnerCell account={preset} />
+							<p className="text-[11px] text-muted-foreground">
+								<span className="text-mono">{preset.wsnId}</span> · {getAccountTitle(preset)}
+							</p>
+						</div>
+					) : (
+						<Field label="Account" htmlFor="sub-account">
+							<AccountPicker value={account} onChange={pickAccount} />
+						</Field>
+					)}
 
 					{account && (
 						<div className="space-y-2">

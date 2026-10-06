@@ -80,3 +80,17 @@ export function humanize(value: string) {
 	const text = value.replace(/_/g, " ");
 	return text.charAt(0).toUpperCase() + text.slice(1);
 }
+
+function safeDecode(value: string) {
+	try {
+		return decodeURIComponent(value);
+	} catch {
+		return value;
+	}
+}
+
+export function formatMac(mac: string) {
+	let value = mac.trim();
+	for (let i = 0; i < 2; i += 1) value = safeDecode(value);
+	return value.replace(/-/g, ":").toUpperCase();
+}

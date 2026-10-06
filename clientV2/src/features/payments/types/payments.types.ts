@@ -1,3 +1,5 @@
+import { NetworkRouter } from "@/features/routers/types/routers.types";
+
 export type PaymentStatus = "initiated" | "pending" | "successful" | "failed" | (string & {});
 
 export interface InitPaymentBody {
@@ -25,7 +27,6 @@ export interface Payment {
 	createdAt?: string;
 }
 
-
 export interface AdminPayment extends Omit<Payment, "amount"> {
 	amount: Payment["amount"] | number;
 	userId?: string;
@@ -41,6 +42,16 @@ export interface AdminPayment extends Omit<Payment, "amount"> {
 	failureReason?: string | null;
 	paymentDate?: string | null;
 	metadata?: Record<string, unknown> | null;
+	user?: PaymentPerson | null;
+	account?: {
+		id?: string;
+		wsnId?: string;
+		serviceType?: string;
+	} | null;
+	plan?: {
+		id?: string;
+		name?: string;
+	} | null;
 }
 
 export interface AdminPaymentListParams {
@@ -48,6 +59,9 @@ export interface AdminPaymentListParams {
 	search?: string;
 	page?: number;
 	limit?: number;
+	userId?: string;
+	accountId?: string;
+	subscriptionId?: string;
 }
 
 export interface RecordPaymentBody {
@@ -63,4 +77,16 @@ export type SettablePaymentStatus = "successful" | "failed" | "expired";
 export interface UpdatePaymentStatusBody {
 	status: SettablePaymentStatus;
 	reason?: string;
+}
+
+export interface PaymentPerson {
+	firstName?: string;
+	lastName?: string;
+	email?: string;
+	phone?: string | null;
+}
+
+export interface AdminPaymentDetail {
+	payment: AdminPayment;
+	router: NetworkRouter | null;
 }

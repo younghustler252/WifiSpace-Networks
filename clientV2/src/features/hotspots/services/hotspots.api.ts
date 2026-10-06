@@ -8,6 +8,8 @@ import {
 	HotspotStartBody,
 	HotspotStartResult,
 	HotspotStatus,
+	HotspotLocation,
+	HotspotDevice
 } from "../types/hotspots.types";
 
 type SessionParams = Pick<HotspotClientInfo, "macAddress" | "routerId" | "routerUid" | "identity">;
@@ -19,4 +21,10 @@ export const hotspotsApi = {
 	login: (body: HotspotLoginBody) => API.post<HotspotLoginResult>("/hotspot/login", body),
 	status: (params: { reference: string; macAddress?: string }) =>
 		API.get<HotspotStatus>("/hotspot/status", { params }),
+};
+
+
+export const hotspotsAdminApi = {
+	devices: (params: { accountId?: string; userId?: string }) => API.get<HotspotDevice[]>("/hotspot/admin/devices", { params }),
+	locations: (params: { accountId?: string }) => API.get<HotspotLocation[]>("/hotspot/admin/locations", { params }),
 };

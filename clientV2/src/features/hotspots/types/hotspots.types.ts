@@ -76,3 +76,40 @@ export interface HotspotStatus {
 	businessProcessed: boolean;
 	connected: boolean;
 }
+
+export interface RouterRef {
+	_id: string;
+	name: string;
+	code: string;
+	location?: string | null;
+}
+
+export interface HotspotDevice {
+	id: string;
+	userId: string;
+	accountId: string;
+	routerId: string;
+	router: RouterRef | null;
+	macAddress: string;
+	ipAddress: string | null;
+	userAgent: string | null;
+	status: string;
+	trustedDevice: boolean;
+	lastSeenAt: string;
+	expiresAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+}
+
+export interface HotspotLocation {
+	id: string;
+	accountId: string;
+	subscriptionId: string | null;
+	routerId: string;
+	router: RouterRef | null;
+	status: string;
+	lastSyncedAt: string | null;
+	lastError: string | null;
+	createdAt: string;
+	updatedAt: string;
+}

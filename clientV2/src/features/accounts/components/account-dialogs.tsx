@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouters } from "@/features/routers/hooks/use-routers";
 import { useAdminAccountActions } from "../hooks/use-accounts";
+import { RecordPaymentDialog } from "@/features/payments/components/record-payment-dialog";
+import { CreateSubscriptionDialog } from "@/features/subscriptions/components/create-subscription-dialog";
 import type { AdminAccount } from "../types/accounts.types";
 import type { AccountAction } from "./account-actions-menu";
 
@@ -205,5 +207,9 @@ export function AccountActionDialog({ action, account, onClose }: AccountActionD
 		case "suspend":
 		case "resume":
 			return <SuspendResumeDialog account={account} action={action} onClose={onClose} />;
+		case "subscribe":
+			return <CreateSubscriptionDialog account={account} onClose={onClose} />;
+		case "record-payment":
+			return <RecordPaymentDialog account={account} onClose={onClose} />;
 	}
 }

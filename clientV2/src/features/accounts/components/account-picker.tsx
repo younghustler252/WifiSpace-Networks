@@ -68,7 +68,7 @@ export function AccountPicker({ value, onChange }: AccountPickerProps) {
 				<Input
 					value={search}
 					onChange={(e) => setSearch(e.target.value)}
-					placeholder="Search by account ID, name or email"
+					placeholder="Search by account ID"
 					aria-label="Search accounts"
 					className="pl-9"
 				/>

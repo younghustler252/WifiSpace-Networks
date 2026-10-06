@@ -11,7 +11,7 @@ import { formatBytes, formatDateTime, formatRemaining, humanize } from "@/lib/fo
 import { useSubscriptionUsageRecords, useSubscriptionUsageStats } from "../hooks/use-usage";
 import type { UsageStats } from "../types/usage.types";
 
-function StatsTiles({ stats }: { stats: UsageStats }) {
+export function StatsTiles({ stats }: { stats: UsageStats }) {
 	const cap = stats.dataCapBytes ?? 0;
 	const duration = stats.durationSeconds ?? 0;
 	const dataPercent = cap > 0 ? Math.min(100, (stats.totalBytesUsed / cap) * 100) : 0;

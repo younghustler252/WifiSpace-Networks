@@ -11,7 +11,7 @@ import { SectionCard } from "@/components/shared/section-card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatMac } from "@/lib/format";
 import { useAddDevice, useRemoveDevice } from "../hooks/use-accounts";
 import { AddDeviceValues, addDeviceSchema } from "../schemas/accounts.schemas";
 import type { Account, AccountDevice } from "../types/accounts.types";
@@ -119,7 +119,7 @@ export function DevicesSection({ account }: { account: Account }) {
 								</div>
 								<div className="min-w-0">
 									<p className="truncate text-[13px] font-medium">{d.hostname ?? "Unknown device"}</p>
-									<p className="text-mono truncate text-[11px] text-muted-foreground">{d.macAddress}</p>
+									<p className="text-mono truncate text-[11px] text-muted-foreground">{formatMac(d.macAddress)}</p>
 								</div>
 								<span className="ml-auto whitespace-nowrap text-[11px] text-muted-foreground">{formatDate(d.lastSeenAt)}</span>
 								<Button

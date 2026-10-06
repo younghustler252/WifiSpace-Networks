@@ -1,4 +1,6 @@
 import type { PlanServiceType } from "@/features/plans/types/plans.types";
+import { NetworkRouter } from "@/features/routers/types/routers.types";
+
 
 export interface AccountDevice {
 	macAddress: string;
@@ -44,6 +46,7 @@ export interface AdminAccount extends Account {
 	macAddress?: string | null;
 	staticIp?: string | null;
 	approvalNote?: string | null;
+	approvedAt?: string | null;
 	businessName?: string | null;
 }
 
@@ -76,4 +79,10 @@ export interface AdminCreateAccountBody {
 	macAddress?: string;
 	staticIp?: string;
 	maxDevices?: number;
+}
+
+export interface AdminAccountDetailResponse {
+	account: AdminAccount;
+	router: NetworkRouter | null;
+	subscription: unknown;
 }

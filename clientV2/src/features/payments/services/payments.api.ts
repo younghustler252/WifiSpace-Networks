@@ -4,6 +4,7 @@ import type { ApiResponse } from "@/types/api-response";
 import { PAYMENT_ERROR_MESSAGES } from "../constants";
 import type {
 	AdminPayment,
+	AdminPaymentDetail,
 	AdminPaymentListParams,
 	InitPaymentBody,
 	InitPaymentResult,
@@ -25,6 +26,7 @@ const ADMIN = "/payments/admin";
 
 export const adminPaymentsApi = {
 	list: (params: AdminPaymentListParams) => withMessages(API.get<AdminPayment[]>(ADMIN, { params })),
+	get: (id: string) => withMessages(API.get<AdminPaymentDetail>(`${ADMIN}/${id}`)),
 	record: (body: RecordPaymentBody) => withMessages(API.post<AdminPayment>(`${ADMIN}/record`, body)),
 	updateStatus: (id: string, body: UpdatePaymentStatusBody) => withMessages(API.patch<AdminPayment>(`${ADMIN}/${id}/status`, body)),
 };
