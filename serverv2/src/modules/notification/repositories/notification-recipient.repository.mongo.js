@@ -18,10 +18,10 @@ export class NotificationRecipientRepositoryMongo extends BaseRepository {
 		return super.paginate({ ...opts, populates: [USER_POPULATE] });
 	}
 
-	async findByUser(userId, { status } = {}) {
+	async findByUser(userId, { status, page = 1, limit = 20 } = {}) {
 		const filter = { userId };
 		if (status) filter.status = status;
-		return this.paginate({ filter, sort: { createdAt: -1 } });
+		return this.paginate({ filter, sort: { createdAt: -1 }, page, limit });
 	}
 
 	async findDueForRetry() {

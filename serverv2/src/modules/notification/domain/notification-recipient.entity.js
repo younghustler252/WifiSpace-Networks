@@ -3,7 +3,7 @@ import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class NotificationRecipient {
 	constructor({
-		id, notificationId, userId, channel, priority = NOTIFICATION_PRIORITY.NORMAL, status = NOTIFICATION_RECIPIENT_STATUS.PENDING,
+		id, notificationId, userId, channel, priority = NOTIFICATION_PRIORITY.NORMAL, status = NOTIFICATION_RECIPIENT_STATUS.PENDING, recipient = null,
 		retryCount = 0, maxRetries = 3, nextRetryAt = null, queuedAt = null, sentAt = null, deliveredAt = null, readAt = null,
 		failedAt = null, cancelledAt = null, failedReason = null, providerMessageId = null, providerResponse = null,
 		metadata = {}, isArchived = false, createdAt = null, updatedAt = null
@@ -15,7 +15,7 @@ export class NotificationRecipient {
 		if (!NOTIFICATION_RECIPIENT_STATUS_LIST.includes(status)) throw new ValidationError(`Invalid recipient status: ${status}`);
 
 		Object.assign(this, {
-			id, notificationId, userId, channel, priority, status, retryCount, maxRetries, nextRetryAt,
+			id, notificationId, userId, channel, priority, status,recipient, retryCount, maxRetries, nextRetryAt,
 			queuedAt, sentAt, deliveredAt, readAt, failedAt, cancelledAt, failedReason,
 			providerMessageId, providerResponse, metadata, isArchived, createdAt, updatedAt
 		});

@@ -1,6 +1,23 @@
 // mappers/notification.mapper.js
 import { Notification } from "../domain/notification.entity.js";
-const FIELDS = ["accountId", "subscriptionId", "createdByAdminId", "type", "title", "message", "channel", "state", "metadata", "sentAt", "recipientCount", "completedAt", "cancelledAt", "isArchived"];
+const FIELDS = [
+	"accountId",
+	"subscriptionId",
+	"createdByAdminId",
+	"entityType",
+	"entityId",
+	"type",
+	"title",
+	"message",
+	"channel",
+	"state",
+	"metadata",
+	"sentAt",
+	"recipientCount",
+	"completedAt",
+	"cancelledAt",
+	"isArchived",
+];
 
 export class NotificationMapper {
 	static toDomain(raw) {
@@ -9,6 +26,9 @@ export class NotificationMapper {
 		for (const f of FIELDS) data[f] = raw[f];
 		data.accountId = raw.accountId?.toString() ?? null;
 		data.subscriptionId = raw.subscriptionId?.toString() ?? null;
+		data.entityType = raw.entityType ?? null;
+		data.entityId = raw.entityId?.toString() ?? null;
+
 		data.createdByAdminId = raw.createdByAdminId?.toString() ?? null;
 		return new Notification(data);
 	}

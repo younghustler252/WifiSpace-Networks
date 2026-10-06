@@ -18,6 +18,19 @@ const notificationSchema = new mongoose.Schema({
         index: true
     },
 
+    entityType: {
+        type: String,
+        default: null,
+        index: true
+    },
+
+    entityId: {
+        type: mongoose.Schema.Types.ObjectId,
+        default: null,
+        index: true
+    },
+
+
     createdByAdminId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",

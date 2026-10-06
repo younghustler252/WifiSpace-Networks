@@ -21,9 +21,19 @@ export class AdminController {
 	}
 
 	getAccountById = async (req, res) => {
-		const account = await this.getAccountByIdUseCase.execute({ accountId: req.params.id });
-		return successResponse({ res, data: account.toJSON(), message: "Account fetched successfully" });
+		const { account, router, subscription } = await this.getAccountByIdUseCase.execute({ accountId: req.params.id });
+
+		return successResponse({
+			res,
+			data: {
+				account: account.toJSON(),
+				router: router?.toJSON() ?? null,
+				subscription: subscription?.toJSON() ?? null,
+			},
+			message: "Account fetched successfully",
+		});
 	};
+
 
 	getAllAccounts = async (req, res) => {
 		const { data, meta } = await this.getAllAccountsUseCase.execute({ ...req.query });

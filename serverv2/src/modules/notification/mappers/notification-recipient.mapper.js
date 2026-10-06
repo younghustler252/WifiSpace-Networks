@@ -21,6 +21,7 @@ const FIELDS = [
 ];
 
 export class NotificationRecipientMapper {
+    // mappers/notification-recipient.mapper.js — toDomain updated
     static toDomain(raw) {
         if (!raw) return null;
         const data = {

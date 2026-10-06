@@ -20,6 +20,7 @@ const adminRouter = Router();
 adminRouter.use(requireStaff);
 adminRouter.get("/", asyncHandler(adminController.getAllNotifications));
 adminRouter.post("/", validate(createNotificationSchema), asyncHandler(adminController.createNotification));
+adminRouter.get("/:id/recipients", asyncHandler(adminController.getNotificationRecipients))
 router.use("/admin", adminRouter);
 
 export default router;
