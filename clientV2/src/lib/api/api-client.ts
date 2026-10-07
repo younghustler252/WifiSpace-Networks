@@ -1,14 +1,17 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
-import { ApiErrorResponse, ApiResponse } from "@/types/api-response";
 import { useAuthStore } from "@/stores/auth.store";
+import { ApiErrorResponse, ApiResponse } from "@/types/api-response";
+import { ERROR_CODES } from "@/types/error-codes";
 import { getApiBaseUrl } from "./get-api-base-url";
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+const REQUEST_TIMEOUT_MS = 60_000;
+
 const axiosInstance: AxiosInstance = axios.create({
 	baseURL: getApiBaseUrl(),
-	headers: { "Content-Type": "application/json" },
 	withCredentials: true,
+	timeout: REQUEST_TIMEOUT_MS,
 });
 
 let refreshPromise: Promise<boolean> | null = null;
@@ -16,13 +19,14 @@ let refreshPromise: Promise<boolean> | null = null;
 function refreshSession(): Promise<boolean> {
 	refreshPromise ??= axios
 		.post<ApiResponse<unknown>>(`${getApiBaseUrl()}/auth/refresh`, {}, { withCredentials: true })
-		.then((res) => res.data.success)
+		.then((res) => res.data.success === true)
 		.catch(() => false)
 		.finally(() => {
 			refreshPromise = null;
 		});
 	return refreshPromise;
 }
+
 function handleSessionExpired() {
 	useAuthStore.getState().clear();
 }
@@ -35,9 +39,14 @@ axiosInstance.interceptors.request.use((config) => {
 
 axiosInstance.interceptors.response.use(
 	(response) => response,
-	async (error: AxiosError<ApiErrorResponse>) => {
+	async (error: AxiosError) => {
 		const originalRequest = error.config as RetryableConfig | undefined;
 		const isAuthRoute = originalRequest?.url?.startsWith("/auth/");
+
+		if (error.response?.status === 401 && useAuthStore.getState().impersonation) {
+			useAuthStore.getState().stopImpersonation();
+			return Promise.reject(error);
+		}
 
 		if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !isAuthRoute) {
 			originalRequest._retry = true;
@@ -49,21 +58,48 @@ axiosInstance.interceptors.response.use(
 	}
 );
 
+function isEnvelope(data: unknown): data is ApiResponse<unknown> {
+	return !!data && typeof data === "object" && typeof (data as { success?: unknown }).success === "boolean";
+}
+
+function fallbackMessage(status?: number) {
+	if (status && status >= 500) return "Something went wrong on our side.";
+	if (status === 403) return "You don't have permission to do that.";
+	if (status === 404) return "We couldn't find what you were looking for.";
+	if (status === 429) return "Too many attempts. Please wait a moment and try again.";
+	return "Something went wrong. Please try again.";
+}
+
+function failure(code: string, message: string, status?: number): ApiErrorResponse {
+	return { success: false, code, message, details: null, status };
+}
+
+function failureFromError(error: AxiosError): ApiErrorResponse {
+	const status = error.response?.status;
+	const body = error.response?.data;
+
+	if (isEnvelope(body) && !body.success) {
+		return { ...body, status, message: body.message?.trim() || fallbackMessage(status) };
+	}
+
+	if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT" || status === 408 || status === 504) {
+		return failure(ERROR_CODES.TIMEOUT, "The server took too long to respond.", status);
+	}
+
+	if (!error.response) {
+		return failure(ERROR_CODES.NETWORK_ERROR, "We couldn't reach the server. Check your connection.");
+	}
+
+	return failure(status && status >= 500 ? ERROR_CODES.SERVER_ERROR : ERROR_CODES.UNKNOWN, fallbackMessage(status), status);
+}
+
 async function request<T>(config: AxiosRequestConfig): Promise<ApiResponse<T>> {
 	try {
-		const response = await axiosInstance.request<ApiResponse<T>>(config);
-		return response.data;
+		const response = await axiosInstance.request<unknown>(config);
+		if (isEnvelope(response.data)) return response.data as ApiResponse<T>;
+		return { success: true, code: "SUCCESS", message: "", data: (response.data ?? null) as T };
 	} catch (err) {
-		const axiosErr = err as AxiosError<ApiErrorResponse>;
-		if (axiosErr.response?.data) {
-			return axiosErr.response.data;
-		}
-		return {
-			success: false,
-			code: "NETWORK_ERROR",
-			message: axiosErr.message || "Network error",
-			details: null,
-		};
+		return failureFromError(err as AxiosError);
 	}
 }
 

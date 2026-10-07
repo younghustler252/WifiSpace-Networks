@@ -7,10 +7,14 @@ export interface SubscriptionEvent {
 	metadata?: Record<string, unknown> | null;
 }
 
-export interface AdminSubscriptionDetail {
+export interface AdminSubscriptionDetailRaw {
 	subscription: Subscription;
 	account: AdminAccount | null;
 	router: NetworkRouter | null;
+	routers: NetworkRouter[] | null;
+}
+
+export interface AdminSubscriptionDetail extends Omit<AdminSubscriptionDetailRaw, "routers"> {
 	routers: NetworkRouter[];
 }
 
@@ -41,7 +45,9 @@ export interface Subscription {
 	renewalStrategy: string;
 	autoRenewEnabled: boolean;
 	mikrotikStatus?: string;
-	createdAt: string;
+	createdAt: string | null;
+	expiredAt?: string | null;
+	updatedAt?: string | null;
 
 	// add inside interface Subscription
 	userId?: string;
@@ -64,7 +70,7 @@ export interface Subscription {
 }
 
 export interface AdminSubscriptionListParams {
-	accountId?: string; 
+	accountId?: string;
 	userId?: string;
 	status?: string;
 	page?: number;

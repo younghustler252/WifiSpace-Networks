@@ -17,6 +17,7 @@ import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
+import { useIdempotencyKey } from "@/lib/api/idempotency";
 
 export function CreateSubscriptionDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const { create } = useAdminSubscriptionActions();
@@ -25,6 +26,7 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 	const [cycles, setCycles] = useState("1");
 	const [activate, setActivate] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const idempotencyKey = useIdempotencyKey();
 
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
@@ -51,6 +53,7 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 			planId,
 			cycles: isPppoe ? cycleCount : undefined,
 			activateImmediately: activate,
+			idempotencyKey,
 		});
 
 		if (!res.success) {

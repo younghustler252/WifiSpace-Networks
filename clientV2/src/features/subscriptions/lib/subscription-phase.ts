@@ -2,29 +2,55 @@ import type { Subscription } from "../types/subscriptions.types";
 
 export type SubscriptionPhase = "none" | "active" | "grace" | "expired" | "suspended" | "canceled";
 
+export type SubscriptionAction = "usage" | "extend" | "renew" | "change-plan" | "suspend" | "resume" | "cancel" | "force-expire";
+
+const timeOf = (iso?: string | null) => (iso ? new Date(iso).getTime() : 0);
+
+export function getSubscriptionPhase(subscription: Subscription | null, now = Date.now()): SubscriptionPhase {
+	if (!subscription) return "none";
+
+	switch (subscription.status) {
+		case "suspended":
+			return "suspended";
+		case "canceled":
+			return "canceled";
+		case "expired":
+			return "expired";
+		case "pending":
+			return "none";
+	}
+
+	if (!subscription.expiresAt) return "none";
+	if (timeOf(subscription.expiresAt) > now) return "active";
+
+	const graceEnds = timeOf(subscription.graceEndsAt);
+	return graceEnds > now ? "grace" : "expired";
+}
+
+const PHASE_ORDER: Record<SubscriptionPhase, number> = {
+	active: 0,
+	grace: 1,
+	suspended: 2,
+	expired: 3,
+	canceled: 4,
+	none: 5,
+};
+
 export function pickCurrentSubscription(subscriptions: Subscription[] | undefined, accountId: string) {
 	const mine = (subscriptions ?? []).filter((s) => s.accountId === accountId);
 	if (mine.length === 0) return null;
-	const time = (s: Subscription) => new Date(s.expiresAt ?? s.createdAt).getTime();
-	return mine.sort((a, b) => time(b) - time(a))[0];
-}
 
-export function getSubscriptionPhase(subscription: Subscription | null, now = Date.now()): SubscriptionPhase {
-	if (subscription?.status === "pending") return "none";
-	if (!subscription || !subscription.expiresAt) return "none";
-	if (subscription.status === "suspended") return "suspended";
-	if (subscription.status === "canceled") return "canceled";
-	if (new Date(subscription.expiresAt).getTime() > now) return "active";
-	const graceEnds = subscription.graceEndsAt ? new Date(subscription.graceEndsAt).getTime() : null;
-	return graceEnds !== null && graceEnds > now ? "grace" : "expired";
+	const recency = (s: Subscription) => timeOf(s.expiresAt) || timeOf(s.startsAt) || timeOf(s.createdAt);
+
+	return [...mine].sort(
+		(a, b) => PHASE_ORDER[getSubscriptionPhase(a)] - PHASE_ORDER[getSubscriptionPhase(b)] || recency(b) - recency(a)
+	)[0];
 }
 
 export function listAccountSubscriptions(subscriptions: Subscription[] | undefined, accountId: string) {
-	const time = (s: Subscription) => new Date(s.startsAt ?? s.createdAt).getTime();
+	const time = (s: Subscription) => timeOf(s.startsAt) || timeOf(s.createdAt);
 	return (subscriptions ?? []).filter((s) => s.accountId === accountId).sort((a, b) => time(b) - time(a));
 }
-
-export type SubscriptionAction = "usage" | "extend" | "renew" | "change-plan" | "suspend" | "resume" | "cancel" | "force-expire";
 
 export function getSubscriptionActions(subscription: Subscription): SubscriptionAction[] {
 	switch (getSubscriptionPhase(subscription)) {
@@ -40,7 +66,19 @@ export function getSubscriptionActions(subscription: Subscription): Subscription
 			return ["usage"];
 	}
 }
+
 export function getDisplayStatus(subscription: Subscription) {
 	const phase = getSubscriptionPhase(subscription);
 	return phase === "none" ? subscription.status : phase;
+}
+
+export function effectiveEnd(subscription: Subscription) {
+	if (subscription.status === "expired") return subscription.expiredAt ?? subscription.expiresAt;
+	if (subscription.status === "canceled") return subscription.canceledAt ?? subscription.expiresAt;
+	return subscription.expiresAt;
+}
+
+export function endedEarly(subscription: Subscription, now = Date.now()) {
+	if (subscription.status !== "expired" && subscription.status !== "canceled") return false;
+	return timeOf(subscription.expiresAt) > now;
 }

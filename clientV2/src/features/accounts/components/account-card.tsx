@@ -7,7 +7,7 @@ import { Notice } from "@/components/shared/notice";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
-import { getSubscriptionPhase } from "@/features/subscriptions/lib/subscription-phase";
+import { getSubscriptionPhase, effectiveEnd } from "@/features/subscriptions/lib/subscription-phase";
 import type { Subscription } from "@/features/subscriptions/types/subscriptions.types";
 import { UsagePanel } from "@/features/usage/components/usage-panel";
 import { useCountdown } from "@/hooks/use-countdown";
@@ -42,9 +42,9 @@ export function AccountCard({ account, subscription, showDetailsLink = true }: A
 	if (approved && subscription?.expiresAt) {
 		if (phase === "active") {
 			tiles.push({ label: "Time left", value: formatRemaining(secondsLeft) });
-			tiles.push({ label: "Expires", value: formatDate(subscription.expiresAt) });
+			tiles.push({ label: "Expires", value: formatDate(effectiveEnd(subscription) ?? subscription.expiresAt)});
 		} else {
-			tiles.push({ label: "Expired", value: formatDate(subscription.expiresAt) });
+			tiles.push({ label: "Expired", value: formatDate(effectiveEnd(subscription) ?? subscription.expiresAt) });
 		}
 	}
 	if (approved && plan?.speedRate) tiles.push({ label: "Speed", value: plan.speedRate });

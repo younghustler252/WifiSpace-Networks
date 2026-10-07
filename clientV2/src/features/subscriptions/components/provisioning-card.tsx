@@ -16,6 +16,7 @@ import type { NetworkRouter } from "@/features/routers/types/routers.types";
 import { formatRelative } from "@/lib/format";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
 import type { AdminSubscriptionDetail } from "../types/subscriptions.types";
+import { settleFailure } from "@/lib/api/failure";
 
 const isHotspot = (detail: AdminSubscriptionDetail) =>
 	detail.account?.serviceType === "hotspot" || detail.subscription.planSnapshot.serviceType === "hotspot";
@@ -35,14 +36,18 @@ function RouterRow({ router }: { router: NetworkRouter }) {
 function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; onClose: () => void }) {
 	const { resync } = useAdminSubscriptionActions();
 	const hotspot = isHotspot(detail);
-	const needsFallback = hotspot && detail.routers.length === 0;
+	const known = detail.routers ?? [];
+	const needsFallback = hotspot && known.length === 0;
 	const allRouters = useRouters({ limit: 100 }, needsFallback);
-	const [routerId, setRouterId] = useState(detail.routers.length === 1 ? detail.routers[0].id : "");
+	const [routerId, setRouterId] = useState(known.length === 1 ? known[0].id : "");
 
 	const options: NetworkRouter[] =
-		detail.routers.length > 0
-			? detail.routers
+		known.length > 0
+			? known
 			: (allRouters.data?.items ?? []).filter((r) => r.isEnabled !== false && (r.supportedServices ?? []).includes("hotspot"));
+
+	const target = hotspot ? options.find((r) => r.id === routerId) : detail.router;
+	const offline = !!target && target.status !== "online";
 
 	function renderPicker() {
 		if (needsFallback && allRouters.isLoading) return <Skeleton className="h-11 rounded-lg" />;
@@ -80,14 +85,20 @@ function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; on
 			confirmDisabled={hotspot && !routerId}
 			onConfirm={async () => {
 				const res = await resync.mutateAsync({ id: detail.subscription.id, routerId: hotspot ? routerId : undefined });
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				if (!res.success) return settleFailure(res, "The re-sync");
 				toast.success("Re-sync started");
 			}}
 		>
 			{hotspot && renderPicker()}
+			{offline && (
+				<Notice
+					tone="warning"
+					title={`${target?.name ?? "This router"} is reported offline`}
+					text="The sync will probably fail. If customers are connected through it, its status may be wrong, so ask the backend team to check its API connection."
+				/>
+
+			)}
+			
 		</ConfirmDialog>
 	);
 }
@@ -109,7 +120,9 @@ export function ProvisioningCard({ detail }: { detail: AdminSubscriptionDetail }
 		<SectionCard title="Provisioning" description={hotspot ? "Hotspot plans can be used across locations." : "Fixed installation."}>
 			<div className="space-y-4">
 				{(failed || s.mikrotikError) && <Notice tone="danger" title="Provisioning problem" text={s.mikrotikError ?? "The last sync failed."} />}
-
+				{locations.some((r) => r.status !== "online") && (
+					<Notice tone="warning" title="A router is reported offline" text="Changes made while it's unreachable may not reach it. Re-sync once it's back." />
+				)}
 				<DetailList rows={rows} />
 
 				<div className="space-y-2">

@@ -13,6 +13,7 @@ import type {
 	UpdatePaymentStatusBody,
 	VerifyPaymentResult,
 } from "../types/payments.types";
+import { withIdempotency } from "@/lib/api/idempotency";
 
 const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res) => friendly(res, PAYMENT_ERROR_MESSAGES));
 
@@ -27,6 +28,6 @@ const ADMIN = "/payments/admin";
 export const adminPaymentsApi = {
 	list: (params: AdminPaymentListParams) => withMessages(API.get<AdminPayment[]>(ADMIN, { params })),
 	get: (id: string) => withMessages(API.get<AdminPaymentDetail>(`${ADMIN}/${id}`)),
-	record: (body: RecordPaymentBody) => withMessages(API.post<AdminPayment>(`${ADMIN}/record`, body)),
+	record: (body: RecordPaymentBody, key?: string) => withMessages(API.post<AdminPayment>(`${ADMIN}/record`, body, withIdempotency(key))),
 	updateStatus: (id: string, body: UpdatePaymentStatusBody) => withMessages(API.patch<AdminPayment>(`${ADMIN}/${id}/status`, body)),
 };

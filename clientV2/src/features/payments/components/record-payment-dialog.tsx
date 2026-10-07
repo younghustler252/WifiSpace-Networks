@@ -18,6 +18,8 @@ import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
 import { PAYMENT_CHANNEL_OPTIONS } from "../constants";
 import { useRecordPayment } from "../hooks/use-payments";
+import { settleFailure } from "@/lib/api/failure";
+import { useIdempotencyKey } from "@/lib/api/idempotency";
 
 export function RecordPaymentDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const record = useRecordPayment();
@@ -27,7 +29,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 	const [channel, setChannel] = useState("cash");
 	const [note, setNote] = useState("");
 	const [error, setError] = useState<string | null>(null);
-
+	const idempotencyKey = useIdempotencyKey();
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
 
@@ -54,10 +56,11 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			cycles: isPppoe ? cycleCount : undefined,
 			paymentChannel: channel,
 			note: note.trim() || undefined,
+			// idempotencyKey
 		});
 
 		if (!res.success) {
-			toast.error(res.message);
+			if (settleFailure(res)) onClose();
 			return;
 		}
 

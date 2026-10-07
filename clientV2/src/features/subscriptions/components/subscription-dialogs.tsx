@@ -16,6 +16,10 @@ import { useAdminSubscriptionActions, useUpgradeOptions } from "../hooks/use-sub
 import { getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
 import type { Subscription } from "../types/subscriptions.types";
 import { SubscriptionUsageDialog } from "@/features/usage/components/subscription-usage-dialog";
+import { settleFailure } from "@/lib/api/failure";
+import { useIdempotencyKey } from "@/lib/api/idempotency";
+import { endedEarly } from "../lib/subscription-phase";
+
 
 interface DialogProps {
 	subscription: Subscription;
@@ -34,6 +38,7 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 	const [days, setDays] = useState("7");
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	const idempotencyKey = useIdempotencyKey();
 
 	const parsed = Number(days);
 	const valid = days.trim() !== "" && Number.isInteger(parsed) && parsed !== 0;
@@ -55,11 +60,13 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 					setError("Enter a whole number of days, other than 0");
 					return false;
 				}
-				const res = await extend.mutateAsync({ id: subscription.id, days: parsed, reason: reason.trim() || undefined });
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				const res = await extend.mutateAsync({
+					id: subscription.id,
+					days: parsed,
+					reason: reason.trim() || undefined,
+					idempotencyKey,
+				});
+				if (!res.success) return settleFailure(res);
 				toast.success(`${parsed > 0 ? "Added" : "Removed"} ${Math.abs(parsed)} day${Math.abs(parsed) === 1 ? "" : "s"}`);
 			}}
 		>
@@ -104,6 +111,7 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 
 function RenewDialog({ subscription, onClose }: DialogProps) {
 	const { renew } = useAdminSubscriptionActions();
+	const idempotencyKey = useIdempotencyKey();
 	const plan = subscription.planSnapshot;
 
 	return (
@@ -114,16 +122,27 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 			description={`Renews ${plan.name} (${formatCurrency(plan.price)} per ${formatDuration(plan.durationValue, plan.durationUnit)}) for another cycle and records a new payment. Use this when the customer has paid you. To give free time instead, use Extend.`}
 			confirmLabel="Renew and record payment"
 			onConfirm={async () => {
-				const res = await renew.mutateAsync(subscription.id);
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				const res = await renew.mutateAsync({ id: subscription.id, idempotencyKey });
+				if (!res.success) return settleFailure(res, "The renewal");
 				toast.success("Subscription renewed");
 			}}
-		/>
+		>
+			{endedEarly(subscription) && (
+				<Notice
+					tone="warning"
+					title="This subscription was ended early"
+					text="Its expiry date is still in the future, so renewing may add time on top of it. Check the new expiry straight after."
+				/>
+			)}
+			<Notice
+				tone="info"
+				title="Click once"
+				text="If you see an error, don't click again. Open the subscription and check the payments and expiry first."
+			/>
+		</ConfirmDialog>
 	);
 }
+
 
 function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 	const { changePlan } = useAdminSubscriptionActions();
@@ -163,10 +182,7 @@ function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 			confirmDisabled={!newPlanId}
 			onConfirm={async () => {
 				const res = await changePlan.mutateAsync({ id: subscription.id, newPlanId });
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				if (!res.success) return settleFailure(res);
 				toast.success("Plan upgraded");
 			}}
 		>
@@ -189,10 +205,7 @@ function SuspendDialog({ subscription, onClose }: DialogProps) {
 			confirmLabel="Suspend"
 			onConfirm={async () => {
 				const res = await suspend.mutateAsync({ id: subscription.id, reason: reason.trim() || undefined });
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				if (!res.success) return settleFailure(res);
 				toast.success("Subscription suspended");
 			}}
 		>
@@ -213,10 +226,7 @@ function ResumeDialog({ subscription, onClose }: DialogProps) {
 			confirmLabel="Resume"
 			onConfirm={async () => {
 				const res = await resume.mutateAsync(subscription.id);
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				if (!res.success) return settleFailure(res);
 				toast.success("Subscription resumed");
 			}}
 		/>
@@ -244,10 +254,7 @@ function EndDialog({ subscription, action, onClose }: DialogProps & { action: "c
 			onConfirm={async () => {
 				const mutation = isForce ? forceExpire : cancel;
 				const res = await mutation.mutateAsync({ id: subscription.id, reason: reason.trim() || undefined });
-				if (!res.success) {
-					toast.error(res.message);
-					return false;
-				}
+				if (!res.success) return settleFailure(res);
 				toast.success(isForce ? "Subscription expired" : "Subscription canceled");
 			}}
 		>

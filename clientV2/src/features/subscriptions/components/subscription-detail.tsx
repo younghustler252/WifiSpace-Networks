@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, SearchX, WifiOff } from "lucide-react";
 import { DetailList } from "@/components/shared/detail-list";
 import { InfoTile } from "@/components/shared/info-tile";
+import { Notice } from "@/components/shared/notice";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -18,7 +19,7 @@ import { ApiError } from "@/lib/api/unwrap";
 import { formatCurrency, formatDate, formatDateTime, formatDuration, formatRemaining, humanize } from "@/lib/format";
 import { SUBSCRIPTION_ERROR_CODES } from "../constants";
 import { useAdminSubscription } from "../hooks/use-subscriptions";
-import { getDisplayStatus, getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
+import { endedEarly, effectiveEnd, getDisplayStatus, getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
 import type { AdminSubscriptionDetail } from "../types/subscriptions.types";
 import { ProvisioningCard } from "./provisioning-card";
 import { SubscriptionActionsMenu } from "./subscription-actions-menu";
@@ -37,7 +38,10 @@ function StatusTiles({ detail }: { detail: AdminSubscriptionDetail }) {
 		if (phase === "active") {
 			tiles.push({ label: "Time left", value: formatRemaining(secondsLeft) }, { label: "Expires", value: formatDateTime(s.expiresAt) });
 		} else {
-			tiles.push({ label: "Expired", value: formatDateTime(s.expiresAt) });
+			tiles.push({ label: "Expired", value: formatDateTime(effectiveEnd(s) ?? s.expiresAt) });
+			if (endedEarly(s)) {
+				tiles.push({ label: "Original expiry", value: formatDateTime(s.expiresAt), hint: "Still in the future" });
+			}
 		}
 	}
 	if (s.graceEndsAt) tiles.push({ label: "Grace ends", value: formatDateTime(s.graceEndsAt) });
@@ -202,6 +206,14 @@ export function SubscriptionDetail({ id }: { id: string }) {
 					}
 				/>
 			</div>
+
+			{endedEarly(subscription) && (
+				<Notice
+					tone="warning"
+					title="Ended before its expiry date"
+					text={`This subscription was ended manually, but its expiry date (${formatDate(subscription.expiresAt!)}) is still in the future. Renewing it may add time on top of that date, so check the new expiry straight after.`}
+				/>
+			)}
 
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
 				<div className="space-y-4">

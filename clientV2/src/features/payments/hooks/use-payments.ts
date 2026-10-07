@@ -5,6 +5,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { adminPaymentsApi, paymentsApi } from "../services/payments.api";
+import { RecordPaymentBody } from "../types/payments.types";
 import type { AdminPaymentListParams, UpdatePaymentStatusBody } from "../types/payments.types";
 
 const VERIFY_POLL_MS = 2500;
@@ -105,10 +106,8 @@ export function useRecordPayment() {
 	const refresh = useRefreshAfterPaymentChange();
 
 	return useMutation({
-		mutationFn: adminPaymentsApi.record,
-		onSuccess: (res) => {
-			if (res.success) refresh();
-		},
+		mutationFn: ({ idempotencyKey, ...body }: RecordPaymentBody & { idempotencyKey?: string }) => adminPaymentsApi.record(body, idempotencyKey),
+		onSettled: () => refresh(),
 	});
 }
 
@@ -117,9 +116,7 @@ export function useUpdatePaymentStatus() {
 
 	return useMutation({
 		mutationFn: (v: { id: string; body: UpdatePaymentStatusBody }) => adminPaymentsApi.updateStatus(v.id, v.body),
-		onSuccess: (res) => {
-			if (res.success) refresh();
-		},
+		onSettled: () => refresh(),
 	});
 }
 
