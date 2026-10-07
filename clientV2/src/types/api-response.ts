@@ -18,6 +18,7 @@ export interface ApiSuccessResponse<T> {
 export interface ApiErrorResponse {
 	success: false;
 	code: ErrorCode;
+	status?: number;
 	message: string;
 	details?: unknown;
 }
