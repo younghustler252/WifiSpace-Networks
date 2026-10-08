@@ -21,6 +21,8 @@ import { useSubscriptions, useUpgradeOptions } from "@/features/subscriptions/ho
 import { getSubscriptionPhase, pickCurrentSubscription } from "@/features/subscriptions/lib/subscription-phase";
 import { formatCurrency } from "@/lib/format";
 import { useStartPayment } from "../hooks/use-payments";
+import { useIdempotencyKey } from "@/lib/api/idempotency";
+
 
 interface PlanGroupProps {
 	title?: string;
@@ -66,6 +68,7 @@ export function PlanCheckout() {
 	const [planId, setPlanId] = useState<string | null>(null);
 	const [redirecting, setRedirecting] = useState(false);
 
+	
 	const eligible = useMemo(() => (accounts.data ?? []).filter((a) => a.approvalStatus === "approved"), [accounts.data]);
 	const account = eligible.find((a) => a.id === chosenAccountId) ?? eligible[0] ?? null;
 
@@ -85,6 +88,7 @@ export function PlanCheckout() {
 	const failed = plans.isError || (isActive && upgrades.isError);
 	const busy = startPayment.isPending || redirecting;
 	const isUpgrade = isActive && !!selected && selected.id !== current?.planId;
+	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}`);
 
 	async function handlePay() {
 		if (!account || !selected || busy) return;
@@ -93,13 +97,14 @@ export function PlanCheckout() {
 			accountId: account.id,
 			planId: selected.id,
 			callbackUrl: `${window.location.origin}/payments/callback`,
+			idempotencyKey
 		});
 
 		if (!res.success) {
 			toast.error(res.message);
 			return;
 		}
-
+		
 		setRedirecting(true);
 		window.location.assign(res.data.authorizationUrl);
 	}

@@ -4,6 +4,7 @@ export const PAYMENT_STATUS_OPTIONS = [
 	{ value: "successful", label: "Successful" },
 	{ value: "failed", label: "Failed" },
 	{ value: "expired", label: "Expired" },
+	{ value: "refunded", label: "Refunded" },
 ] as const;
 
 export const PAYMENT_CHANNEL_OPTIONS = [

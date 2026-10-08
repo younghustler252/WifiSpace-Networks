@@ -71,6 +71,7 @@ export interface Subscription {
 
 export interface AdminSubscriptionListParams {
 	accountId?: string;
+	mikrotikStatus?: string;
 	userId?: string;
 	status?: string;
 	page?: number;

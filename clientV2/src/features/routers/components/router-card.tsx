@@ -13,6 +13,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatRelative, humanize } from "@/lib/format";
+import { describeRouterProblem, mayAffectCustomers, routerStatusLabel } from "../lib/router-health";
 import type { NetworkRouter } from "../types/routers.types";
 
 export type RouterAction = "sync" | "edit" | "notify" | "reboot" | "delete";
@@ -26,7 +27,8 @@ const SERVICE_LABELS: Record<string, string> = { pppoe: "PPPoE", hotspot: "Hotsp
 
 export function RouterCard({ router, onAction }: RouterCardProps) {
 	const description = [router.code, router.location].filter(Boolean).join(" · ");
-	const sessions = router.currentSessions ?? 0;
+	const problem = describeRouterProblem(router);
+	const reachable = router.hostReachable === true ? "Yes" : router.hostReachable === false ? "No" : "Unknown";
 
 	return (
 		<SectionCard
@@ -34,7 +36,7 @@ export function RouterCard({ router, onAction }: RouterCardProps) {
 			description={description}
 			actions={
 				<div className="flex items-center gap-1">
-					<StatusBadge status={router.status ?? "offline"} />
+					<StatusBadge status={router.status ?? "offline"} label={routerStatusLabel(router)} />
 					<DropdownMenu modal={false}>
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="icon" aria-label={`Actions for ${router.name}`}>
@@ -72,16 +74,16 @@ export function RouterCard({ router, onAction }: RouterCardProps) {
 					))}
 				</div>
 
-				{router.lastError && <Notice tone="danger" title="Last error" text={router.lastError} />}
+				{problem && <Notice tone={problem.tone} title={problem.title} text={problem.text} />}
 
-				{router.status !== "online" && (
+				{mayAffectCustomers(router) && (
 					<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => onAction("notify")}>
 						Notify affected customers
 					</Button>
 				)}
 
 				<div className="grid grid-cols-2 gap-3">
-					<InfoTile label="Sessions" value={sessions} hint={router.maxSessions ? `of ${router.maxSessions}` : "online now"} />
+					<InfoTile label="Host reachable" value={reachable} mono={false} />
 					<InfoTile label="Last seen" value={router.lastSeenAt ? formatRelative(router.lastSeenAt) : "Never"} mono={false} />
 					<InfoTile label="RouterOS" value={router.routerOsVersion ?? "—"} />
 					<InfoTile label="Connection" value={router.connectionType ? humanize(router.connectionType) : "—"} mono={false} />

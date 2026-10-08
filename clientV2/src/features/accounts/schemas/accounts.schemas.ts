@@ -1,5 +1,49 @@
 import { z } from "zod";
 
+const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/;
+const isInt = (value: string, min: number) => Number.isInteger(Number(value)) && Number(value) >= min;
+const inRange = (value: string, limit: number) => value !== "" && !Number.isNaN(Number(value)) && Math.abs(Number(value)) <= limit;
+
+export const editAccountSchema = z
+	.object({
+		serviceType: z.enum(["pppoe", "hotspot"]),
+		routerId: z.string(),
+		routerProfile: z.string().trim(),
+		accountType: z.enum(["personal", "business"]),
+		businessName: z.string().trim(),
+		companyRegistrationNumber: z.string().trim(),
+		taxId: z.string().trim(),
+		staticIp: z.string().trim(),
+		limitUptime: z.string().trim(),
+		maxDevices: z.string().trim(),
+		address: z.string().trim(),
+		landmark: z.string().trim(),
+		city: z.string().trim(),
+		state: z.string().trim(),
+		lat: z.string().trim(),
+		lng: z.string().trim(),
+	})
+	.superRefine((v, ctx) => {
+		const fail = (path: keyof typeof v, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+
+		if (v.serviceType === "hotspot") {
+			if (v.maxDevices && !isInt(v.maxDevices, 1)) fail("maxDevices", "Enter a whole number, 1 or more");
+			return;
+		}
+
+		if (!v.routerId) fail("routerId", "Choose a router");
+		if (v.accountType === "business" && !v.businessName) fail("businessName", "Enter the business name");
+		if (v.staticIp && !IPV4.test(v.staticIp)) fail("staticIp", "Enter a valid IPv4 address");
+		if (v.limitUptime && !isInt(v.limitUptime, 0)) fail("limitUptime", "Enter a whole number, 0 or more");
+
+		const hasCoords = v.lat !== "" || v.lng !== "";
+		if (hasCoords && !inRange(v.lat, 90)) fail("lat", "Latitude must be between -90 and 90");
+		if (hasCoords && !inRange(v.lng, 180)) fail("lng", "Longitude must be between -180 and 180");
+		if ((v.landmark || v.city || v.state || hasCoords) && !v.address) fail("address", "An address is needed to save a location");
+	});
+
+export type EditAccountValues = z.infer<typeof editAccountSchema>;
+
 export const requestAccountSchema = z
 	.object({
 		serviceType: z.enum(["pppoe", "hotspot"]),

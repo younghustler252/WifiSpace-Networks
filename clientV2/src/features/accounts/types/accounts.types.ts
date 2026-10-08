@@ -48,6 +48,10 @@ export interface AdminAccount extends Account {
 	approvalNote?: string | null;
 	approvedAt?: string | null;
 	businessName?: string | null;
+	companyRegistrationNumber?: string | null;
+	taxId?: string | null;
+	limitUptime?: string | number | null;
+	routerProfile?: string | null;
 }
 
 export interface AdminAccountListParams {
@@ -65,7 +69,7 @@ export interface RequestedLocation {
 	landmark?: string;
 	city?: string;
 	state?: string;
-	coordinates?: unknown;
+	coordinates?: { lat: number; lng: number };
 }
 
 export interface AdminCreateAccountBody {
@@ -80,6 +84,24 @@ export interface AdminCreateAccountBody {
 	macAddress?: string;
 	staticIp?: string;
 	maxDevices?: number;
+}
+
+export interface UpdateAccountBody {
+	routerId?: string;
+	routerProfile?: string;
+	accountType?: "personal" | "business";
+	businessName?: string;
+	companyRegistrationNumber?: string;
+	taxId?: string;
+	limitUptime?: number;
+	staticIp?: string;
+	maxDevices?: number;
+	requestedLocation?: RequestedLocation;
+}
+
+export interface UpdateAccountResult {
+	account: AdminAccount;
+	provisioning?: unknown;
 }
 
 export interface AdminAccountDetailResponse {

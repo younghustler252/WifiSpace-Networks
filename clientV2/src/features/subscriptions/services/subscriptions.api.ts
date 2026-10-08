@@ -27,9 +27,10 @@ export const adminSubscriptionsApi = {
 	get: (id: string) => withMessages(API.get<AdminSubscriptionDetailRaw>(`${ADMIN}/${id}`)),
 	create: (body: AdminCreateSubscriptionBody, key?: string) =>
 		withMessages(API.post<Subscription>(ADMIN, body, withIdempotency(key))),
-	renew: (id: string, key?: string) =>
-		withMessages(API.patch<Subscription>(`${ADMIN}/${id}/renew`, undefined, withIdempotency(key))),
-	changePlan: (id: string, newPlanId: string) => withMessages(API.patch<Subscription>(`${ADMIN}/${id}/change-plan`, { newPlanId })),
+	// renew: (id: string, key?: string) =>
+	// 	withMessages(API.patch<Subscription>(`${ADMIN}/${id}/renew`, undefined, withIdempotency(key))),
+	changePlan: (id: string, newPlanId: string, key?: string) =>
+		withMessages(API.patch<Subscription>(`${ADMIN}/${id}/change-plan`, { newPlanId }, withIdempotency(key))),
 	suspend: (id: string, reason?: string) => withMessages(API.patch<Subscription>(`${ADMIN}/${id}/suspend`, { reason })),
 	resume: (id: string) => withMessages(API.patch<Subscription>(`${ADMIN}/${id}/resume`)),
 	cancel: (id: string, reason?: string) => withMessages(API.patch<Subscription>(`${ADMIN}/${id}/cancel`, { reason })),

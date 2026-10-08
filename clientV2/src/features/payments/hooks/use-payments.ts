@@ -6,7 +6,7 @@ import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { adminPaymentsApi, paymentsApi } from "../services/payments.api";
 import { RecordPaymentBody } from "../types/payments.types";
-import type { AdminPaymentListParams, UpdatePaymentStatusBody } from "../types/payments.types";
+import type { AdminPaymentListParams, InitPaymentBody, UpdatePaymentStatusBody } from "../types/payments.types";
 
 const VERIFY_POLL_MS = 2500;
 const VERIFY_MAX_WAIT_MS = 30_000;
@@ -15,9 +15,10 @@ const HISTORY_PAGE_SIZE = 10;
 export const ADMIN_PAYMENTS_KEY = ["payments", "admin"] as const;
 const ADMIN_PAGE_SIZE = 12;
 
-
 export function useStartPayment() {
-	return useMutation({ mutationFn: paymentsApi.init });
+	return useMutation({
+		mutationFn: ({ idempotencyKey, ...body }: InitPaymentBody & { idempotencyKey?: string }) => paymentsApi.init(body, idempotencyKey),
+	});
 }
 
 export function usePayments(page: number) {
@@ -121,3 +122,11 @@ export function useUpdatePaymentStatus() {
 }
 
 
+export function useReversePayment() {
+	const refresh = useRefreshAfterPaymentChange();
+
+	return useMutation({
+		mutationFn: (v: { id: string; reason: string }) => adminPaymentsApi.reverse(v.id, v.reason),
+		onSettled: () => refresh(),
+	});
+}

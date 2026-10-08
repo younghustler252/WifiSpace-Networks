@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Can } from "@/components/shared/can";
+import { Button } from "@/components/ui/button";
+import { settleFailure } from "@/lib/api/failure";
+import { useReversePayment } from "../hooks/use-payments";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailList } from "@/components/shared/detail-list";
 import { Notice } from "@/components/shared/notice";
@@ -23,6 +27,7 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDetailsDialog({ payment, onClose }: PaymentDialogProps) {
+	const [reversing, setReversing] = useState(false); 
 	const detail = useAdminPaymentDetail(payment.id);
 	const full = detail.data?.payment ?? payment;
 	const router = detail.data?.router ?? null;
@@ -30,6 +35,7 @@ export function PaymentDetailsDialog({ payment, onClose }: PaymentDialogProps) {
 	const date = paymentDateOf(full);
 	const discount = paymentDiscount(full);
 	const note = typeof full.metadata?.note === "string" ? full.metadata.note : null;
+
 
 	const routerLabel = router
 		? [router.name, router.location].filter(Boolean).join(" · ")
@@ -79,6 +85,14 @@ export function PaymentDetailsDialog({ payment, onClose }: PaymentDialogProps) {
 					<DialogDescription>Everything we have on this payment.</DialogDescription>
 				</DialogHeader>
 				<DetailList rows={rows} />
+				<Can permission="payments:reverse">
+					{full.status === "successful" && (
+						<Button variant="outline" className="w-full text-destructive" onClick={() => setReversing(true)}>
+							Reverse payment…
+						</Button>
+					)}
+				</Can>
+				{reversing && <ReversePaymentDialog payment={full} onClose={() => setReversing(false)} />}
 			</DialogContent>
 		</Dialog>
 	);
@@ -131,6 +145,57 @@ export function UpdateStatusDialog({ payment, onClose }: PaymentDialogProps) {
 			)}
 
 			<Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason (optional)" aria-label="Reason" />
+		</ConfirmDialog>
+	);
+}
+
+export function ReversePaymentDialog({ payment, onClose }: PaymentDialogProps) {
+	const reverse = useReversePayment();
+	const [reason, setReason] = useState("");
+	const [error, setError] = useState<string | null>(null);
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			destructive
+			requireText="reverse"
+			title="Reverse this payment?"
+			description={`Marks ${formatCurrency(paymentTotal(payment))} (${payment.gatewayReference}) as refunded and removes it from revenue.`}
+			confirmLabel="Reverse payment"
+			onConfirm={async () => {
+				if (reason.trim().length < 3) {
+					setError("Give a short reason, for example: duplicate renewal");
+					return false;
+				}
+
+				const res = await reverse.mutateAsync({ id: payment.id, reason: reason.trim() });
+				if (!res.success) return settleFailure(res, "The reversal");
+				toast.success("Payment reversed");
+			}}
+		>
+			<div className="space-y-3">
+				<Notice
+					tone="warning"
+					title="This doesn't move any money"
+					text="Refund the customer in Paystack, or hand the cash back, yourself. If they should also lose the time they were given, correct it separately with Extend using negative days."
+				/>
+				<Textarea
+					value={reason}
+					onChange={(e) => {
+						setReason(e.target.value);
+						setError(null);
+					}}
+					placeholder="Reason"
+					aria-label="Reason"
+					aria-invalid={!!error}
+				/>
+				{error && (
+					<p role="alert" className="text-sm text-destructive">
+						{error}
+					</p>
+				)}
+			</div>
 		</ConfirmDialog>
 	);
 }

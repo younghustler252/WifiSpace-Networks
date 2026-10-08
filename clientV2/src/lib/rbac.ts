@@ -6,7 +6,8 @@ export type Permission =
     | "users:change-role"
     | "users:impersonate"
     | "routers:manage"
-    | "routers:reboot";
+    | "routers:reboot"
+    | "payments:reverse";
 
 const PERMISSIONS: Record<Permission, Role[]> = {
     "admin:access": ["staff", "superadmin"],
@@ -15,6 +16,7 @@ const PERMISSIONS: Record<Permission, Role[]> = {
     "users:impersonate": ["superadmin"],
     "routers:manage": ["superadmin"],
     "routers:reboot": ["superadmin"],
+    "payments:reverse": ["superadmin"],
 };
 
 export function can(role: Role | undefined, permission: Permission) {

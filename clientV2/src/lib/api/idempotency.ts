@@ -7,10 +7,14 @@ function newKey() {
 	return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function useIdempotencyKey() {
-	const ref = useRef<string | null>(null);
-	if (!ref.current) ref.current = newKey();
-	return ref.current;
+export function useIdempotencyKey(fingerprint = "") {
+	const ref = useRef<{ fingerprint: string; key: string } | null>(null);
+
+	if (!ref.current || ref.current.fingerprint !== fingerprint) {
+		ref.current = { fingerprint, key: newKey() };
+	}
+
+	return ref.current.key;
 }
 
 export const withIdempotency = (key?: string) => (key ? { headers: { "Idempotency-Key": key } } : undefined);

@@ -11,6 +11,7 @@ import { ConnectingView } from "./connecting-view";
 import { PlanPicker } from "./plan-picker";
 import { PortalLoginForm } from "./portal-login-form";
 import { StatusMessage } from "../../../components/shared/status-message";
+import { readProvisioning } from "@/features/subscriptions/lib/provisioning";
 
 export function PortalFlow() {
 	const nav = useRouter();
@@ -82,10 +83,11 @@ export function PortalFlow() {
 	if (data.state === "ACTIVE") {
 		return (
 			<ConnectedView
-				title="You're connected"
-				text="Your internet is active. Enjoy browsing."
-				subscription={data.subscription}
-			/>
+			title="You're connected"
+			text="Your internet is active. Enjoy browsing."
+			subscription={data.subscription}
+			provisioning={readProvisioning(data)}
+		/>
 		);
 	}
 

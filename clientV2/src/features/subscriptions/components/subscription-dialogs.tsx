@@ -15,6 +15,10 @@ import { formatCurrency, formatDateTime, formatDuration } from "@/lib/format";
 import { useAdminSubscriptionActions, useUpgradeOptions } from "../hooks/use-subscriptions";
 import { getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
 import type { Subscription } from "../types/subscriptions.types";
+import { Field } from "@/components/shared/field";
+import { PAYMENT_CHANNEL_OPTIONS } from "@/features/payments/constants";
+import { useRecordPayment } from "@/features/payments/hooks/use-payments";
+import { toastWithProvisioning } from "../lib/provisioning";
 import { SubscriptionUsageDialog } from "@/features/usage/components/subscription-usage-dialog";
 import { settleFailure } from "@/lib/api/failure";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
@@ -38,7 +42,7 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 	const [days, setDays] = useState("7");
 	const [reason, setReason] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey();
+	const idempotencyKey = useIdempotencyKey(`${days}|${reason}`);
 
 	const parsed = Number(days);
 	const valid = days.trim() !== "" && Number.isInteger(parsed) && parsed !== 0;
@@ -71,8 +75,10 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 			}}
 		>
 			<div className="space-y-4">
+				{getSubscriptionPhase(subscription) === "expired" && (
+					<Notice tone="info" title="This subscription has ended" text="Adding days that push the expiry into the future reactivates it. A negative number moves the expiry back, which is how you correct a mistake." />
+				)}
 				<Notice tone="info" title="This is free time" text="No payment is recorded. If the customer has paid you, use Renew instead." />
-
 				<div className="space-y-2">
 					<Label htmlFor="extend-days">Days to add</Label>
 					<Input
@@ -110,44 +116,94 @@ function ExtendDialog({ subscription, onClose }: DialogProps) {
 }
 
 function RenewDialog({ subscription, onClose }: DialogProps) {
-	const { renew } = useAdminSubscriptionActions();
-	const idempotencyKey = useIdempotencyKey();
+	const record = useRecordPayment();
 	const plan = subscription.planSnapshot;
+	const isPppoe = plan.serviceType === "pppoe";
+	const [channel, setChannel] = useState("cash");
+	const [cycles, setCycles] = useState("1");
+	const [note, setNote] = useState("");
+	const [error, setError] = useState<string | null>(null);
+	const idempotencyKey = useIdempotencyKey(`${subscription.id}|${channel}|${cycles}|${note}`);
 
 	return (
 		<ConfirmDialog
 			open
 			onOpenChange={(open) => !open && onClose()}
-			title="Renew subscription?"
-			description={`Renews ${plan.name} (${formatCurrency(plan.price)} per ${formatDuration(plan.durationValue, plan.durationUnit)}) for another cycle and records a new payment. Use this when the customer has paid you. To give free time instead, use Extend.`}
-			confirmLabel="Renew and record payment"
+			title="Renew subscription"
+			description={`Records a payment of ${formatCurrency(plan.price)} per ${formatDuration(plan.durationValue, plan.durationUnit)} for ${plan.name}. Use this when the customer has paid you in cash or by transfer. To give free time instead, use Extend.`}
+			confirmLabel="Record payment and renew"
 			onConfirm={async () => {
-				const res = await renew.mutateAsync({ id: subscription.id, idempotencyKey });
+				const count = Number(cycles);
+				if (isPppoe && (!Number.isInteger(count) || count < 1)) {
+					setError("Enter a whole number of 1 or more");
+					return false;
+				}
+
+				const res = await record.mutateAsync({
+					accountId: subscription.accountId,
+					planId: subscription.planId,
+					cycles: isPppoe ? count : undefined,
+					paymentChannel: channel,
+					note: note.trim() || undefined,
+					idempotencyKey,
+				});
+
 				if (!res.success) return settleFailure(res, "The renewal");
-				toast.success("Subscription renewed");
+				toastWithProvisioning("Subscription renewed", res.data);
 			}}
 		>
-			{endedEarly(subscription) && (
+			<div className="space-y-4">
 				<Notice
-					tone="warning"
-					title="This subscription was ended early"
-					text="Its expiry date is still in the future, so renewing may add time on top of it. Check the new expiry straight after."
+					tone="info"
+					title="Click once"
+					text="An active subscription gets the new period after its current expiry. One that has ended starts from now. If you see an error, don't click again. Open the subscription and check its payments first."
 				/>
-			)}
-			<Notice
-				tone="info"
-				title="Click once"
-				text="If you see an error, don't click again. Open the subscription and check the payments and expiry first."
-			/>
+
+				<Field label="Payment method" htmlFor="renew-channel">
+					<Select value={channel} onValueChange={setChannel}>
+						<SelectTrigger id="renew-channel" className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							{PAYMENT_CHANNEL_OPTIONS.map((option) => (
+								<SelectItem key={option.value} value={option.value}>
+									{option.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</Field>
+
+				{isPppoe && (
+					<Field label="Billing cycles" htmlFor="renew-cycles" error={error ?? undefined} hint="How many periods the customer paid for.">
+						<Input
+							id="renew-cycles"
+							type="number"
+							inputMode="numeric"
+							min={1}
+							value={cycles}
+							aria-invalid={!!error}
+							onChange={(e) => {
+								setCycles(e.target.value);
+								setError(null);
+							}}
+						/>
+					</Field>
+				)}
+
+				<Field label="Note (optional)" htmlFor="renew-note">
+					<Textarea id="renew-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Receipt number, who collected it…" />
+				</Field>
+			</div>
 		</ConfirmDialog>
 	);
 }
-
 
 function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 	const { changePlan } = useAdminSubscriptionActions();
 	const options = useUpgradeOptions(subscription.accountId);
 	const [newPlanId, setNewPlanId] = useState("");
+	const idempotencyKey = useIdempotencyKey(newPlanId);
 
 	function renderPicker() {
 		if (options.isLoading) return <Skeleton className="h-11 rounded-lg" />;
@@ -181,7 +237,11 @@ function ChangePlanDialog({ subscription, onClose }: DialogProps) {
 			confirmLabel="Upgrade plan"
 			confirmDisabled={!newPlanId}
 			onConfirm={async () => {
-				const res = await changePlan.mutateAsync({ id: subscription.id, newPlanId });
+				const res = await changePlan.mutateAsync({
+					id: subscription.id,
+					newPlanId,
+					idempotencyKey
+				});
 				if (!res.success) return settleFailure(res);
 				toast.success("Plan upgraded");
 			}}

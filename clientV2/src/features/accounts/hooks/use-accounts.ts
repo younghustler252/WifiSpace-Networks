@@ -4,7 +4,8 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { unwrap } from "@/lib/api/unwrap";
 import type { ApiResponse } from "@/types/api-response";
 import { accountsApi, adminAccountsApi } from "../services/accounts.api";
-import type { AdminAccountListParams } from "../types/accounts.types";
+import type { AdminAccountListParams, UpdateAccountBody } from "../types/accounts.types";
+
 
 export const ACCOUNTS_KEY = ["accounts", "me"] as const;
 export const ADMIN_ACCOUNTS_KEY = ["accounts", "admin"] as const;
@@ -77,6 +78,7 @@ function useAdminAccountAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiRespo
 			if (!res.success) return;
 			queryClient.invalidateQueries({ queryKey: ADMIN_ACCOUNTS_KEY });
 			queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+			queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
 		},
 	});
 }
@@ -84,6 +86,7 @@ function useAdminAccountAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiRespo
 export function useAdminAccountActions() {
 	return {
 		create: useAdminAccountAction(adminAccountsApi.create),
+		update: useAdminAccountAction((v: { id: string; body: UpdateAccountBody }) => adminAccountsApi.update(v.id, v.body)),
 		approve: useAdminAccountAction((v: { id: string; routerId?: string }) =>
 			adminAccountsApi.approve(v.id, { routerId: v.routerId })
 		),
@@ -94,8 +97,6 @@ export function useAdminAccountActions() {
 		terminate: useAdminAccountAction((v: { id: string; note?: string }) => adminAccountsApi.terminate(v.id, v.note)),
 	};
 }
-
-
 export function useAdminAccount(id: string) {
 	return useQuery({
 		queryKey: [...ADMIN_ACCOUNTS_KEY, "detail", id],

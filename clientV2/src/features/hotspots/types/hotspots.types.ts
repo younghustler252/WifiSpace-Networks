@@ -7,6 +7,7 @@ export interface HotspotSession {
 	router: HotspotRouter | null;
 	session: Record<string, unknown> | null;
 	subscription: Subscription | null;
+	provisioning?: unknown;
 }
 export interface HotspotRouter {
 	id: string;

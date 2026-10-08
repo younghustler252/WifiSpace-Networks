@@ -1,7 +1,7 @@
 import { API } from "@/lib/api/api-client";
 import { friendly } from "@/lib/api/friendly";
 import { ROUTER_ERROR_MESSAGES } from "@/features/routers/constants";
-import type { Account, AdminAccount, AdminAccountListParams, RequestAccountBody } from "../types/accounts.types";
+import type { Account, AdminAccount, AdminAccountListParams, RequestAccountBody, UpdateAccountBody, UpdateAccountResult } from "../types/accounts.types";
 import { AdminCreateAccountBody, AdminAccountDetailResponse } from "../types/accounts.types";
 
 export const accountsApi = {
@@ -19,6 +19,8 @@ const ADMIN = "/accounts/admin";
 export const adminAccountsApi = {
 
 	create: (body: AdminCreateAccountBody) => API.post<AdminAccount>(ADMIN, body),
+	update: async (id: string, body: UpdateAccountBody) =>
+	friendly(await API.patch<UpdateAccountResult>(`${ADMIN}/${id}`, body), ROUTER_ERROR_MESSAGES),
 	get: (id: string) => API.get<AdminAccountDetailResponse>(`${ADMIN}/${id}`),
 	list: (params: AdminAccountListParams) => API.get<AdminAccount[]>(ADMIN, { params }),
 	approve: (id: string, body: { routerId?: string }) =>

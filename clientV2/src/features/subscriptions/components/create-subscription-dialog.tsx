@@ -18,6 +18,7 @@ import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
+import { toastWithProvisioning } from "../lib/provisioning";
 
 export function CreateSubscriptionDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const { create } = useAdminSubscriptionActions();
@@ -26,7 +27,7 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 	const [cycles, setCycles] = useState("1");
 	const [activate, setActivate] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey();
+	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${activate}`);
 
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
@@ -55,12 +56,15 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 			activateImmediately: activate,
 			idempotencyKey,
 		});
-
 		if (!res.success) {
 			toast.error(res.message);
 			return;
 		}
 
+		toastWithProvisioning(
+			activate ? "Subscription activated" : "Subscription created",
+			res.data
+		);
 		toast.success(activate ? "Subscription activated" : "Subscription created");
 		onClose();
 	}

@@ -1,3 +1,5 @@
+
+import { Can } from "@/components/shared/can";
 import { MoreHorizontal } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
@@ -8,7 +10,7 @@ import { getProvisioning, isSettlable, paymentDateOf, paymentTotal } from "../li
 import type { AdminPayment } from "../types/payments.types";
 import { PayerCell } from "./payer-cell";
 
-export type PaymentAction = "details" | "status";
+export type PaymentAction = "details" | "status" | "reverse";
 
 interface AdminPaymentsTableProps {
 	items: AdminPayment[];
@@ -26,6 +28,11 @@ function RowMenu({ payment, onAction }: { payment: AdminPayment; onAction: (acti
 			<DropdownMenuContent align="end" className="w-44">
 				<DropdownMenuItem onSelect={() => onAction("details")}>View details</DropdownMenuItem>
 				{isSettlable(payment) && <DropdownMenuItem onSelect={() => onAction("status")}>Update status…</DropdownMenuItem>}
+				<Can permission="payments:reverse">
+					{payment.status === "successful" && (
+						<DropdownMenuItem onSelect={() => onAction("reverse")}>Reverse payment…</DropdownMenuItem>
+					)}
+				</Can>
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

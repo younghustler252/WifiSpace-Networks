@@ -20,6 +20,7 @@ import { PAYMENT_CHANNEL_OPTIONS } from "../constants";
 import { useRecordPayment } from "../hooks/use-payments";
 import { settleFailure } from "@/lib/api/failure";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
+import { toastWithProvisioning } from "@/features/subscriptions/lib/provisioning";
 
 export function RecordPaymentDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const record = useRecordPayment();
@@ -29,7 +30,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 	const [channel, setChannel] = useState("cash");
 	const [note, setNote] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey();
+	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${channel}|${note}`);
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
 
@@ -56,7 +57,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			cycles: isPppoe ? cycleCount : undefined,
 			paymentChannel: channel,
 			note: note.trim() || undefined,
-			// idempotencyKey
+			idempotencyKey
 		});
 
 		if (!res.success) {
@@ -64,7 +65,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			return;
 		}
 
-		toast.success("Payment recorded");
+		toastWithProvisioning("Payment recorded", res.data);
 		onClose();
 	}
 

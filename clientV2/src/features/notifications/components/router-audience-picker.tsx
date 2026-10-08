@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouters } from "@/features/routers/hooks/use-routers";
-import { formatNumber } from "@/lib/format";
+import { mayAffectCustomers, routerStatusLabel } from "@/features/routers/lib/router-health";
 
 interface RouterAudiencePickerProps {
 	selectedIds: string[];
@@ -19,7 +19,7 @@ export function RouterAudiencePicker({ selectedIds, onChange }: RouterAudiencePi
 	if (isError || !data) return <p className="text-sm text-destructive">We couldn&apos;t load routers.</p>;
 
 	const routers = data.items;
-	const notOnline = routers.filter((r) => r.status !== "online");
+	const suspect = routers.filter(mayAffectCustomers);
 	const selected = new Set(selectedIds);
 
 	function toggle(id: string, checked: boolean) {
@@ -31,9 +31,9 @@ export function RouterAudiencePicker({ selectedIds, onChange }: RouterAudiencePi
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<p className="text-[12px] text-muted-foreground">{selectedIds.length} selected</p>
 				<div className="flex gap-2">
-					{notOnline.length > 0 && (
-						<Button type="button" variant="outline" size="sm" className="bg-surface-2" onClick={() => onChange(notOnline.map((r) => r.id))}>
-							Select all offline ({notOnline.length})
+					{suspect.length > 0 && (
+						<Button type="button" variant="outline" size="sm" className="bg-surface-2" onClick={() => onChange(suspect.map((r) => r.id))}>
+							Select routers that may be down ({suspect.length})
 						</Button>
 					)}
 					{selectedIds.length > 0 && (
@@ -55,8 +55,7 @@ export function RouterAudiencePicker({ selectedIds, onChange }: RouterAudiencePi
 									{[router.location, router.code].filter(Boolean).join(" · ")}
 								</span>
 							</span>
-							<span className="text-mono hidden text-[11px] text-muted-foreground sm:inline">{formatNumber(router.currentSessions ?? 0)} online</span>
-							<StatusBadge status={router.status ?? "offline"} />
+							<StatusBadge status={router.status ?? "offline"} label={routerStatusLabel(router)} />
 						</label>
 					</li>
 				))}

@@ -1,12 +1,13 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "@/stores/auth.store";
 import { ApiErrorResponse, ApiResponse } from "@/types/api-response";
-import { ERROR_CODES } from "@/types/error-codes";
+import { ERROR_CODES} from "@/types/error-codes";
+import { COMMON_ERROR_MESSAGES } from "./common-error";
 import { getApiBaseUrl } from "./get-api-base-url";
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 35_000;
 
 const axiosInstance: AxiosInstance = axios.create({
 	baseURL: getApiBaseUrl(),
@@ -79,7 +80,8 @@ function failureFromError(error: AxiosError): ApiErrorResponse {
 	const body = error.response?.data;
 
 	if (isEnvelope(body) && !body.success) {
-		return { ...body, status, message: body.message?.trim() || fallbackMessage(status) };
+		const message = COMMON_ERROR_MESSAGES[body.code] ?? (body.message?.trim() || fallbackMessage(status));
+		return { ...body, status, message };
 	}
 
 	if (error.code === "ECONNABORTED" || error.code === "ETIMEDOUT" || status === 408 || status === 504) {

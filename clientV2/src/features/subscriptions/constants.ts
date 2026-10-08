@@ -32,3 +32,9 @@ export const SUBSCRIPTION_ERROR_MESSAGES: Record<string, string> = {
 	[SUBSCRIPTION_ERROR_CODES.CANNOT_SUSPEND_INACTIVE_SUBSCRIPTION]: "Only active subscriptions can be suspended.",
 	[SUBSCRIPTION_ERROR_CODES.INVALID_EXTENSION_DAYS]: "Enter a valid number of days. It can't be 0.",
 };
+
+export const PROVISIONING_STATUS_OPTIONS = [
+	{ value: "failed", label: "Failed" },
+	{ value: "pending", label: "Pending" },
+	{ value: "synced", label: "Synced" },
+] as const;

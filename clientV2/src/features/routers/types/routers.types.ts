@@ -12,6 +12,8 @@ export interface NetworkRouter {
 	popName?: string | null;
 	status?: string;
 	lastError?: string | null;
+	lastErrorType?: "auth_failed" | "connection_refused" | "timeout" | "host_unreachable" | "credentials_missing" | "unknown" | (string & {}) | null;
+	hostReachable?: boolean | null;
 	isEnabled?: boolean;
 	apiEnabled?: boolean;
 	lastSeenAt?: string | null;

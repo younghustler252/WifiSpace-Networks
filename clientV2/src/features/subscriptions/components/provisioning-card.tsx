@@ -13,10 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRouters } from "@/features/routers/hooks/use-routers";
 import type { NetworkRouter } from "@/features/routers/types/routers.types";
+import { describeRouterProblem, routerStatusLabel } from "@/features/routers/lib/router-health";
+
 import { formatRelative } from "@/lib/format";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
 import type { AdminSubscriptionDetail } from "../types/subscriptions.types";
 import { settleFailure } from "@/lib/api/failure";
+import { toastWithProvisioning } from "../lib/provisioning";
 
 const isHotspot = (detail: AdminSubscriptionDetail) =>
 	detail.account?.serviceType === "hotspot" || detail.subscription.planSnapshot.serviceType === "hotspot";
@@ -28,7 +31,7 @@ function RouterRow({ router }: { router: NetworkRouter }) {
 				<p className="truncate text-[13px] font-medium">{router.name}</p>
 				<p className="truncate text-[11px] text-muted-foreground">{[router.code, router.location].filter(Boolean).join(" · ")}</p>
 			</div>
-			<StatusBadge status={router.status ?? "offline"} />
+			<StatusBadge status={router.status ?? "offline"} label={routerStatusLabel(router)} />
 		</li>
 	);
 }
@@ -47,7 +50,7 @@ function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; on
 			: (allRouters.data?.items ?? []).filter((r) => r.isEnabled !== false && (r.supportedServices ?? []).includes("hotspot"));
 
 	const target = hotspot ? options.find((r) => r.id === routerId) : detail.router;
-	const offline = !!target && target.status !== "online";
+	const issue = target ? describeRouterProblem(target) : null;
 
 	function renderPicker() {
 		if (needsFallback && allRouters.isLoading) return <Skeleton className="h-11 rounded-lg" />;
@@ -86,19 +89,17 @@ function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; on
 			onConfirm={async () => {
 				const res = await resync.mutateAsync({ id: detail.subscription.id, routerId: hotspot ? routerId : undefined });
 				if (!res.success) return settleFailure(res, "The re-sync");
-				toast.success("Re-sync started");
+				toastWithProvisioning("Re-sync queued", res.data);
 			}}
 		>
 			{hotspot && renderPicker()}
-			{offline && (
+			{issue && (
 				<Notice
-					tone="warning"
-					title={`${target?.name ?? "This router"} is reported offline`}
-					text="The sync will probably fail. If customers are connected through it, its status may be wrong, so ask the backend team to check its API connection."
+					tone={issue.tone}
+					title={issue.title}
+					text="The re-sync is queued and retried automatically once the router's API is reachable."
 				/>
-
 			)}
-			
 		</ConfirmDialog>
 	);
 }
@@ -120,8 +121,21 @@ export function ProvisioningCard({ detail }: { detail: AdminSubscriptionDetail }
 		<SectionCard title="Provisioning" description={hotspot ? "Hotspot plans can be used across locations." : "Fixed installation."}>
 			<div className="space-y-4">
 				{(failed || s.mikrotikError) && <Notice tone="danger" title="Provisioning problem" text={s.mikrotikError ?? "The last sync failed."} />}
-				{locations.some((r) => r.status !== "online") && (
-					<Notice tone="warning" title="A router is reported offline" text="Changes made while it's unreachable may not reach it. Re-sync once it's back." />
+				{(() => {
+					const flagged = locations
+						.map((r) => ({ router: r, problem: describeRouterProblem(r) }))
+						.find((x) => x.problem);
+
+					return flagged?.problem ? (
+						<Notice
+							tone={flagged.problem.tone}
+							title={`${flagged.router.name}: ${flagged.problem.title}`}
+							text={flagged.problem.text}
+						/>
+					) : null;
+				})()}
+				{s.mikrotikStatus === "pending" && (
+					<Notice tone="info" title="Provisioning in progress" text="The router update is queued. This page refreshes on its own." />
 				)}
 				<DetailList rows={rows} />
 

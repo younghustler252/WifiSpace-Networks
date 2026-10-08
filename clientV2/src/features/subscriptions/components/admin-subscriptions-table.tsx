@@ -43,6 +43,9 @@ export function AdminSubscriptionsTable({ items, onAction }: AdminSubscriptionsT
 								</TableCell>
 								<TableCell>
 									<StatusBadge status={getDisplayStatus(s)} />
+									{s.mikrotikStatus && s.mikrotikStatus !== "synced" && (
+										<StatusBadge status={s.mikrotikStatus} label={`Router: ${s.mikrotikStatus}`} className="mt-1" />
+									)}
 								</TableCell>
 								<TableCell className="whitespace-nowrap text-[13px] text-muted-foreground">{expiry(s)}</TableCell>
 								<TableCell className="text-right">
@@ -64,6 +67,9 @@ export function AdminSubscriptionsTable({ items, onAction }: AdminSubscriptionsT
 							</Link>
 							<p className="text-[11px] text-muted-foreground">Expires {expiry(s)}</p>
 							<StatusBadge status={getDisplayStatus(s)} />
+							{s.mikrotikStatus && s.mikrotikStatus !== "synced" && (
+								<StatusBadge status={s.mikrotikStatus} label={`Router: ${s.mikrotikStatus}`} className="mt-1" />
+							)}
 						</div>
 						<SubscriptionActionsMenu subscription={s} onAction={(a) => onAction(a, s)} />
 					</li>

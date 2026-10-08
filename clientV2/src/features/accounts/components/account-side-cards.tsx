@@ -61,11 +61,29 @@ export function AccountDetailsCard({ account }: { account: AdminAccount }) {
 	);
 }
 
+
 export function InstallCard({ account, router }: { account: AdminAccount; router: NetworkRouter | null }) {
 	const location = formatLocation(account.requestedLocation);
 
 	const rows = [
 		{ label: "Install address", value: location ? wrap(location) : "—" },
+		...(account.requestedLocation?.coordinates
+			? [
+					{
+						label: "Map",
+						value: (
+							<a
+								href={`https://www.google.com/maps?q=${account.requestedLocation.coordinates.lat},${account.requestedLocation.coordinates.lng}`}
+								target="_blank"
+								rel="noopener noreferrer"
+								className="text-signal hover:underline"
+							>
+								Open in Maps
+							</a>
+						),
+					},
+				]
+			: []),
 		{ label: "Router", value: router ? router.name : "Not assigned yet" },
 		...(router
 			? [

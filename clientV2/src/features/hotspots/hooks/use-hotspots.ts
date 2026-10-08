@@ -5,6 +5,7 @@ import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { hotspotsApi, hotspotsAdminApi } from "../services/hotspots.api";
 import type { HotspotClientInfo } from "../types/hotspots.types";
+import { readProvisioning } from "@/features/subscriptions/lib/provisioning";
 
 const STATUS_POLL_MS = 2500;
 const STATUS_MAX_WAIT_MS = 30_000;
@@ -17,7 +18,13 @@ export function useHotspotSession(client: HotspotClientInfo | null) {
 			const { macAddress, routerId, routerUid, identity } = client!;
 			return unwrap(await hotspotsApi.session({ macAddress, routerId, routerUid, identity })).data;
 		},
-		refetchInterval: (query) => (query.state.data?.state === "PENDING" ? 3000 : false),
+		refetchInterval: (query) => {
+			const data = query.state.data;
+			if (!data) return false;
+			if (data.state === "PENDING") return 3000;
+			if (data.state === "ACTIVE" && (readProvisioning(data) === "pending" || data.subscription?.mikrotikStatus === "pending")) return 3000;
+			return false;
+		},
 		staleTime: 0,
 	});
 }

@@ -1,5 +1,5 @@
 import { CheckCircle2, Circle, Clock, Pause, Play, PlusCircle, RefreshCw, SlidersHorizontal, XCircle, type LucideIcon } from "lucide-react";
-import { humanize } from "@/lib/format";
+import { formatDateTime, humanize } from "@/lib/format";
 import type { SubscriptionEvent } from "../types/subscriptions.types";
 
 type Tone = "success" | "warning" | "danger" | "info" | "neutral";
@@ -27,9 +27,13 @@ export function eventMeta(type: string) {
 	return EVENTS[type] ?? { label: humanize(type), icon: Circle, tone: "neutral" as Tone };
 }
 
+const ISO = /^\d{4}-\d{2}-\d{2}T/;
+
+const metaLabel = (key: string) => humanize(key.replace(/([A-Z])/g, "_$1").toLowerCase());
+
 export function describeEvent(event: SubscriptionEvent) {
 	return Object.entries(event.metadata ?? {})
 		.filter(([key, value]) => value !== null && value !== undefined && value !== "" && typeof value !== "object" && !(key === "bonusDays" && value === 0))
-		.map(([key, value]) => `${humanize(key.replace(/([A-Z])/g, "_$1").toLowerCase())}: ${String(value)}`)
+		.map(([key, value]) => `${metaLabel(key)}: ${typeof value === "string" && ISO.test(value) ? formatDateTime(value) : String(value)}`)
 		.join(" · ");
 }

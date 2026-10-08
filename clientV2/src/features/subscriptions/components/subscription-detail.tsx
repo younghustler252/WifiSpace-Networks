@@ -67,8 +67,8 @@ function PlanBillingCard({ detail }: { detail: AdminSubscriptionDetail }) {
 	const rows = [
 		{ label: "Plan", value: plan.name },
 		{ label: "Price", value: `${formatCurrency(plan.price)} / ${formatDuration(plan.durationValue, plan.durationUnit)}` },
-		{ label: "Cycles", value: String(s.cycles) },
-		{ label: "Total charged", value: <span className="text-mono">{formatCurrency(s.totalAmount)}</span> },
+		{ label: "Durations granted", value: String(s.cycles) },
+		{ label: "Total paid (lifetime)", value: <span className="text-mono">{formatCurrency(s.totalAmount)}</span> },
 		...(plan.speedRate ? [{ label: "Speed", value: plan.speedRate }] : []),
 		...(plan.devicesAllowed ? [{ label: "Devices allowed", value: String(plan.devicesAllowed) }] : []),
 		...(plan.gracePeriodDays ? [{ label: "Grace period", value: `${plan.gracePeriodDays} days` }] : []),

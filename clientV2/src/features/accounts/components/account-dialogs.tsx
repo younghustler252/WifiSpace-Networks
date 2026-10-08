@@ -8,10 +8,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useRouters } from "@/features/routers/hooks/use-routers";
 import { useAdminAccountActions } from "../hooks/use-accounts";
+import { EditAccountDialog } from "./edit-account-dialog";
 import { RecordPaymentDialog } from "@/features/payments/components/record-payment-dialog";
 import { CreateSubscriptionDialog } from "@/features/subscriptions/components/create-subscription-dialog";
 import type { AdminAccount } from "../types/accounts.types";
 import type { AccountAction } from "./account-actions-menu";
+import { toastWithProvisioning } from "@/features/subscriptions/lib/provisioning";
+import { describeRouterProblem } from "@/features/routers/lib/router-health";
 
 interface DialogProps {
 	account: AdminAccount;
@@ -51,8 +54,10 @@ function ApproveDialog({ account, onClose }: DialogProps) {
 						))}
 					</SelectContent>
 				</Select>
-				{selected?.status === "offline" && (
-					<p className="text-[12px] text-warning">This router is currently offline, so provisioning may be delayed.</p>
+				{selected && describeRouterProblem(selected) && (
+					<p className="text-[12px] text-warning">
+						This router's API connection is down. The customer is set up automatically once it's back, with retries.
+					</p>
 				)}
 			</div>
 		);
@@ -76,7 +81,7 @@ function ApproveDialog({ account, onClose }: DialogProps) {
 					toast.error(res.message);
 					return false;
 				}
-				toast.success("Account approved");
+				toastWithProvisioning("Account approved", res.data);
 			}}
 		>
 			{needsRouter && renderRouterPicker()}
@@ -197,6 +202,8 @@ interface AccountActionDialogProps extends DialogProps {
 
 export function AccountActionDialog({ action, account, onClose }: AccountActionDialogProps) {
 	switch (action) {
+		case "edit":
+			return <EditAccountDialog account={account} onClose={onClose} />;
 		case "approve":
 			return <ApproveDialog account={account} onClose={onClose} />;
 		case "reject":

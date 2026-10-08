@@ -12,7 +12,6 @@ interface RouterDialogProps {
 
 export function RebootRouterDialog({ router, onClose }: RouterDialogProps) {
 	const { reboot } = useRouterActions();
-	const live = router.currentSessions ?? 0;
 
 	return (
 		<ConfirmDialog
@@ -21,7 +20,7 @@ export function RebootRouterDialog({ router, onClose }: RouterDialogProps) {
 			destructive
 			requireText={router.code}
 			title={`Reboot ${router.name}?`}
-			description={`This disconnects ${live > 0 ? `all ${live} live customer session${live === 1 ? "" : "s"}` : "any live customers"} until the router comes back, usually a few minutes.`}
+			description="This disconnects every customer on this router until it comes back, usually a few minutes."
 			confirmLabel="Reboot router"
 			onConfirm={async () => {
 				const res = await reboot.mutateAsync(router.id);

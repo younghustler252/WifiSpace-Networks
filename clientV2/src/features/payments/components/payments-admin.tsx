@@ -15,8 +15,9 @@ import { PAYMENT_STATUS_OPTIONS } from "../constants";
 import { useAdminPayments } from "../hooks/use-payments";
 import type { AdminPayment } from "../types/payments.types";
 import { AdminPaymentsTable, type PaymentAction } from "./admin-payments-table";
-import { PaymentDetailsDialog, UpdateStatusDialog } from "./payment-dialogs";
+import { PaymentDetailsDialog, UpdateStatusDialog, ReversePaymentDialog } from "./payment-dialogs";
 import { RecordPaymentDialog } from "./record-payment-dialog";
+
 
 export function PaymentsAdmin() {
 	const [search, setSearch] = useState("");
@@ -121,6 +122,7 @@ export function PaymentsAdmin() {
 			{recording && <RecordPaymentDialog onClose={() => setRecording(false)} />}
 			{dialog?.action === "details" && <PaymentDetailsDialog payment={dialog.payment} onClose={close} />}
 			{dialog?.action === "status" && <UpdateStatusDialog payment={dialog.payment} onClose={close} />}
+			{dialog?.action === "reverse" && <ReversePaymentDialog payment={dialog.payment} onClose={close} />}{dialog?.action === "reverse" && <ReversePaymentDialog payment={dialog.payment} onClose={close} />}
 		</div>
 	);
 }

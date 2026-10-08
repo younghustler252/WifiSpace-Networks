@@ -9,7 +9,7 @@ import { SimplePagination } from "@/components/shared/simple-pagination";
 import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SUBSCRIPTION_STATUS_OPTIONS } from "../constants";
+import { PROVISIONING_STATUS_OPTIONS, SUBSCRIPTION_STATUS_OPTIONS } from "../constants";
 import { useAdminSubscriptions } from "../hooks/use-subscriptions";
 import type { SubscriptionAction } from "../lib/subscription-phase";
 import type { Subscription } from "../types/subscriptions.types";
@@ -19,18 +19,22 @@ import { SubscriptionActionDialog } from "./subscription-dialogs";
 
 export function SubscriptionsAdmin() {
 	const [status, setStatus] = useState(ALL);
+	const [provisioning, setProvisioning] = useState(ALL);
 	const [page, setPage] = useState(1);
 	const [creating, setCreating] = useState(false);
 	const [dialog, setDialog] = useState<{ action: SubscriptionAction; subscription: Subscription } | null>(null);
 
 	useEffect(() => {
 		setPage(1);
-	}, [status]);
+	}, [status, provisioning]);
 
 	const { data, isLoading, isError, isPlaceholderData, refetch } = useAdminSubscriptions({
 		status: status === ALL ? undefined : status,
+		mikrotikStatus: provisioning === ALL ? undefined : provisioning,
 		page,
 	});
+	const failedCount = useAdminSubscriptions({ mikrotikStatus: "failed", limit: 1 }).data?.meta?.total ?? 0;
+	const filtered = status !== ALL || provisioning !== ALL;
 
 	function renderBody() {
 		if (isLoading) return <Skeleton className="h-96 rounded-xl" />;
@@ -50,11 +54,19 @@ export function SubscriptionsAdmin() {
 				<StatusMessage
 					icon={CalendarClock}
 					title="No subscriptions found"
-					text={status !== ALL ? "Try a different status." : "Subscriptions appear here once customers buy a plan."}
+					text={filtered ? "Try different filters." : "Subscriptions appear here once customers buy a plan."}
 				>
-					{status !== ALL && (
-						<Button size="lg" variant="outline" className="w-full bg-surface-2" onClick={() => setStatus(ALL)}>
-							Clear filter
+					{filtered && (
+						<Button
+							size="lg"
+							variant="outline"
+							className="w-full bg-surface-2"
+							onClick={() => {
+								setStatus(ALL);
+								setProvisioning(ALL);
+							}}
+						>
+							Clear filters
 						</Button>
 					)}
 				</StatusMessage>
@@ -87,8 +99,20 @@ export function SubscriptionsAdmin() {
 				}
 			/>
 
-			<div className="flex">
+			{failedCount > 0 && provisioning !== "failed" && (
+				<div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/10 p-3">
+					<p className="text-[13px]">
+						{failedCount} subscription{failedCount === 1 ? "" : "s"} failed to set up on the router. Those customers may not be online.
+					</p>
+					<Button size="sm" variant="outline" className="bg-surface-2" onClick={() => setProvisioning("failed")}>
+						Show them
+					</Button>
+				</div>
+			)}
+
+			<div className="flex flex-col gap-3 sm:flex-row">
 				<FilterSelect value={status} onChange={setStatus} label="Status" allLabel="All statuses" options={SUBSCRIPTION_STATUS_OPTIONS} />
+				<FilterSelect value={provisioning} onChange={setProvisioning} label="Router setup" allLabel="Any router status" options={PROVISIONING_STATUS_OPTIONS} />
 			</div>
 
 			{renderBody()}

@@ -44,15 +44,6 @@ export function useAccountSubscriptions(accountId: string) {
 	return useAdminSubscriptions({ accountId, limit: 20 });
 }
 
-export function useAdminSubscription(id: string) {
-	return useQuery({
-		queryKey: [...ADMIN_SUBSCRIPTIONS_KEY, "detail", id],
-		queryFn: async (): Promise<AdminSubscriptionDetail> => {
-			const data = unwrap(await adminSubscriptionsApi.get(id)).data;
-			return { ...data, account: data.account ?? null, router: data.router ?? null, routers: data.routers ?? [] };
-		},
-	});
-}
 
 function useAdminSubscriptionAction<TArg>(mutationFn: (arg: TArg) => Promise<ApiResponse<unknown>>) {
 	const queryClient = useQueryClient();
@@ -68,13 +59,25 @@ function useAdminSubscriptionAction<TArg>(mutationFn: (arg: TArg) => Promise<Api
 	});
 }
 
+export function useAdminSubscription(id: string) {
+	return useQuery({
+		queryKey: [...ADMIN_SUBSCRIPTIONS_KEY, "detail", id],
+		queryFn: async (): Promise<AdminSubscriptionDetail> => {
+			const data = unwrap(await adminSubscriptionsApi.get(id)).data;
+			return { ...data, account: data.account ?? null, router: data.router ?? null, routers: data.routers ?? [] };
+		},
+		refetchInterval: (query) => (query.state.data?.subscription.mikrotikStatus === "pending" ? 4000 : false),
+	});
+}
+
 export function useAdminSubscriptionActions() {
 	return {
 		create: useAdminSubscriptionAction(({ idempotencyKey, ...body }: AdminCreateSubscriptionBody & { idempotencyKey?: string }) =>
 			adminSubscriptionsApi.create(body, idempotencyKey)
 		),
-		renew: useAdminSubscriptionAction((v: { id: string; idempotencyKey?: string }) => adminSubscriptionsApi.renew(v.id, v.idempotencyKey)),
-		changePlan: useAdminSubscriptionAction((v: { id: string; newPlanId: string }) => adminSubscriptionsApi.changePlan(v.id, v.newPlanId)),
+		changePlan: useAdminSubscriptionAction((v: { id: string; newPlanId: string; idempotencyKey?: string }) =>
+			adminSubscriptionsApi.changePlan(v.id, v.newPlanId, v.idempotencyKey)
+		),
 		suspend: useAdminSubscriptionAction((v: { id: string; reason?: string }) => adminSubscriptionsApi.suspend(v.id, v.reason)),
 		resume: useAdminSubscriptionAction(adminSubscriptionsApi.resume),
 		cancel: useAdminSubscriptionAction((v: { id: string; reason?: string }) => adminSubscriptionsApi.cancel(v.id, v.reason)),

@@ -12,9 +12,10 @@ import {
 import { approvalOf } from "../lib/account-meta";
 import type { AdminAccount } from "../types/accounts.types";
 
-export type AccountAction = "approve" | "reject" | "subscribe" | "record-payment" | "pause" | "suspend" | "resume" | "terminate";
+export type AccountAction = "edit" | "approve" | "reject" | "subscribe" | "record-payment" | "pause" | "suspend" | "resume" | "terminate";
 
 const LABELS: Record<AccountAction, string> = {
+	edit: "Edit account…",
 	approve: "Approve…",
 	reject: "Reject…",
 	subscribe: "Create subscription…",
@@ -25,23 +26,26 @@ const LABELS: Record<AccountAction, string> = {
 	terminate: "Terminate…",
 };
 
-const MONEY: AccountAction[] = ["subscribe", "record-payment"];
+const FIRST_GROUP: AccountAction[] = ["edit", "subscribe", "record-payment"];
 
 export function getAvailableActions(account: AdminAccount): AccountAction[] {
 	const approval = approvalOf(account);
-	if (approval === "pending") return ["approve", "reject"];
+	const terminated = account.status === "terminated";
+	const edit: AccountAction[] = terminated ? [] : ["edit"];
+
+	if (approval === "pending") return [...edit, "approve", "reject"];
 	if (approval !== "approved") return [];
 
-	const money: AccountAction[] = account.status === "terminated" ? [] : MONEY;
+	const money: AccountAction[] = terminated ? [] : ["subscribe", "record-payment"];
 
 	switch (account.status) {
 		case "active":
-			return [...money, "pause", "suspend", "terminate"];
+			return [...edit, ...money, "pause", "suspend", "terminate"];
 		case "paused":
 		case "suspended":
-			return [...money, "resume", "terminate"];
+			return [...edit, ...money, "resume", "terminate"];
 		default:
-			return money;
+			return [...edit, ...money];
 	}
 }
 
@@ -54,8 +58,8 @@ export function AccountActionsMenu({ account, onAction }: AccountActionsMenuProp
 	const actions = getAvailableActions(account);
 	if (actions.length === 0) return null;
 
-	const money = actions.filter((a) => MONEY.includes(a));
-	const rest = actions.filter((a) => !MONEY.includes(a));
+	const first = actions.filter((a) => FIRST_GROUP.includes(a));
+	const rest = actions.filter((a) => !FIRST_GROUP.includes(a));
 
 	const renderItem = (action: AccountAction) => (
 		<DropdownMenuItem
@@ -75,8 +79,8 @@ export function AccountActionsMenu({ account, onAction }: AccountActionsMenuProp
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="w-52">
-				{money.map(renderItem)}
-				{money.length > 0 && rest.length > 0 && <DropdownMenuSeparator />}
+				{first.map(renderItem)}
+				{first.length > 0 && rest.length > 0 && <DropdownMenuSeparator />}
 				{rest.map(renderItem)}
 			</DropdownMenuContent>
 		</DropdownMenu>

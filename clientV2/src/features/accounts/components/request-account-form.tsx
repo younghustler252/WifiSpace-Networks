@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,6 +18,8 @@ export function RequestAccountForm() {
 	const router = useRouter();
 	const requestAccount = useRequestAccount();
 	const profile = useProfile();
+	const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+	const [locating, setLocating] = useState(false);
 
 	const {
 		register,
@@ -41,6 +43,27 @@ export function RequestAccountForm() {
 	const isPppoe = serviceType === "pppoe";
 	const isBusiness = isPppoe && accountType === "business";
 
+	function captureLocation() {
+		if (!navigator.geolocation) {
+			toast.error("Your browser can't share its location.");
+			return;
+		}
+
+		setLocating(true);
+		navigator.geolocation.getCurrentPosition(
+			(position) => {
+				setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
+				setLocating(false);
+				toast.success("Location added");
+			},
+			() => {
+				setLocating(false);
+				toast.error("We couldn't get your location. You can skip this step.");
+			},
+			{ enableHighAccuracy: true, timeout: 10_000 }
+		);
+	}
+
 	async function onSubmit(values: RequestAccountValues) {
 		const res = await requestAccount.mutateAsync({
 			serviceType: values.serviceType,
@@ -52,6 +75,7 @@ export function RequestAccountForm() {
 						landmark: values.landmark || undefined,
 						city: values.city || undefined,
 						state: values.state || undefined,
+						coordinates: coords ?? undefined,
 					}
 				: undefined,
 		});
@@ -134,6 +158,15 @@ export function RequestAccountForm() {
 						<Field label="State (optional)" htmlFor="state">
 							<Input id="state" autoComplete="address-level1" {...register("state")} />
 						</Field>
+					</div>
+					<div className="space-y-1.5">
+						<Button type="button" variant="outline" size="sm" className="bg-surface-2" disabled={locating} onClick={captureLocation}>
+							{locating && <Loader2 className="animate-spin" />}
+							{coords ? "Update my location" : "Use my current location"}
+						</Button>
+						<p className="text-[11px] text-muted-foreground">
+							{coords ? "Location added. It helps our team find you." : "Only do this if you're at the install address. It's optional."}
+						</p>
 					</div>
 				</section>
 			)}
