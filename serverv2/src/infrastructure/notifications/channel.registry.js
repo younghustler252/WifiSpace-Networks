@@ -1,6 +1,6 @@
 // infrastructure/notifications/channel.registry.js
 import { AppError } from "../../shared/errors/domain.errors.js";
-import { NOTIFICATION_ERROR_CODES } from "../../modules/notification/domain/notification.enum.js";
+import { NOTIFICATION_ERROR_CODES } from "../../modules/notifications/domain/notification.enum.js";
 
 export class NotificationChannelRegistry {
         // registry

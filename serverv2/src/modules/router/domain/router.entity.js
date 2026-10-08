@@ -1,4 +1,4 @@
-import { ROUTER_STATUSES, ROUTER_STATUS_LIST, CONNECTION_TYPES, CONNECTION_TYPE_LIST, SERVICE_TYPE_LIST } from "./router.enum.js";
+import { ROUTER_STATUSES, ROUTER_STATUS_LIST, CONNECTION_TYPES, CONNECTION_TYPE_LIST, SERVICE_TYPE_LIST, ROUTER_ERROR_TYPES } from "./router.enum.js";
 import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class Router {
@@ -7,7 +7,7 @@ export class Router {
 		ssl = false, routerUid = null,
 		supportedServices = [],
 		location = null, siteCode = null, popName = null,
-		status = ROUTER_STATUSES.OFFLINE, lastError = null,
+		status = ROUTER_STATUSES.OFFLINE, lastError = null, lastErrorType = null,
 		isEnabled = true, apiEnabled = true,
 		lastSeenAt = null, lastProvisionSyncAt = null,
 		connectionType = CONNECTION_TYPES.DIRECT, connectorId = null,
@@ -24,10 +24,13 @@ export class Router {
 		if (supportedServices.some((s) => !SERVICE_TYPE_LIST.includes(s))) {
 			throw new ValidationError("Invalid service type in supportedServices");
 		}
+		if (lastErrorType && !Object.values(ROUTER_ERROR_TYPES).includes(lastErrorType)) {
+			throw new ValidationError("Invalid router error type");
+		}
 
 		Object.assign(this, {
 			id, name, code, host, port, username, password, ssl, routerUid,
-			supportedServices, location, siteCode, popName, status, lastError,
+			supportedServices, location, siteCode, popName, status, lastError, lastErrorType,
 			isEnabled, apiEnabled, lastSeenAt, lastProvisionSyncAt,
 			connectionType, connectorId, maxSessions, currentSessions,
 			routerOsVersion, routerBoard, systemIdentity,
@@ -54,6 +57,7 @@ export class Router {
 	markOnline(info = {}) {
 		this.status = ROUTER_STATUSES.ONLINE;
 		this.lastError = null;
+		this.lastErrorType = null;
 		this.lastSeenAt = new Date();
 
 		if (info.identity) this.systemIdentity = info.identity;
@@ -61,14 +65,24 @@ export class Router {
 		if (info.board) this.routerBoard = info.board;
 	}
 
-	markOffline(error = null) {
+	markOffline(error = null, errorType = ROUTER_ERROR_TYPES.UNKNOWN) {
 		this.status = ROUTER_STATUSES.OFFLINE;
 		this.lastError = error;
+		this.lastErrorType = errorType;
 	}
 
 	toJSON() {
 		const obj = { ...this };
 		delete obj.password;
+
+		if (this.isOnline()) {
+			obj.hostReachable = true;
+		} else if ([ROUTER_ERROR_TYPES.AUTH_FAILED, ROUTER_ERROR_TYPES.CONNECTION_REFUSED].includes(this.lastErrorType)) {
+			obj.hostReachable = true;
+		} else {
+			obj.hostReachable = null;
+		}
+
 		return obj;
 	}
 }

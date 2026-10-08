@@ -20,7 +20,7 @@ export class ForceExpireSubscription {
 		subscription.expire();
 		const updated = await this.subscriptionRepository.update(subscription.id, subscription);
 
-		await this.networkService.disconnect(subscription).catch((err) =>
+		await this.networkService.suspend(subscription).catch((err) =>
 			console.error("[ForceExpireSubscription] Network disconnect failed:", err.message)
 		);
 

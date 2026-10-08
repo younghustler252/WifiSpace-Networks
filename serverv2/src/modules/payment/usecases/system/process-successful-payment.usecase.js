@@ -2,113 +2,104 @@ import { SUBSCRIPTION_STATUSES } from "../../../subscription/domain/subscription
 import { PAYMENT_ACTIONS } from "../../domain/payment.enum.js";
 import { Subscription } from "../../../subscription/domain/subscription.entity.js";
 import { SERVICE_TYPES } from "../../../../shared/constants/service-type.enum.js";
+import { NOTIFICATION_TYPES } from "../../../notifications/domain/notification.enum.js";
+
+const CHANNEL_MAP = { card: "card", bank: "bank_transfer", bank_transfer: "bank_transfer", eft: "bank_transfer", ussd: "ussd", qr: "qr", mobile_money: "mobile_money" };
 
 export class ProcessSuccessfulPayment {
-	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, mailService }) {
+	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, createNotification }) {
 		this.paymentRepository = paymentRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.accountRepository = accountRepository;
 		this.networkService = networkService;
-		this.confirmHotspot = confirmHotspot; // NEW
+		this.confirmHotspot = confirmHotspot;
 		this.auditService = auditService;
-		this.mailService = mailService;
+		this.createNotification = createNotification;
 	}
 
 	async execute({ payment, gatewayData = {} }) {
-		if (payment.businessProcessed) {
-			return { alreadyProcessed: true, payment };
+		if (payment.businessProcessed) return { alreadyProcessed: true, payment };
+
+		const claimed = await this.paymentRepository.claimForProcessing(payment.id);
+		if (!claimed) {
+			const current = await this.paymentRepository.findById(payment.id);
+			return { alreadyProcessed: true, inFlight: !current?.businessProcessed, payment: current ?? payment };
 		}
 
+		try {
+			return await this._apply(claimed, gatewayData);
+		} catch (error) {
+			await this.paymentRepository.releaseProcessingLock(payment.id);
+			throw error;
+		}
+	}
+
+	async _apply(payment, gatewayData) {
 		payment.markSuccessful();
 		payment.metadata = { ...payment.metadata, ...gatewayData };
+		payment.paymentChannel = CHANNEL_MAP[gatewayData.channel] ?? payment.paymentChannel;
 
+		const plan = await this.planRepository.findByIdOrNull(payment.planId);
 		let subscription = await this.subscriptionRepository.findCurrentByAccountId(payment.accountId);
 
 		if (!subscription) {
-			const plan = await this.planRepository.findByIdOrNull(payment.planId);
-
-			subscription = new Subscription({
-				accountId: payment.accountId,
-				userId: payment.userId,
-				planId: payment.planId,
-				status: SUBSCRIPTION_STATUSES.PENDING,
-				cycles: payment.cycles,
-				totalAmount: payment.totalAmount,
-				planSnapshot: {
-					name: plan.name,
-					serviceType: plan.serviceType,
-					price: plan.getEffectivePrice(),
-					durationValue: plan.durationValue,
-					durationUnit: plan.durationUnit,
-					speedRate: plan.speedRate,
-					mikrotikProfile: plan.mikrotikProfile,
-					devicesAllowed: plan.devicesAllowed,
-					gracePeriodDays: plan.gracePeriodDays
-				}
-			});
-
-			subscription.activate({
-				paymentId: payment.id,
-				paymentAmount: payment.totalAmount,
-				paymentDate: payment.processedAt
-			});
-
-			subscription = await this.subscriptionRepository.create(subscription);
+			subscription = await this.subscriptionRepository.create(new Subscription({
+				accountId: payment.accountId, userId: payment.userId, planId: payment.planId,
+				status: SUBSCRIPTION_STATUSES.PENDING, cycles: payment.cycles, totalAmount: payment.totalAmount,
+				planSnapshot: plan.toSnapshot()
+			}));
 		}
 
-		if (payment.actionType === PAYMENT_ACTIONS.UPGRADE) {
-			const newPlan = await this.planRepository.findByIdOrNull(payment.planId);
-			subscription.upgradeNow(payment.planId, {
-				name: newPlan.name, serviceType: newPlan.serviceType, price: newPlan.getEffectivePrice(),
-				durationValue: newPlan.durationValue, durationUnit: newPlan.durationUnit,
-				speedRate: newPlan.speedRate, mikrotikProfile: newPlan.mikrotikProfile,
-				devicesAllowed: newPlan.devicesAllowed, gracePeriodDays: newPlan.gracePeriodDays
-			});
-		} else if (payment.actionType === PAYMENT_ACTIONS.RENEWAL && subscription.status !== SUBSCRIPTION_STATUSES.PENDING) {
-			const plan = await this.planRepository.findByIdOrNull(subscription.planId);
-			const bonusDays = plan?.getBonusDaysForCycle(subscription.cycles + 1) ?? 0;
-			subscription.renew({ bonusDays, paymentId: payment.id, paymentAmount: payment.totalAmount, paymentDate: payment.processedAt });
-		} else {
-			subscription.activate({ paymentId: payment.id, paymentAmount: payment.totalAmount, paymentDate: payment.processedAt });
-		}
+		const alreadyApplied = subscription.lastPaymentId && String(subscription.lastPaymentId) === String(payment.id);
 
-		subscription = await this.subscriptionRepository.update(subscription.id, subscription);
+		if (!alreadyApplied) {
+			this._applyToSubscription(subscription, payment, plan);
+			subscription = await this.subscriptionRepository.update(subscription.id, subscription);
+		}
 
 		payment.attachSubscription(subscription.id);
 		payment.markBusinessProcessed();
 		await this.paymentRepository.update(payment.id, payment);
 
 		const account = await this.accountRepository.findById(payment.accountId);
+		const provisioning = await this._provision(subscription, account, payment);
 
-		let provisionResult;
+		await this.auditService?.log({
+			actorId: null, actorType: "system", action: "PAYMENT_PROCESSED", entity: "Payment", entityId: payment.id,
+			newValue: { subscriptionId: subscription.id, provisioning: provisioning.status }
+		});
 
-		// NEW: hotspot accounts need macAddress/routerId (captured at checkout,
-		// carried on payment.metadata.provisioning) to know WHICH router to
-		// provision — a plain networkService.activate(subscription, {}) has no
-		// way to resolve that on its own for a roaming hotspot account.
-		if (account?.serviceType === SERVICE_TYPES.HOTSPOT && this.confirmHotspot) {
-			const provisioningMeta = payment.metadata?.provisioning ?? {};
-			const hotspotResult = await this.confirmHotspot.execute({ subscription, metadata: provisioningMeta });
-			provisionResult = hotspotResult?.provisionResult ?? { success: false, error: "Missing provisioning metadata" };
+		this.createNotification?.execute({
+			actorId: null, type: NOTIFICATION_TYPES.PAYMENT_RECEIVED, title: "Payment received",
+			message: `Your payment of ${payment.currency} ${payment.totalAmount} was successful.`,
+			userIds: [payment.userId], accountId: payment.accountId, entityType: "Payment", entityId: payment.id
+		}).catch((error) => console.error("[ProcessSuccessfulPayment] Notification failed:", error.message));
+
+		return { alreadyProcessed: false, payment, subscription, provisioning };
+	}
+
+	_applyToSubscription(subscription, payment, plan) {
+		const paymentInfo = { paymentId: payment.id, paymentAmount: payment.totalAmount, paymentDate: payment.processedAt };
+
+		if (payment.actionType === PAYMENT_ACTIONS.UPGRADE) {
+			subscription.upgradeNow(plan.id, plan.toSnapshot(), { cycles: payment.cycles, ...paymentInfo });
+		} else if (payment.actionType === PAYMENT_ACTIONS.RENEWAL && subscription.status !== SUBSCRIPTION_STATUSES.PENDING) {
+			const bonusDays = plan.getBonusDaysForCycle(subscription.cycles + payment.cycles);
+			subscription.renew({ cycles: payment.cycles, bonusDays, ...paymentInfo });
 		} else {
-			provisionResult = await this.networkService.activate(subscription, {});
+			subscription.activate(paymentInfo);
+		}
+	}
+
+	async _provision(subscription, account, payment) {
+		const device = payment.metadata?.provisioning ?? {};
+
+		if (account?.serviceType === SERVICE_TYPES.HOTSPOT && device.routerId && device.macAddress && this.confirmHotspot) {
+			const result = await this.confirmHotspot.execute({ subscription, metadata: device });
+			return result?.provisionResult?.provisioning ?? { status: "failed", error: "Could not queue provisioning" };
 		}
 
-		if (this.auditService) {
-			await this.auditService.log({
-				actorId: null, actorType: "system", action: "PAYMENT_PROCESSED", entity: "Payment", entityId: payment.id,
-				newValue: { subscriptionId: subscription.id, provisioned: provisionResult.success }
-			});
-		}
-
-		if (this.mailService && account?.user?.email) {
-			this.mailService.sendNotification({
-				to: account.user.email, subject: "Payment received",
-				message: `Your payment of ${payment.currency} ${payment.totalAmount} was successful. Your subscription is now active.`
-			}).catch((err) => console.error("[ProcessSuccessfulPayment] Notification email failed:", err.message));
-		}
-
-		return { alreadyProcessed: false, payment, subscription, provisionResult };
+		return (await this.networkService.activate(subscription, {})).provisioning;
 	}
 }

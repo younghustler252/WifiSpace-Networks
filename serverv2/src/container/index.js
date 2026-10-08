@@ -18,7 +18,7 @@ import { registerDashboard } from "../modules/dashboard/dashboard.container.js";
 import { registerUsage } from "../modules/usage/usage.container.js";
 import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
 // import { registerAnalytics } from "../modules/analytics/analytics.container.js";
-import { registerNotifications } from "../modules/notification/notification.container.js";
+import { registerNotifications } from "../modules/notifications/notification.container.js";
 import { registerRouter } from "../modules/router/router.cotainer.js";
 import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
 import { registerPayment } from "../modules/payment/payment.container.js";

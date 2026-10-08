@@ -89,6 +89,10 @@ export class HotspotCommands {
 		};
 	}
 
+	static removeUser(id) {
+		return { command: "/ip/hotspot/user/remove", params: [`=.id=${id}`] };
+	}
+
 	static getProfiles() {
 		return {
 			command: "/ip/hotspot/user/profile/print",

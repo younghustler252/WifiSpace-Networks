@@ -1,5 +1,6 @@
 import { NotFoundError } from "../../../../shared/errors/domain.errors.js";
 import { ROUTER_ERROR_CODES } from "../../domain/router.enum.js";
+import { classifyRouterError } from "../../../../infrastructure/networking/mikrotik/mikrotik.error.js";
 
 export class SyncRouterInfo {
 	constructor({ routerService, routerRepository }) {
@@ -16,14 +17,18 @@ export class SyncRouterInfo {
 			router.markOnline({ identity: info.identity, version: info.version, board: info.board });
 			return this.routerRepository.update(router.id, router);
 		} catch (error) {
+			const { type, message } = classifyRouterError(error);
+
 			console.error(`[SyncRouterInfo] ${router.host}:`, {
 				name: error?.name,
-				message: error?.message,
+				message,
+				errorType: type,
 				code: error?.code,
-				stack: error?.stack,
+				errno: error?.errno,
 				error
 			});
-			router.markOffline(error?.message || "Unknown router error");
+
+			router.markOffline(message, type);
 			return this.routerRepository.update(router.id, router);
 		}
 	}

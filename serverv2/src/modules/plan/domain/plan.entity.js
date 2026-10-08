@@ -136,7 +136,18 @@ export class Plan {
 	activate() { this.status = PLAN_STATUSES.ACTIVE; }
 	deactivate() { this.status = PLAN_STATUSES.INACTIVE; }
 
+	toSnapshot() {
+		return {
+			name: this.name, serviceType: this.serviceType, price: this.getEffectivePrice(),
+			durationValue: this.durationValue, durationUnit: this.durationUnit,
+			speedRate: this.speedRate, mikrotikProfile: this.mikrotikProfile,
+			devicesAllowed: this.devicesAllowed, gracePeriodDays: this.gracePeriodDays
+		};
+	}
+
+
 	toJSON() {
 		return { ...this };
 	}
+
 }

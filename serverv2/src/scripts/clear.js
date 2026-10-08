@@ -1,70 +1,90 @@
-import "../config/env.js";
 import mongoose from "mongoose";
+import SubscriptionModel from "../modules/subscription/database/subscription.model.js";
+import AccountModel from "../modules/account/database/account.model.js";
+import "../config/env.js";
+
+const WSN_ID = "WSN1204";
 
 await mongoose.connect(process.env.MONGO_URI);
 
-console.log("MongoDB connected.\n");
+console.log("MongoDB connected");
 
-const db = mongoose.connection.db;
-const collection = db.collection("accounts");
+const account = await AccountModel.findOne({ wsnId: WSN_ID });
 
-const OLD_WSN_ID = "WSN0007";
-const NEW_WSN_ID = "WSN1227";
-
-try {
-	// 1. Find the existing account
-	const oldAccount = await collection.findOne({ wsnId: OLD_WSN_ID });
-
-	if (!oldAccount) {
-		throw new Error(`Account ${OLD_WSN_ID} was not found.`);
-	}
-
-	console.log(`Found account: ${OLD_WSN_ID}`);
-	console.log(`Account _id: ${oldAccount._id}`);
-	console.log(`User ID: ${oldAccount.userId}`);
-
-	// 2. Make sure the new WSN ID isn't already being used
-	const existingNewAccount = await collection.findOne({
-		wsnId: NEW_WSN_ID
-	});
-
-	if (existingNewAccount) {
-		throw new Error(
-			`Cannot update: ${NEW_WSN_ID} already exists on account ${existingNewAccount._id}.`
-		);
-	}
-
-	// 3. Perform the update
-	const result = await collection.updateOne(
-		{ _id: oldAccount._id, wsnId: OLD_WSN_ID },
-		{
-			$set: {
-				wsnId: NEW_WSN_ID
-			}
-		}
-	);
-
-	// 4. Verify the update
-	if (result.modifiedCount !== 1) {
-		throw new Error(
-			`Update failed. Expected 1 modified document, got ${result.modifiedCount}.`
-		);
-	}
-
-	const updatedAccount = await collection.findOne({
-		_id: oldAccount._id
-	});
-
-	console.log("\nAccount updated successfully.");
-	console.log(`Old WSN ID: ${OLD_WSN_ID}`);
-	console.log(`New WSN ID: ${updatedAccount.wsnId}`);
-	console.log(`Account _id: ${updatedAccount._id}`);
-} catch (error) {
-	console.error("\nFailed to update account:");
-	console.error(error.message);
-
-	process.exitCode = 1;
-} finally {
+if (!account) {
+	console.log(`Account ${WSN_ID} not found`);
 	await mongoose.disconnect();
-	console.log("\nMongoDB disconnected.");
+	process.exit(1);
 }
+
+const subscriptions = await SubscriptionModel.find({
+	accountId: account._id
+}).sort({ createdAt: -1 });
+
+console.log("\nACCOUNT:");
+console.dir({
+	_id: account._id.toString(),
+	wsnId: account.wsnId
+}, { depth: null });
+
+console.log("\nSUBSCRIPTIONS:");
+
+for (const subscription of subscriptions) {
+	console.dir({
+		_id: subscription._id.toString(),
+		status: subscription.status,
+		cycles: subscription.cycles,
+		startsAt: subscription.startsAt,
+		expiresAt: subscription.expiresAt,
+		graceEndsAt: subscription.graceEndsAt,
+		expiredAt: subscription.expiredAt,
+		currentPeriodEnd: subscription.currentPeriodEnd
+	}, { depth: null });
+}
+
+const badSubscription = subscriptions.find((subscription) =>
+	subscription.status === "expired" &&
+	subscription.expiredAt &&
+	subscription.expiresAt &&
+	new Date(subscription.expiresAt) > new Date(subscription.expiredAt)
+);
+
+if (!badSubscription) {
+	console.log("\nNo bad expired subscription found.");
+	await mongoose.disconnect();
+	process.exit(0);
+}
+
+console.log("\nBAD SUBSCRIPTION FOUND:");
+console.dir({
+	_id: badSubscription._id.toString(),
+	status: badSubscription.status,
+	cycles: badSubscription.cycles,
+	expiresAt: badSubscription.expiresAt,
+	expiredAt: badSubscription.expiredAt,
+	currentPeriodEnd: badSubscription.currentPeriodEnd
+}, { depth: null });
+
+const newExpiresAt = new Date(badSubscription.expiredAt);
+
+badSubscription.expiresAt = newExpiresAt;
+badSubscription.currentPeriodEnd = newExpiresAt;
+badSubscription.graceEndsAt = null;
+
+await badSubscription.save();
+
+console.log("\nUPDATED.");
+
+console.log("\nAFTER:");
+console.dir({
+	_id: badSubscription._id.toString(),
+	status: badSubscription.status,
+	cycles: badSubscription.cycles,
+	startsAt: badSubscription.startsAt,
+	expiresAt: badSubscription.expiresAt,
+	graceEndsAt: badSubscription.graceEndsAt,
+	expiredAt: badSubscription.expiredAt,
+	currentPeriodEnd: badSubscription.currentPeriodEnd
+}, { depth: null });
+
+await mongoose.disconnect();

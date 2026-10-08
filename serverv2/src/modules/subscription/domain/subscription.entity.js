@@ -47,92 +47,220 @@ export class Subscription {
 
 	_durationMsFor(snapshot = this.planSnapshot) {
 		const { durationValue, durationUnit } = snapshot;
-		const unitMs = { minutes: 60000, hours: 3600000, days: 86400000, months: 30 * 86400000 }[durationUnit];
+		const unitMs = {
+			minutes: 60000,
+			hours: 3600000,
+			days: 86400000,
+			months: 30 * 86400000
+		}[durationUnit];
+
 		return durationValue * unitMs;
+	}
+
+	_graceEndFor(expiresAt) {
+		const days = this.planSnapshot?.gracePeriodDays;
+		return days ? new Date(expiresAt.getTime() + days * 86400000) : null;
+	}
+
+	_applyPayment({ paymentId, paymentAmount, paymentDate }) {
+		if (!paymentId) return;
+
+		this.lastPaymentId = paymentId;
+		this.lastPaymentDate = paymentDate ?? new Date();
+		this.lastPaymentAmount = paymentAmount;
 	}
 
 	activate({ paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
 		const now = new Date();
 		const bonusMs = (this.bonusDays + this.manualAdjustmentDays) * 86400000;
-		const cycleDurationMs = this._durationMsFor();
-		const totalDurationMs = cycleDurationMs * this.cycles;
 
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
 		this.startsAt = this.startsAt || now;
 		this.activatedAt = now;
 		this.currentPeriodStart = now;
-		this.expiresAt = new Date(now.getTime() + totalDurationMs + bonusMs);
+
+		// IMPORTANT:
+		// cycles are applied here so a 2-cycle subscription gets 2 x plan duration.
+		this.expiresAt = new Date(
+			now.getTime() + this._durationMsFor() * this.cycles + bonusMs
+		);
+
 		this.currentPeriodEnd = this.expiresAt;
-		this.graceEndsAt = this.planSnapshot.gracePeriodDays
-			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
-			: null;
+		this.graceEndsAt = this._graceEndFor(this.expiresAt);
 
-		if (paymentId) {
-			this.lastPaymentId = paymentId;
-			this.lastPaymentDate = paymentDate;
-			this.lastPaymentAmount = paymentAmount;
-		}
+		this._applyPayment({
+			paymentId,
+			paymentAmount,
+			paymentDate
+		});
 
-		this._recordEvent("activated", { cycles: this.cycles, bonusDays: this.bonusDays });
+		this._recordEvent("activated", {
+			cycles: this.cycles,
+			bonusDays: this.bonusDays
+		});
 	}
 
-	renew({ bonusDays = 0, paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
+	renew({
+		cycles = 1,
+		bonusDays = 0,
+		paymentId = null,
+		paymentAmount = null,
+		paymentDate = new Date()
+	} = {}) {
 		const now = new Date();
-		const base = this.isExpired() ? now : new Date(this.expiresAt);
-		const bonusMs = bonusDays * 86400000;
+
+		const stillRunning =
+			this.status === SUBSCRIPTION_STATUSES.ACTIVE &&
+			this.expiresAt &&
+			new Date(this.expiresAt) > now;
+
+		const base = stillRunning
+			? new Date(this.expiresAt)
+			: now;
 
 		this.bonusDays = bonusDays;
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+		this.expiredAt = null;
+		this.suspendedAt = null;
+		this.suspensionReason = null;
 		this.currentPeriodStart = base;
-		this.expiresAt = new Date(base.getTime() + this._durationMsFor() + bonusMs);
+
+		this.expiresAt = new Date(
+			base.getTime() +
+			this._durationMsFor() * cycles +
+			bonusDays * 86400000
+		);
+
 		this.currentPeriodEnd = this.expiresAt;
-		this.graceEndsAt = this.planSnapshot.gracePeriodDays
-			? new Date(this.expiresAt.getTime() + this.planSnapshot.gracePeriodDays * 86400000)
-			: null;
+		this.graceEndsAt = this._graceEndFor(this.expiresAt);
 		this.lastRenewedAt = now;
-		this.cycles += 1;
 
-		if (paymentId) {
-			this.lastPaymentId = paymentId;
-			this.lastPaymentDate = paymentDate;
-			this.lastPaymentAmount = paymentAmount;
-		}
+		this.cycles += cycles;
 
-		this._recordEvent("renewed", { cycle: this.cycles, bonusDays });
+		this.totalAmount +=
+			paymentAmount ?? this.planSnapshot.price * cycles;
+
+		this._applyPayment({
+			paymentId,
+			paymentAmount,
+			paymentDate
+		});
+
+		this._recordEvent("renewed", {
+			cycles: this.cycles,
+			addedCycles: cycles,
+			bonusDays
+		});
 	}
 
 	schedulePlanChange(planId, planSnapshot) {
 		this.pendingPlanId = planId;
 		this.pendingPlanSnapshot = planSnapshot;
-		this._recordEvent("manual_adjustment", { type: "downgrade_scheduled", to: planSnapshot.name });
+		this._recordEvent("manual_adjustment", {
+			type: "downgrade_scheduled",
+			to: planSnapshot.name
+		});
 	}
 
 	applyPendingPlanChange() {
 		if (!this.pendingPlanId) return false;
+
 		this.planId = this.pendingPlanId;
 		this.planSnapshot = this.pendingPlanSnapshot;
 		this.pendingPlanId = null;
 		this.pendingPlanSnapshot = null;
+
 		return true;
 	}
 
-	upgradeNow(planId, planSnapshot) {
+	upgradeNow(
+		planId,
+		planSnapshot,
+		{
+			cycles = 1,
+			paymentId = null,
+			paymentAmount = null,
+			paymentDate = new Date()
+		} = {}
+	) {
 		const now = new Date();
-		const remainingMs = this.isActive() ? Math.max(0, new Date(this.expiresAt).getTime() - now.getTime()) : 0;
-		const newDurationMs = this._durationMsFor(planSnapshot);
+
+		const remainingMs = this.isActive()
+			? Math.max(
+				0,
+				new Date(this.expiresAt).getTime() - now.getTime()
+			)
+			: 0;
 
 		this.planId = planId;
 		this.planSnapshot = planSnapshot;
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
 		this.activatedAt = now;
 		this.currentPeriodStart = now;
-		this.expiresAt = new Date(now.getTime() + newDurationMs + remainingMs);
-		this.currentPeriodEnd = this.expiresAt;
-		this.graceEndsAt = planSnapshot.gracePeriodDays
-			? new Date(this.expiresAt.getTime() + planSnapshot.gracePeriodDays * 86400000)
-			: null;
 
-		this._recordEvent("manual_adjustment", { type: "upgrade", carriedOverMs: remainingMs });
+		this.expiresAt = new Date(
+			now.getTime() +
+			this._durationMsFor(planSnapshot) * cycles +
+			remainingMs
+		);
+
+		this.currentPeriodEnd = this.expiresAt;
+		this.graceEndsAt = this._graceEndFor(this.expiresAt);
+
+		this.cycles += cycles;
+		this.totalAmount += paymentAmount ?? 0;
+
+		this._applyPayment({
+			paymentId,
+			paymentAmount,
+			paymentDate
+		});
+
+		this._recordEvent("manual_adjustment", {
+			type: "upgrade",
+			carriedOverMs: remainingMs
+		});
+	}
+
+	extend(days, reason = null) {
+		const now = new Date();
+		const previousExpiresAt = this.expiresAt;
+
+		const stillRunning =
+			this.status === SUBSCRIPTION_STATUSES.ACTIVE &&
+			this.expiresAt &&
+			new Date(this.expiresAt) > now;
+
+		const anchor =
+			days < 0 || stillRunning
+				? new Date(this.expiresAt ?? now)
+				: now;
+
+		this.expiresAt = new Date(
+			anchor.getTime() + days * 86400000
+		);
+
+		this.currentPeriodEnd = this.expiresAt;
+		this.graceEndsAt = this._graceEndFor(this.expiresAt);
+		this.manualAdjustmentDays += days;
+
+		const reactivated =
+			this.status === SUBSCRIPTION_STATUSES.EXPIRED &&
+			this.expiresAt > now;
+
+		if (reactivated) {
+			this.status = SUBSCRIPTION_STATUSES.ACTIVE;
+			this.expiredAt = null;
+		}
+
+		this._recordEvent("manual_adjustment", {
+			type: "extend",
+			days,
+			reason,
+			previousExpiresAt
+		});
+
+		return reactivated;
 	}
 
 	suspend(reason = null) {
@@ -143,25 +271,61 @@ export class Subscription {
 	}
 
 	resume() {
-		if (this.suspendedAt) this.totalSuspendedDuration += Date.now() - new Date(this.suspendedAt).getTime();
+		if (this.suspendedAt) {
+			this.totalSuspendedDuration +=
+				Date.now() - new Date(this.suspendedAt).getTime();
+		}
+
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;
 		this.suspendedAt = null;
 		this.suspensionReason = null;
+
 		this._recordEvent("resumed");
 	}
 
 	expire() {
+		const now = new Date();
+
+		this._recordEvent("expired", {
+			previousExpiresAt: this.expiresAt
+		});
+
 		this.status = SUBSCRIPTION_STATUSES.EXPIRED;
-		this.expiredAt = new Date();
-		this._recordEvent("expired");
+		this.expiredAt = now;
+
+		if (
+			!this.expiresAt ||
+			new Date(this.expiresAt) > now
+		) {
+			this.expiresAt = now;
+			this.graceEndsAt = null;
+		}
+
+		this.currentPeriodEnd = this.expiresAt;
 	}
 
 	cancel(reason = null) {
+		const now = new Date();
+
+		this._recordEvent("canceled", {
+			reason,
+			previousExpiresAt: this.expiresAt
+		});
+
 		this.status = SUBSCRIPTION_STATUSES.CANCELED;
-		this.canceledAt = new Date();
+		this.canceledAt = now;
 		this.cancellationReason = reason;
 		this.autoRenewEnabled = false;
-		this._recordEvent("canceled", { reason });
+
+		if (
+			!this.expiresAt ||
+			new Date(this.expiresAt) > now
+		) {
+			this.expiresAt = now;
+			this.graceEndsAt = null;
+		}
+
+		this.currentPeriodEnd = this.expiresAt;
 	}
 
 	markMikrotikSynced() {
@@ -176,23 +340,36 @@ export class Subscription {
 	}
 
 	isActive() {
-		return this.status === SUBSCRIPTION_STATUSES.ACTIVE && this.expiresAt && new Date() < new Date(this.expiresAt);
+		return this.status === SUBSCRIPTION_STATUSES.ACTIVE &&
+			this.expiresAt &&
+			new Date() < new Date(this.expiresAt);
 	}
 
 	isInGracePeriod() {
-		return this.status === SUBSCRIPTION_STATUSES.ACTIVE && this.graceEndsAt
-			&& new Date() >= new Date(this.expiresAt) && new Date() < new Date(this.graceEndsAt);
+		return this.status === SUBSCRIPTION_STATUSES.ACTIVE &&
+			this.graceEndsAt &&
+			new Date() >= new Date(this.expiresAt) &&
+			new Date() < new Date(this.graceEndsAt);
 	}
 
 	isExpired() {
-		return this.status === SUBSCRIPTION_STATUSES.EXPIRED
-			|| (this.expiresAt && new Date() >= new Date(this.graceEndsAt || this.expiresAt));
+		return this.status === SUBSCRIPTION_STATUSES.EXPIRED ||
+			(this.expiresAt &&
+				new Date() >= new Date(this.graceEndsAt || this.expiresAt));
 	}
 
 	getRemainingSeconds() {
 		if (!this.expiresAt) return 0;
-		return Math.max(0, Math.floor((new Date(this.expiresAt).getTime() - Date.now()) / 1000));
+
+		return Math.max(
+			0,
+			Math.floor(
+				(new Date(this.expiresAt).getTime() - Date.now()) / 1000
+			)
+		);
 	}
 
-	toJSON() { return { ...this }; }
+	toJSON() {
+		return { ...this };
+	}
 }

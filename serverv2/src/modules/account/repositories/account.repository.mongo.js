@@ -90,15 +90,40 @@ export class AccountRepositoryMongo extends BaseRepository {
 	}
 
 	async update(id, entityOrData) {
-		const persistence = AccountMapper.toPersistence(entityOrData);
+		const existing = await this.model
+			.findById(id)
+			.select("serviceType")
+			.lean();
+
+		if (!existing) return null;
+
+		const source = entityOrData.serviceType
+			? entityOrData
+			: {
+					...entityOrData,
+					serviceType: existing.serviceType
+				};
+
+		const persistence = AccountMapper.toPersistence(source);
 
 		if (persistence.routerPassword) {
-			persistence.routerPasswordEncrypted = this.credentialCipherService.encrypt(persistence.routerPassword);
+			persistence.routerPasswordEncrypted =
+				this.credentialCipherService.encrypt(persistence.routerPassword);
+
 			delete persistence.routerPassword;
 		}
 
-		await this.model.findByIdAndUpdate(id, persistence, { new: true });
-		return this.findById(id, { includeDeleted: true }); // caller may be re-reading right after a soft delete
+		const Model = this._modelFor(existing.serviceType);
+
+		await Model.findByIdAndUpdate(
+			id,
+			persistence,
+			{
+				returnDocument: "after"
+			}
+		);
+
+		return this.findById(id, { includeDeleted: true });
 	}
 
 	async findRouterCredentials(id) {

@@ -42,16 +42,20 @@ export class MikrotikManager {
 		}
 
 		if (account.serviceType === "hotspot") {
-			const loginResult = await service.login(router, {
-				username: account.wsnId,
-				password: account.routerPassword,
-				ipAddress: metadata.ipAddress
-			});
-
 			await this.routerProvisioningRepository.markSynced({
 				accountId: account.id,
 				subscriptionId: subscription.id,
 				routerId: router.id
+			});
+
+			if (!metadata.ipAddress) {
+				return { autoConnected: false, method: "login_pending" };
+			}
+
+			const loginResult = await service.login(router, {
+				username: account.wsnId,
+				password: account.routerPassword,
+				ipAddress: metadata.ipAddress
 			});
 
 			return { autoConnected: true, method: "login", data: loginResult };
@@ -59,6 +63,7 @@ export class MikrotikManager {
 
 		return { autoConnected: true, method: "ppp_secret" };
 	}
+
 
 	async suspend(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
@@ -69,40 +74,6 @@ export class MikrotikManager {
 
 		return { success: true };
 	}
-
-	async resume(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata);
-		const service = this.getService(account);
-
-		await service.resumeUser(router, account.wsnId);
-
-		if (account.accessMethod === "ipoe" && account.macAddress) {
-			await service.setUserMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
-
-			await service.bindMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
-
-			return { autoConnected: true, method: "mac_bypass" };
-		}
-
-		if (account.serviceType === "hotspot") {
-			const loginResult = await service.login(router, {
-				username: account.wsnId,
-				password: account.routerPassword,
-				ipAddress: metadata.ipAddress
-			});
-
-			return { autoConnected: true, method: "login", data: loginResult };
-		}
-
-		return { autoConnected: true, method: "ppp_secret" };
-	}
-
 	async disconnect(subscription) {
 		const { account, router } = await this.loadContext(subscription);
 		return this.getService(account).disconnectUser(router, account.wsnId);
@@ -140,22 +111,34 @@ export class MikrotikManager {
 		const account = await this.accountRepository.findById(subscription.accountId);
 		if (!account) throw new Error("Account not found");
 
-		let router;
-
-		if (account.serviceType === "hotspot") {
-			// Hotspot accounts carry no fixed router — the router comes from
-			// whichever physical device the customer is currently connecting
-			// through, resolved upstream (captive portal redirect) and passed
-			// in via metadata.routerId.
-			if (!metadata.routerId) throw new Error("Router ID is required in metadata for hotspot provisioning");
-			router = await this.routerRepository.findById(metadata.routerId);
-		} else {
-			if (!account.routerId) throw new Error("Account has no router assigned");
-			router = await this.routerRepository.findById(account.routerId);
+		const routerId = metadata.routerId || account.routerId;
+		if (!routerId) {
+			throw new Error(account.serviceType === "hotspot" ? "Router ID is required for hotspot provisioning" : "Account has no router assigned");
 		}
 
+		const router = await this.routerRepository.findById(routerId);
 		if (!router) throw new Error("Router not found");
+
+		if (!account.routerPassword) {
+			const credentials = await this.accountRepository.findRouterCredentials(account.id);
+			account.routerPassword = credentials?.routerPassword ?? null;
+		}
+
 		return { account, router };
+	}
+
+	async resume(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
+		const service = this.getService(account);
+
+		await service.resumeUser(router, account.wsnId);
+
+		if (account.serviceType === "hotspot" && metadata.ipAddress) {
+			const loginResult = await service.login(router, { username: account.wsnId, password: account.routerPassword, ipAddress: metadata.ipAddress });
+			return { autoConnected: true, method: "login", data: loginResult };
+		}
+
+		return { autoConnected: false, method: "resume_user" };
 	}
 
 	resolveService(type) {

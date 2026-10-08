@@ -5,11 +5,12 @@ export class GetAllSubscriptions {
 		this.subscriptionRepository = subscriptionRepository;
 	}
 
-	async execute({ status, accountId, userId, sort = "newest", page = 1, limit = 20 } = {}) {
+	async execute({ status, accountId, userId, mikrotikStatus, sort = "newest", page = 1, limit = 20 } = {}) {
 		const filter = {};
 		if (status) filter.status = status;
 		if (accountId) filter.accountId = accountId;
 		if (userId) filter.userId = userId;
+		if (mikrotikStatus) filter.mikrotikStatus = mikrotikStatus;
 
 		return this.subscriptionRepository.paginate({ filter, page, limit, sort: SORT_OPTIONS[sort] || SORT_OPTIONS.newest });
 	}

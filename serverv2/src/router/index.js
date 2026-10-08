@@ -7,7 +7,7 @@ import auditRouter from "../modules/audit/routes/audit.routes.js";
 import subscriptionRouter from "../modules/subscription/routes/subscription.routes.js";
 import hotspotRouter from "../modules/hotspot/routes/hotspot.routes.js";
 import PaymentRouter from "../modules/payment/routes/payment.routes.js";
-import notificationRouter from "../modules/notification/routes/notification.routes.js";
+import notificationRouter from "../modules/notifications/routes/notification.routes.js";
 import dashboardRouter from "../modules/dashboard/routes/dashboard.routes.js";
 import routerRouter from "../modules/router/routes/router.routes.js";
 import usageRouter from "../modules/usage/routes/usage.routes.js";

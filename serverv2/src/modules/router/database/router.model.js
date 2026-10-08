@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { ROUTER_STATUS_LIST, CONNECTION_TYPE_LIST, SERVICE_TYPE_LIST } from "../domain/router.enum.js";
+import { ROUTER_STATUS_LIST, CONNECTION_TYPE_LIST, SERVICE_TYPE_LIST, ROUTER_ERROR_TYPE_LIST } from "../domain/router.enum.js";
 
 const routerSchema = new mongoose.Schema(
 	{
@@ -21,6 +21,7 @@ const routerSchema = new mongoose.Schema(
 
 		status: { type: String, enum: ROUTER_STATUS_LIST, default: "offline", index: true },
 		lastError: { type: String, default: null },
+		lastErrorType: { type: String, enum: ROUTER_ERROR_TYPE_LIST, default: null },
 
 		isEnabled: { type: Boolean, default: true },
 		apiEnabled: { type: Boolean, default: true },

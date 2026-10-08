@@ -45,6 +45,15 @@ export class HotspotService {
 		);
 	}
 
+	async removeUser(router, username) {
+		const user = await this.getUser(router, username);
+		if (!user) return { success: true, removed: false };
+
+		await this.disconnectUser(router, username);
+		const request = HotspotCommands.removeUser(user[".id"]);
+		await this.mikrotikClient.execute(router, request.command, request.params);
+		return { success: true, removed: true };
+	}
 	async changePassword(
 		router,
 		username,

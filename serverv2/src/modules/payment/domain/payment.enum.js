@@ -1,4 +1,11 @@
-export const PAYMENT_STATUSES = { INITIATED: "initiated", PENDING: "pending", SUCCESSFUL: "successful", FAILED: "failed", EXPIRED: "expired" };
+export const PAYMENT_STATUSES = {
+	INITIATED: "initiated",
+	PENDING: "pending",
+	SUCCESSFUL: "successful",
+	FAILED: "failed",
+	EXPIRED: "expired",
+	REFUNDED: "refunded"
+};
 export const PAYMENT_STATUS_LIST = Object.values(PAYMENT_STATUSES);
 
 export const PAYMENT_CHANNELS = { CARD: "card", BANK_TRANSFER: "bank_transfer", USSD: "ussd", QR: "qr", MOBILE_MONEY: "mobile_money", CASH: "cash" };

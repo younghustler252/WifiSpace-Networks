@@ -1,4 +1,3 @@
-// subscription/usecases/admin/resync-subscription.usecase.js
 import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
 import { SUBSCRIPTION_ERROR_CODES } from "../../domain/subscription.enum.js";
 import { SERVICE_TYPES } from "../../../../shared/constants/service-type.enum.js";
@@ -26,6 +25,6 @@ export class ResyncSubscription {
 			await this.auditService.log({ actorId, action: "SUBSCRIPTION_RESYNCED", entity: "Subscription", entityId: subscriptionId, newValue: { success: result.success, routerId }, ip });
 		}
 
-		return result;
+		return result.provisioning;
 	}
 }

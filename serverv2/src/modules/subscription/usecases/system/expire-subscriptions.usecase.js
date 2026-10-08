@@ -1,4 +1,3 @@
-import { SUBSCRIPTION_STATUSES } from "../../domain/subscription.enum.js";
 
 export class ExpireSubscriptions {
 	constructor({ subscriptionRepository, networkService, auditService }) {
@@ -17,8 +16,8 @@ export class ExpireSubscriptions {
 				subscription.expire();
 				await this.subscriptionRepository.update(subscription.id, subscription);
 
-				await this.networkService.disconnect(subscription).catch((err) =>
-					console.error(`[ExpireSubscriptions] Network disconnect failed for ${subscription.id}:`, err.message)
+				await this.networkService.suspend(subscription).catch((err) =>
+					console.error(`[ExpireSubscriptions] Network suspend failed for ${subscription.id}:`, err.message)
 				);
 
 				if (this.auditService) {

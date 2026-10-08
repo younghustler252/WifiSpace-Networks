@@ -1,6 +1,6 @@
 import { APPROVAL_STATUSES, ACCOUNT_ERROR_CODES } from "../../domain/account.enum.js";
 import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
-import { NOTIFICATION_TYPES } from "../../../notification/domain/notification.enum.js";
+import { NOTIFICATION_TYPES } from "../../../notifications/domain/notification.enum.js";
 
 export class ApproveAccount {
 	constructor({ accountRepository, createNotification, auditService }) {

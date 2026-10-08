@@ -1,9 +1,10 @@
 import { asClass } from "awilix";
 
+import { NetworkExecutor } from "./services/network-executor.service.js";
 import { NetworkService } from "./services/network.service.js";
 import { RouterProvisioningRepositoryMongo } from "./repositories/router-provisioning.repository.mongo.js";
 
-import { MikrotikClient } from "./connection/mikrotik.client.js";
+import { MikrotikClient } from "../../infrastructure/networking/mikrotik/mikrotik.client.js";
 import { MikrotikManager } from "./mikrotik.manager.js";
 
 import { HotspotService } from "./services/hotspot.service.js";
@@ -13,6 +14,7 @@ import { RouterService } from "./services/router.service.js";
 
 export function registerProvisioning(container) {
 	container.register({
+		networkExecutor: asClass(NetworkExecutor).scoped(),
 		networkService: asClass(NetworkService).scoped(),
 		routerProvisioningRepository: asClass(RouterProvisioningRepositoryMongo).singleton(),
 

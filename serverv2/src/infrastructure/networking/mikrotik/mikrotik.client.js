@@ -1,6 +1,8 @@
 import { RouterOSAPI } from "node-routeros";
 import PQueue from "p-queue";
 
+const DEFAULT_TIMEOUT_MS = 5000;
+
 export class MikrotikClient {
 	constructor() {
 		this.connections = new Map();
@@ -24,31 +26,26 @@ export class MikrotikClient {
 
 	async connect(router) {
 		const key = this.getRouterKey(router);
-
-		if (this.connections.has(key)) {
-			return this.connections.get(key);
-		}
+		if (this.connections.has(key)) return this.connections.get(key);
 
 		const connection = new RouterOSAPI({
 			host: router.host,
 			user: router.username,
 			password: router.password,
 			port: router.port || 8728,
-			timeout: 5000
+			timeout: Math.ceil(DEFAULT_TIMEOUT_MS / 1000)
 		});
 
-		await connection.connect();
+		try {
+			await this.withTimeout(connection.connect(), router, "connect");
+		} catch (error) {
+			connection.close().catch(() => {});
+			throw error;
+		}
 
-		connection.on("close", () => {
-			this.connections.delete(key);
-		});
-
-		connection.on("error", () => {
-			this.connections.delete(key);
-		});
-
+		connection.on("close", () => this.connections.delete(key));
+		connection.on("error", () => this.connections.delete(key));
 		this.connections.set(key, connection);
-
 		return connection;
 	}
 
@@ -126,21 +123,17 @@ export class MikrotikClient {
 		}
 	}
 
-	async withTimeout(promise, router) {
+	withTimeout(promise, router, label = "request") {
+		let timer;
 		const timeout = new Promise((_, reject) => {
-			setTimeout(() => {
-				reject(
-					new Error(
-						`MikroTik request timed out (${router.host})`
-					)
-				);
-			}, 5000);
+			timer = setTimeout(() => {
+				const error = new Error(`MikroTik ${label} timed out (${router.host})`);
+				error.code = "ETIMEDOUT";
+				reject(error);
+			}, DEFAULT_TIMEOUT_MS);
 		});
 
-		return Promise.race([
-			promise,
-			timeout
-		]);
+		return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 	}
 
 	sleep(ms) {
