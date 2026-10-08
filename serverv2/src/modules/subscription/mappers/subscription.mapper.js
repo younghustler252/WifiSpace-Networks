@@ -1,4 +1,3 @@
-// mappers/subscription.mapper.js
 import { Subscription } from "../domain/subscription.entity.js";
 
 const FIELDS = [
@@ -18,6 +17,8 @@ export class SubscriptionMapper {
 		data.accountId = raw.accountId?.toString();
 		data.userId = raw.userId?.toString();
 		data.planId = raw.planId?.toString();
+		data.createdAt = raw.createdAt;
+		data.updatedAt = raw.updatedAt;
 		return new Subscription(data);
 	}
 

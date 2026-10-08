@@ -14,6 +14,7 @@ import { PaymentGatewayRegistry } from "../infrastructure/payments/payment-gatew
 import { CredentialCipherService } from "../infrastructure/security/credential-cipher.service.js";
 import TrackAnalytics from "../modules/analytics/usecases/track-analytics.js";
 import AnalyticsRepositoryMongo from "../modules/analytics/infrastructure/repositories/analytics.repository.mongo.js";
+import { idempotencyFactory } from "../infrastructure/middleware/idempotency.middleware.js";
 
 export function registerShared(container) {
 	container.register({
@@ -27,6 +28,7 @@ export function registerShared(container) {
 		credentialCipherService: asClass(CredentialCipherService).singleton(),
 
 		authenticate: asFunction(authenticateFactory).singleton(),
+		idempotent: asFunction(idempotencyFactory).singleton(),
 
 		analyticsRepository: asClass(AnalyticsRepositoryMongo).singleton(),
 		analyticsTracker: asClass(TrackAnalytics).singleton(),

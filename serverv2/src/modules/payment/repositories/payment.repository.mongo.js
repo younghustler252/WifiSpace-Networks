@@ -65,6 +65,20 @@ export class PaymentRepositoryMongo extends BaseRepository {
 		return this.findById(id);
 	}
 
+	async claimForProcessing(id, leaseMs = 120000) {
+		const cutoff = new Date(Date.now() - leaseMs);
+		const doc = await this.model.findOneAndUpdate(
+			{ _id: id, businessProcessed: false, $or: [{ processingLockedAt: null }, { processingLockedAt: { $lt: cutoff } }] },
+			{ $set: { processingLockedAt: new Date() } },
+			{ returnDocument: "after" }
+		);
+		return this.mapOne(doc);
+	}
+
+	async releaseProcessingLock(id) {
+		await this.model.updateOne({ _id: id }, { $set: { processingLockedAt: null } });
+	}
+
 	async findExpiredPendingPayments(cutoffDate) {
 		const docs = await this.model.find({ status: PAYMENT_STATUSES.PENDING, createdAt: { $lte: cutoffDate } }).lean();
 		return this.mapArray(docs);
