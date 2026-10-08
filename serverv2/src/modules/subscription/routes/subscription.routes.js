@@ -18,6 +18,8 @@ router.use(authenticate);
 
 router.post("/", validate(subscribeSchema), asyncHandler(subscriptionController.subscribe));
 router.get("/me", asyncHandler(subscriptionController.getMySubscriptions));
+router.get("/me", asyncHandler(subscriptionController.upgrade));
+router.get("/upgrade-options", asyncHandler(subscriptionController.getUpgradeOptions));
 
 const adminRouter = Router();
 adminRouter.use(requireStaff);

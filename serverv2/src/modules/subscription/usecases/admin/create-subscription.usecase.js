@@ -5,11 +5,12 @@ import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
 import { Subscription } from "../../domain/subscription.entity.js";
 
 export class AdminCreateSubscription {
-	constructor({ subscriptionRepository, planRepository, accountRepository, auditService }) {
+	constructor({ subscriptionRepository, planRepository, accountRepository, auditService, networkService }) {
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
 		this.accountRepository = accountRepository;
 		this.auditService = auditService;
+		this.networkService = networkService;
 	}
 
 	async execute({ actorId, accountId, planId, cycles = 1, activateImmediately = false, ip = null }) {
@@ -44,6 +45,7 @@ export class AdminCreateSubscription {
 		}
 
 		const created = await this.subscriptionRepository.create(subscription);
+		const provisioning = created.isActive() ? (await this.networkService.activate(created, {})).provisioning : null;
 
 		if (this.auditService) {
 			await this.auditService.log({
@@ -52,6 +54,6 @@ export class AdminCreateSubscription {
 			});
 		}
 
-		return created;
+		return { subscription: created, provisioning };
 	}
 }
