@@ -5,7 +5,6 @@ import { registerSubscriptionExpiryJob } from "./queues/subscription-expiry.queu
 import { registerSubscriptionReminderJob } from "./queues/subscription-reminder.queue.js";
 import { registerUsageSyncJob } from "./queues/usage-sync-queue.js";
 import { registerNotificationDispatchJob } from "./queues/notification-dispatch.queues.js";
-import { provisioningQueue } from "./queues/provisioning.queue.js";
 
 import { createRouterSyncWorker } from "./workers/router-sync.worker.js";
 import { createPaymentExpiryWorker } from "./workers/payment-expiry.worker.js";
@@ -24,7 +23,6 @@ export async function startJobs() {
     await registerSubscriptionReminderJob();
     await registerUsageSyncJob();
     await registerNotificationDispatchJob();
-    await provisioningQueue();
 
     createRouterSyncWorker();
     createPaymentExpiryWorker();
