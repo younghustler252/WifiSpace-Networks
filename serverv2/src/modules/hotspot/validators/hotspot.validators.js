@@ -7,7 +7,8 @@ export const resolveSessionSchema = z.object({
 	macAddress: z.string().min(1),
 	routerId: z.string().optional(),
 	routerUid: z.string().optional(),
-	identity: z.string().optional()
+	identity: z.string().optional(),
+	ipAddress: z.string().optional(),
 });
 
 export const authenticateSchema = z.object({

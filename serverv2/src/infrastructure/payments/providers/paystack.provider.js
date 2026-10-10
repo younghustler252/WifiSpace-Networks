@@ -62,7 +62,7 @@ export class PaystackProvider extends PaymentGatewayInterface {
 
 	mapStatus(status) {
 		if (status === "success") return PAYMENT_STATUSES.SUCCESSFUL;
-		if (status === "failed" || status === "abandoned") return PAYMENT_STATUSES.FAILED;
+		if (status === "failed") return PAYMENT_STATUSES.FAILED;
 		return PAYMENT_STATUSES.PENDING;
 	}
 

@@ -9,7 +9,10 @@ export function createPaymentExpiryWorker() {
 		"payment-expiry",
 		async () => {
 			const expirePendingPayments = container.resolve("expirePendingPayments");
-			const result = await expirePendingPayments.execute({ olderThanMinutes: 30 });
+			const result = await expirePendingPayments.execute({
+				verifyAfterMinutes: 2,
+				expireAfterMinutes: 30,
+			});
 			console.log(`Checked ${result.checked}, reconciled ${result.reconciled}, expired ${result.expired} payment(s)`);
 		},
 		{ connection, concurrency: 1 }

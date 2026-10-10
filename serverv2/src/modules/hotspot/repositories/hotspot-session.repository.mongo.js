@@ -34,6 +34,10 @@ export class HotspotSessionRepositoryMongo extends BaseRepository {
 		return this.mapOne(doc);
 	}
 
+	async findByAccountAndRouter(accountId, routerId) {
+		return this.findOne({ filter: { accountId, routerId } });
+	}
+
 	async paginate(opts = {}) {
 		return super.paginate({ ...opts, populates: [ROUTER_POPULATE] });
 	}

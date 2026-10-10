@@ -5,15 +5,15 @@ export class ExpirePendingPayments {
 		this.processSuccessfulPayment = processSuccessfulPayment;
 	}
 
-	async execute({ olderThanMinutes = 30 } = {}) {
-		const cutoff = new Date(Date.now() - olderThanMinutes * 60 * 1000);
-		const stalePending = await this.paymentRepository.findExpiredPendingPayments(cutoff);
+	async execute({ verifyAfterMinutes = 2, expireAfterMinutes = 30 } = {}) {
+		const verifyCutoff = new Date(Date.now() - verifyAfterMinutes * 60 * 1000);
+		const expireCutoff = new Date(Date.now() - expireAfterMinutes * 60 * 1000);
+		const stale = await this.paymentRepository.findStalePayments(verifyCutoff);
 
 		let reconciled = 0;
-		let expired = 0;
-		const stillExpirable = [];
+		const toExpire = [];
 
-		for (const payment of stalePending) {
+		for (const payment of stale) {
 			try {
 				const provider = this.paymentGatewayRegistry.get(payment.gateway);
 				const result = await provider.verifyTransaction(payment.gatewayReference);
@@ -23,18 +23,15 @@ export class ExpirePendingPayments {
 					reconciled++;
 					continue;
 				}
-			} catch (err) {
-				console.error(`[ExpirePendingPayments] Gateway check failed for ${payment.gatewayReference}:`, err.message);
+			} catch (error) {
+				console.error(`[ExpirePendingPayments] Gateway check failed for ${payment.gatewayReference}:`, error.message);
 			}
 
-			stillExpirable.push(payment.id);
+			if (new Date(payment.createdAt) <= expireCutoff) toExpire.push(payment.id);
 		}
 
-		if (stillExpirable.length) {
-			await this.paymentRepository.expirePayments(stillExpirable);
-			expired = stillExpirable.length;
-		}
+		if (toExpire.length) await this.paymentRepository.expirePayments(toExpire);
 
-		return { checked: stalePending.length, reconciled, expired };
+		return { checked: stale.length, reconciled, expired: toExpire.length };
 	}
 }

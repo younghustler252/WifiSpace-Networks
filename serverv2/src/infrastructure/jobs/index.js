@@ -5,6 +5,7 @@ import { registerSubscriptionExpiryJob } from "./queues/subscription-expiry.queu
 import { registerSubscriptionReminderJob } from "./queues/subscription-reminder.queue.js";
 import { registerUsageSyncJob } from "./queues/usage-sync-queue.js";
 import { registerNotificationDispatchJob } from "./queues/notification-dispatch.queues.js";
+import { provisioningQueue } from "./queues/provisioning.queue.js";
 
 import { createRouterSyncWorker } from "./workers/router-sync.worker.js";
 import { createPaymentExpiryWorker } from "./workers/payment-expiry.worker.js";
@@ -13,6 +14,7 @@ import { createSubscriptionExpiryWorker } from "./workers/subscription-expiry.wo
 import { createSubscriptionReminderWorker } from "./workers/subscription.reminder.worker.js";
 import { createUsageSyncWorker } from "./workers/usage-sync.worker.js";
 import { createNotificationDispatchWorker } from "./workers/notification-dispatch.worker.js";
+import { createProvisioningWorker } from "./workers/provision.worker.js";
 
 export async function startJobs() {
     await registerRouterSyncJob();
@@ -22,6 +24,7 @@ export async function startJobs() {
     await registerSubscriptionReminderJob();
     await registerUsageSyncJob();
     await registerNotificationDispatchJob();
+    await provisioningQueue();
 
     createRouterSyncWorker();
     createPaymentExpiryWorker();
@@ -30,6 +33,7 @@ export async function startJobs() {
     createSubscriptionReminderWorker();
     createUsageSyncWorker();
     createNotificationDispatchWorker();
+    createProvisioningWorker();
 
     console.log("✅ Background jobs started");
 }
