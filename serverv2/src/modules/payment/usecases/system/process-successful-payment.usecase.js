@@ -44,16 +44,15 @@ export class ProcessSuccessfulPayment {
 		let subscription = await this.subscriptionRepository.findCurrentByAccountId(payment.accountId);
 
 		if (!subscription) {
-			subscription = await this.subscriptionRepository.create(new Subscription({
+			const fresh = new Subscription({
 				accountId: payment.accountId, userId: payment.userId, planId: payment.planId,
 				status: SUBSCRIPTION_STATUSES.PENDING, cycles: payment.cycles, totalAmount: payment.totalAmount,
 				planSnapshot: plan.toSnapshot()
-			}));
-		}
+			});
 
-		const alreadyApplied = subscription.lastPaymentId && String(subscription.lastPaymentId) === String(payment.id);
-
-		if (!alreadyApplied) {
+			this._applyToSubscription(fresh, payment, plan);
+			subscription = await this.subscriptionRepository.create(fresh);
+		} else if (!(subscription.lastPaymentId && String(subscription.lastPaymentId) === String(payment.id))) {
 			this._applyToSubscription(subscription, payment, plan);
 			subscription = await this.subscriptionRepository.update(subscription.id, subscription);
 		}
@@ -78,7 +77,6 @@ export class ProcessSuccessfulPayment {
 
 		return { alreadyProcessed: false, payment, subscription, provisioning };
 	}
-
 	_applyToSubscription(subscription, payment, plan) {
 		const paymentInfo = { paymentId: payment.id, paymentAmount: payment.totalAmount, paymentDate: payment.processedAt };
 

@@ -1,7 +1,13 @@
-import { UnauthorizedError } from "../../shared/errors/domain.errors.js";
-import { ERROR_CODES } from "../../shared/errors/domain.errors.js";
+import {
+	UnauthorizedError,
+	ERROR_CODES
+} from "../../shared/errors/domain.errors.js";
 
-export function authenticateFactory({ userRepository, tokenService, tokenBlacklistService }) {
+export function authenticateFactory({
+	userRepository,
+	tokenService,
+	tokenBlacklistService
+}) {
 	return async function authenticate(req, res, next) {
 		try {
 			const headerToken = req.headers.authorization?.startsWith("Bearer ")
@@ -11,25 +17,40 @@ export function authenticateFactory({ userRepository, tokenService, tokenBlackli
 			const token = headerToken || req.cookies?.accessToken;
 
 			if (!token) {
-				throw new UnauthorizedError("Missing token", ERROR_CODES.UNAUTHORIZED);
+				throw new UnauthorizedError(
+					"Missing token",
+					ERROR_CODES.UNAUTHORIZED
+				);
 			}
 
-			if (tokenBlacklistService && (await tokenBlacklistService.isRevoked(token))) {
-				throw new UnauthorizedError("Token has been revoked", ERROR_CODES.UNAUTHORIZED);
+			if (tokenBlacklistService) {
+				const isRevoked = await tokenBlacklistService.isRevoked(token);
+
+				if (isRevoked) {
+					throw new UnauthorizedError(
+						"Token has been revoked",
+						ERROR_CODES.UNAUTHORIZED
+					);
+				}
 			}
 
-			const payload = tokenService.verifyAccessToken(token); // throws TokenExpiredError/TokenInvalidError
+			const payload = tokenService.verifyAccessToken(token);
 
 			const user = await userRepository.findById(payload.sub);
+
 			if (!user) {
-				throw new UnauthorizedError("User no longer exists", ERROR_CODES.UNAUTHORIZED);
+				throw new UnauthorizedError(
+					"User no longer exists",
+					ERROR_CODES.UNAUTHORIZED
+				);
 			}
 
 			req.user = user;
 			req.token = token;
-			next();
+
+			return next();
 		} catch (err) {
-			next(err);
+			return next(err);
 		}
 	};
 }

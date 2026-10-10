@@ -27,7 +27,13 @@ const subscriptionSchema = new mongoose.Schema(
 		totalAmount: { type: Number, required: true },
 
 		startsAt: Date,
-		expiresAt: { type: Date, required: true },
+		expiresAt: {
+			type: Date,
+			default: null,
+			required: function () {
+				return this.status === "active";
+			}
+		},
 		graceEndsAt: Date,
 		activatedAt: Date,
 		expiredAt: Date,

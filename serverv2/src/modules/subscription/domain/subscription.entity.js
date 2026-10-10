@@ -221,7 +221,9 @@ export class Subscription {
 			carriedOverMs: remainingMs
 		});
 	}
-
+	recordEvent(type, metadata = {}) {
+		this._recordEvent(type, metadata);
+	}
 	extend(days, reason = null) {
 		const now = new Date();
 		const previousExpiresAt = this.expiresAt;

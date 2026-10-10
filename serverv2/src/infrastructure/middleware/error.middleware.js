@@ -1,5 +1,6 @@
 // infrastructure/middleware/error.middleware.js
 import multer from "multer";
+import { ConflictError } from "../../shared/errors/domain.errors.js";
 import { AppError, ValidationError, ERROR_CODES } from "../../shared/errors/domain.errors.js";
 
 const FALLBACK_MESSAGES = {
@@ -30,6 +31,8 @@ export const errorMiddleware = (err, req, res, next) => {
 	} else if (!(err instanceof AppError)) {
 		const expose = process.env.NODE_ENV === "development" && err?.message;
 		error = new AppError(expose ? err.message : FALLBACK_MESSAGES[500], 500, ERROR_CODES.INTERNAL_ERROR);
+	} else if (err?.code === 11000) {
+		error = new ConflictError("This record already exists or was just created by another request", "DUPLICATE_RECORD");
 	}
 
 	const payload = {
