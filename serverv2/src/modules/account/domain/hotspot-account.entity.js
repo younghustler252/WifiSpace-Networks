@@ -32,4 +32,11 @@ export class HotspotAccount extends Account {
 	removeDevice(macAddress) {
 		this.devices = this.devices.filter((d) => d.macAddress !== macAddress.toUpperCase());
 	}
+
+	toJSON() {
+		const obj = super.toJSON();
+		delete obj.routerPassword;
+		delete obj.routerPasswordEncrypted;
+		return obj;
+	}
 }

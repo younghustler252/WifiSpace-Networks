@@ -44,7 +44,8 @@ export class AccountMapper {
 		if (raw.serviceType === SERVICE_TYPES.HOTSPOT) {
 			return new HotspotAccount({
 				...base,
-				maxDevices: raw.maxDevices
+				maxDevices: raw.maxDevices,
+				routerPassword: raw.routerPassword ?? null
 			});
 		}
 
@@ -76,10 +77,12 @@ export class AccountMapper {
 			data.macAddress = account.macAddress;
 			data.staticIp = account.staticIp;
 			data.requestedLocation = account.requestedLocation;
+			data.routerPassword = account.routerPassword;
 		}
 
 		if (account.serviceType === SERVICE_TYPES.HOTSPOT) {
 			data.maxDevices = account.maxDevices;
+			data.routerPassword = account.routerPassword;
 		}
 
 		return Object.fromEntries(

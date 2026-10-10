@@ -5,6 +5,7 @@ import { SERVICE_TYPES } from "../domain/account.enum.js";
 
 const hotspotAccountSchema = new mongoose.Schema({
 	maxDevices: { type: Number, default: 1 },
+	routerPasswordEncrypted: { type: String, default: null, select: false },
 	devices: [{
 		macAddress: { type: String, uppercase: true, trim: true },
 		hostname: String,

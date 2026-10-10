@@ -127,15 +127,36 @@ export class AccountRepositoryMongo extends BaseRepository {
 	}
 
 	async findRouterCredentials(id) {
-		const doc = await PppoeAccountModel.findById(id).select("+routerPasswordEncrypted").lean();
-		if (!doc) return null;
+		const base = await this.model.findById(id).select("serviceType").lean();
+		if (!base) return null;
+
+		const doc = await this._modelFor(base.serviceType).findById(id).select("+routerPasswordEncrypted").lean();
+		if (!doc?.routerPasswordEncrypted) return null;
 
 		return {
 			id: doc._id.toString(),
-			routerId: doc.routerId?.toString(),
-			routerProfile: doc.routerProfile,
+			routerId: doc.routerId?.toString() ?? null,
+			routerProfile: doc.routerProfile ?? null,
 			routerPassword: this.credentialCipherService.decrypt(doc.routerPasswordEncrypted)
 		};
+	}
+
+	async ensureRouterCredentials(id) {
+		const existing = await this.findRouterCredentials(id);
+		if (existing) return existing;
+
+		const base = await this.model.findById(id).select("serviceType").lean();
+		if (!base) return null;
+
+		const generated = crypto.randomBytes(9).toString("base64url");
+
+		// Only writes if still empty, so two concurrent jobs can't overwrite each other's password.
+		await this._modelFor(base.serviceType).updateOne(
+			{ _id: id, $or: [{ routerPasswordEncrypted: null }, { routerPasswordEncrypted: { $exists: false } }] },
+			{ $set: { routerPasswordEncrypted: this.credentialCipherService.encrypt(generated) } }
+		);
+
+		return this.findRouterCredentials(id);
 	}
 
 	async generateWsnId(prefix = "WSN") {
