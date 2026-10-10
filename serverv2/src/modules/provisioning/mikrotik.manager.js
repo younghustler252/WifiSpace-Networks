@@ -8,61 +8,181 @@ export class MikrotikManager {
 	}
 
 	async provision(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata);
+    const { account, router } = await this.loadContext(subscription, metadata);
 
-		const planSnapshot = subscription.planSnapshot || {};
-		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
-			account.routerProfile = planSnapshot.mikrotikProfile;
-			await this.accountRepository.update(account.id, account);
-		}
+    const planSnapshot = subscription.planSnapshot || {};
 
-		const service = this.getService(account);
-		const exists = await service.userExists(router, account.wsnId);
+    if (
+        planSnapshot.mikrotikProfile &&
+        account.routerProfile !== planSnapshot.mikrotikProfile
+    ) {
+        account.routerProfile = planSnapshot.mikrotikProfile;
+        await this.accountRepository.update(account.id, account);
+    }
 
-		if (!exists) {
-			await service.createUser(router, account);
-			await this._waitForUser(service, router, account.wsnId);
-		} else {
-			await service.updateUser(router, account);
-			await service.resumeUser(router, account.wsnId);
-		}
+    const service = this.getService(account);
 
-		if (account.accessMethod === "ipoe" && account.macAddress) {
-			await service.setUserMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
+    // STEP 1: Check whether the hotspot/PPPoE user exists
+    console.log("[provisioning] Checking user", {
+        username: account.wsnId,
+        routerId: router.id,
+        serviceType: account.serviceType,
+    });
 
-			await service.bindMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
+    let exists;
 
-			return { autoConnected: true, method: "mac_bypass" };
-		}
+    try {
+        exists = await service.userExists(router, account.wsnId);
 
-		if (account.serviceType === "hotspot") {
-			await this.routerProvisioningRepository.markSynced({
-				accountId: account.id,
-				subscriptionId: subscription.id,
-				routerId: router.id
-			});
+        console.log("[provisioning] User existence check completed", {
+            username: account.wsnId,
+            exists,
+        });
+    } catch (error) {
+        console.error("[provisioning] User existence check failed", {
+            username: account.wsnId,
+            error: error.message,
+        });
+        throw error;
+    }
 
-			if (!metadata.ipAddress) {
-				return { autoConnected: false, method: "login_pending" };
-			}
+    // STEP 2: Create or update the user
+    try {
+        if (!exists) {
+            console.log("[provisioning] Creating user", {
+                username: account.wsnId,
+            });
 
-			const loginResult = await service.login(router, {
-				username: account.wsnId,
-				password: account.routerPassword,
-				ipAddress: metadata.ipAddress
-			});
+            await service.createUser(router, account);
 
-			return { autoConnected: true, method: "login", data: loginResult };
-		}
+            console.log("[provisioning] User creation command completed", {
+                username: account.wsnId,
+            });
 
-		return { autoConnected: true, method: "ppp_secret" };
-	}
+            const confirmed = await this._waitForUser(
+                service,
+                router,
+                account.wsnId
+            );
+
+            if (!confirmed) {
+                throw new Error(
+                    `User was not found after creation: ${account.wsnId}`
+                );
+            }
+        } else {
+            console.log("[provisioning] Updating existing user", {
+                username: account.wsnId,
+            });
+
+            await service.updateUser(router, account);
+
+            console.log("[provisioning] Resuming existing user", {
+                username: account.wsnId,
+            });
+
+            await service.resumeUser(router, account.wsnId);
+        }
+    } catch (error) {
+        console.error("[provisioning] Create/update/resume failed", {
+            username: account.wsnId,
+            error: error.message,
+        });
+        throw error;
+    }
+
+    // STEP 3: Handle IPoE/MAC-based access
+    if (account.accessMethod === "ipoe" && account.macAddress) {
+        console.log("[provisioning] Configuring IPoE MAC access", {
+            username: account.wsnId,
+            macAddress: account.macAddress,
+        });
+
+        await service.setUserMac(router, {
+            username: account.wsnId,
+            macAddress: account.macAddress,
+        });
+
+        await service.bindMac(router, {
+            username: account.wsnId,
+            macAddress: account.macAddress,
+        });
+
+        return {
+            autoConnected: true,
+            method: "mac_bypass",
+        };
+    }
+
+    // STEP 4: Handle hotspot login
+    if (account.serviceType === "hotspot") {
+        if (!metadata.ipAddress) {
+            console.log("[provisioning] No IP address; login skipped", {
+                username: account.wsnId,
+                routerId: router.id,
+            });
+
+            await this.routerProvisioningRepository.markSynced({
+                accountId: account.id,
+                subscriptionId: subscription.id,
+                routerId: router.id,
+            });
+
+            return {
+                autoConnected: false,
+                method: "login_pending",
+            };
+        }
+
+        console.log("[provisioning] Attempting hotspot login", {
+            username: account.wsnId,
+            routerId: router.id,
+            ipAddress: metadata.ipAddress,
+            hasPassword: Boolean(account.routerPassword),
+        });
+
+        try {
+            const loginResult = await service.login(router, {
+                username: account.wsnId,
+                password: account.routerPassword,
+                ipAddress: metadata.ipAddress,
+            });
+
+            console.log("[provisioning] Hotspot login succeeded", {
+                username: account.wsnId,
+                routerId: router.id,
+            });
+
+            await this.routerProvisioningRepository.markSynced({
+                accountId: account.id,
+                subscriptionId: subscription.id,
+                routerId: router.id,
+            });
+
+            return {
+                autoConnected: true,
+                method: "login",
+                data: loginResult,
+            };
+        } catch (error) {
+            console.error("[provisioning] Hotspot login failed", {
+                username: account.wsnId,
+                routerId: router.id,
+                ipAddress: metadata.ipAddress,
+                hasPassword: Boolean(account.routerPassword),
+                error: error.message,
+            });
+
+            throw error;
+        }
+    }
+
+    // STEP 5: Non-hotspot service
+    return {
+        autoConnected: true,
+        method: "ppp_secret",
+    };
+}
 
 
 	async suspend(subscription, metadata = {}) {
