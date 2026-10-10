@@ -228,24 +228,90 @@ export class MikrotikManager {
 	}
 
 	async loadContext(subscription, metadata = {}) {
-		const account = await this.accountRepository.findById(subscription.accountId);
-		if (!account) throw new Error("Account not found");
+    const account = await this.accountRepository.findById(
+        subscription.accountId
+    );
 
-		const routerId = metadata.routerId || account.routerId;
-		if (!routerId) {
-			throw new Error(account.serviceType === "hotspot" ? "Router ID is required for hotspot provisioning" : "Account has no router assigned");
-		}
+    if (!account) {
+        throw new Error("Account not found");
+    }
 
-		const router = await this.routerRepository.findById(routerId);
-		if (!router) throw new Error("Router not found");
+    const routerId = metadata.routerId || account.routerId;
 
-		if (!account.routerPassword) {
-			const credentials = await this.accountRepository.findRouterCredentials(account.id);
-			account.routerPassword = credentials?.routerPassword ?? null;
-		}
+    if (!routerId) {
+        throw new Error(
+            account.serviceType === "hotspot"
+                ? "Router ID is required for hotspot provisioning"
+                : "Account has no router assigned"
+        );
+    }
 
-		return { account, router };
-	}
+    const router = await this.routerRepository.findById(routerId);
+
+    if (!router) {
+        throw new Error("Router not found");
+    }
+
+    console.log("[DEBUG] Account credentials loaded", {
+        accountId: account.id,
+        username: account.wsnId,
+        hasPasswordOnAccount: Boolean(account.routerPassword),
+        passwordType: typeof account.routerPassword,
+        passwordLength:
+            typeof account.routerPassword === "string"
+                ? account.routerPassword.length
+                : null,
+        routerId: router.id,
+    });
+
+	console.log("account password", account.routerPassword)
+
+    if (!account.routerPassword) {
+        console.log("[DEBUG] Looking up stored account credentials", {
+            accountId: account.id,
+        });
+
+        const credentials =
+            await this.accountRepository.findRouterCredentials(account.id);
+
+        console.log("[DEBUG] Credential lookup result", {
+            accountId: account.id,
+            credentialsFound: Boolean(credentials),
+            passwordFieldExists:
+                credentials?.routerPassword !== undefined,
+            passwordIsNull:
+                credentials?.routerPassword === null,
+            passwordType: typeof credentials?.routerPassword,
+            passwordLength:
+                typeof credentials?.routerPassword === "string"
+                    ? credentials.routerPassword.length
+                    : null,
+        });
+
+        account.routerPassword = credentials?.routerPassword ?? null;
+    }
+
+    console.log("[DEBUG] Final hotspot credentials", {
+        accountId: account.id,
+        username: account.wsnId,
+        passwordPresent: Boolean(account.routerPassword),
+        passwordLength:
+            typeof account.routerPassword === "string"
+                ? account.routerPassword.length
+                : null,
+    });
+
+    if (
+        account.serviceType === "hotspot" &&
+        !account.routerPassword
+    ) {
+        throw new Error(
+            `Missing hotspot password for account ${account.id}`
+        );
+    }
+
+    return { account, router };
+}
 
 	async resume(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
