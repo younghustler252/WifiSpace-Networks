@@ -1,11 +1,20 @@
 import { Account } from "./account.entity.js";
-import { SERVICE_TYPES } from "./account.enum.js";
+import { ACCOUNT_TYPES, SERVICE_TYPES } from "./account.enum.js";
 import { ValidationError } from "../../../shared/errors/domain.errors.js";
 
 export class HotspotAccount extends Account {
-	constructor({ maxDevices = 1, devices = [], ...rest }) {
-		super({ ...rest, serviceType: SERVICE_TYPES.HOTSPOT, devices });
+	constructor({ maxDevices = 1, devices = [], routerPassword = null, ...rest }) {
+		super({
+			...rest,
+			serviceType: SERVICE_TYPES.HOTSPOT,
+			accountType: ACCOUNT_TYPES.PERSONAL,
+			businessName: null,
+			companyRegistrationNumber: null,
+			taxId: null
+		});
 		this.maxDevices = maxDevices;
+		this.devices = devices;
+		this.routerPassword = routerPassword;
 	}
 
 	canAddDevice() {
