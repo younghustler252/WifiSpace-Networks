@@ -1,45 +1,39 @@
 import mongoose from "mongoose";
 import "../config/env.js";
 
-const WSN_IDS = ["HS0035"]; // Add the new account's WSN ID here.
-
 await mongoose.connect(process.env.MONGO_URI);
 
 try {
-  for (const wsnId of WSN_IDS) {
-    const doc = await mongoose.connection.db
-      .collection("accounts")
-      .findOne(
-        { wsnId },
-        {
-          projection: {
-            wsnId: 1,
-            serviceType: 1,
-            routerPassword: 1,
-            routerPasswordEncrypted: 1,
-          },
-        }
-      );
+  const db = mongoose.connection.db;
 
-    if (!doc) {
-      console.log({ wsnId, found: false });
-      continue;
+  const account = await db.collection("accounts").findOne(
+    { _id: new mongoose.Types.ObjectId("6acbba17be3eaae283e855d2") },
+    {
+      projection: {
+        username: 1,
+        serviceType: 1,
+        routerId: 1,
+        password: 1,
+        passwordEncrypted: 1,
+        credentials: 1,
+      },
     }
+  );
 
-    const value = doc.routerPassword;
-
+  if (!account) {
+    console.log("Account not found");
+  } else {
     console.log({
-      wsnId: doc.wsnId,
-      serviceType: doc.serviceType,
-      routerPasswordFieldExists:
-        Object.hasOwn(doc, "routerPassword"),
-      routerPasswordType: typeof value,
-      routerPasswordIsNull: value === null,
-      routerPasswordLength:
-        typeof value === "string" ? value.length : null,
-      encryptedFieldExists:
-        Object.hasOwn(doc, "routerPasswordEncrypted"),
-      encryptedFieldType: typeof doc.routerPasswordEncrypted,
+      username: account.username,
+      serviceType: account.serviceType,
+      routerId: account.routerId?.toString?.() ?? account.routerId,
+      fields: Object.keys(account),
+      passwordExists: Object.hasOwn(account, "password"),
+      passwordEncryptedExists: Object.hasOwn(
+        account,
+        "passwordEncrypted"
+      ),
+      credentialsExists: Object.hasOwn(account, "credentials"),
     });
   }
 } finally {

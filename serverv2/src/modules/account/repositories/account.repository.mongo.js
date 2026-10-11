@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { BaseRepository } from "../../../infrastructure/repositories/base.repository.js";
 import AccountModel from "../database/account.model.js";
 import { PppoeAccountModel } from "../database/pppoe-account.model.js";
@@ -148,15 +149,20 @@ export class AccountRepositoryMongo extends BaseRepository {
 		const base = await this.model.findById(id).select("serviceType").lean();
 		if (!base) return null;
 
+		const model = this._modelFor(base.serviceType);
 		const generated = crypto.randomBytes(9).toString("base64url");
 
-		// Only writes if still empty, so two concurrent jobs can't overwrite each other's password.
-		await this._modelFor(base.serviceType).updateOne(
-			{ _id: id, $or: [{ routerPasswordEncrypted: null }, { routerPasswordEncrypted: { $exists: false } }] },
+		await model.updateOne(
+			{ _id: id, routerPasswordEncrypted: null },
 			{ $set: { routerPasswordEncrypted: this.credentialCipherService.encrypt(generated) } }
 		);
 
-		return this.findRouterCredentials(id);
+		const stored = await this.findRouterCredentials(id);
+		if (!stored) {
+			throw new Error(`Router credentials could not be saved for ${base.serviceType} account ${id}. Check that the ${base.serviceType} account model declares routerPasswordEncrypted`);
+		}
+
+		return stored;
 	}
 
 	async generateWsnId(prefix = "WSN") {

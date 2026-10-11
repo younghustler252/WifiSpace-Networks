@@ -8,7 +8,7 @@ export class MikrotikManager {
 	}
 
 	async provision(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata);
+		const { account, router } = await this.loadContext(subscription, metadata, { withPassword: true });
 
 		const planSnapshot = subscription.planSnapshot || {};
 		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
@@ -32,16 +32,11 @@ export class MikrotikManager {
 			await service.resumeUser(router, account.wsnId);
 		}
 
-		if (account.accessMethod === "ipoe" && account.macAddress) {
-			await service.setUserMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
+		if (account.accessMethod === "ipoe") {
+			if (!account.macAddress) throw new Error(`IPoE account ${account.id} has no MAC address`);
 
-			await service.bindMac(router, {
-				username: account.wsnId,
-				macAddress: account.macAddress
-			});
+			await service.setUserMac(router, { username: account.wsnId, macAddress: account.macAddress });
+			await service.bindMac(router, { username: account.wsnId, macAddress: account.macAddress });
 
 			return { autoConnected: true, method: "mac_bypass" };
 		}
@@ -73,19 +68,23 @@ export class MikrotikManager {
 		const { account, router } = await this.loadContext(subscription, metadata);
 		const service = this.getService(account);
 
+		if (!(await service.userExists(router, account.wsnId))) {
+			return { success: true, skipped: "user_not_on_router" };
+		}
+
 		await service.suspendUser(router, account.wsnId);
 		await service.disconnectUser(router, account.wsnId);
 
 		return { success: true };
 	}
 
-	async disconnect(subscription) {
-		const { account, router } = await this.loadContext(subscription);
+	async disconnect(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
 		return this.getService(account).disconnectUser(router, account.wsnId);
 	}
 
-	async remove(subscription) {
-		const { account, router } = await this.loadContext(subscription);
+	async remove(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
 		const service = this.getService(account);
 
 		if (!service.removeUser) {
@@ -95,8 +94,8 @@ export class MikrotikManager {
 		return service.removeUser(router, account.wsnId);
 	}
 
-	async changePassword(subscription, password) {
-		const { account, router } = await this.loadContext(subscription);
+	async changePassword(subscription, password, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
 		return this.getService(account).changePassword(router, account.wsnId, password);
 	}
 
@@ -112,7 +111,7 @@ export class MikrotikManager {
 		return this.resolveService(serviceType).getActiveSessions(router);
 	}
 
-	async loadContext(subscription, metadata = {}) {
+	async loadContext(subscription, metadata = {}, { withPassword = false } = {}) {
 		const account = await this.accountRepository.findById(subscription.accountId);
 		if (!account) throw new Error("Account not found");
 
@@ -124,20 +123,17 @@ export class MikrotikManager {
 		const router = await this.routerRepository.findById(routerId);
 		if (!router) throw new Error("Router not found");
 
-		if (!account.routerPassword) {
+		if (withPassword && !account.routerPassword) {
 			const credentials = await this.accountRepository.ensureRouterCredentials(account.id);
 			account.routerPassword = credentials?.routerPassword ?? null;
-		}
-
-		if (!account.routerPassword) {
-			throw new Error(`Missing hotspot password for account ${account.id}`);
+			if (!account.routerPassword) throw new Error(`Missing router password for account ${account.id}`);
 		}
 
 		return { account, router };
 	}
 
 	async resume(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata);
+		const { account, router } = await this.loadContext(subscription, metadata, { withPassword: Boolean(metadata.ipAddress) });
 		const service = this.getService(account);
 
 		await service.resumeUser(router, account.wsnId);
