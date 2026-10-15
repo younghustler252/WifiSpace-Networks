@@ -1,0 +1,2 @@
+router,wsnId,matchType,status,reason,detail,drift,macAddress,profile,accountWsnId,accountId,suggestedPlans
+"RT-293238","","","router_failed","SOCKTMOUT","","","","","","",""

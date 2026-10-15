@@ -9,7 +9,8 @@
     "start:worker": "node src/worker.js",
     "dev": "nodemon",
     "dev:worker": "nodemon --exec \"node src/worker.js\"",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "sync:ipoe": "node src/scripts/sync-ipoe-from-routers.js"
   },
   "imports": {
     "#/*": "./src/*"

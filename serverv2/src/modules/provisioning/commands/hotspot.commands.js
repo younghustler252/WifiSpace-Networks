@@ -1,6 +1,14 @@
 import { formatUptime } from "../../../shared/utils/formatUptime.js";
 
 export class HotspotCommands {
+	static getAllUsers() {
+		return { command: "/ip/hotspot/user/print", params: [] };
+	}
+
+	static getAllHosts() {
+		return { command: "/ip/hotspot/host/print", params: [] };
+	}
+
 	static createUser({
 		username,
 		password,
@@ -111,6 +119,11 @@ export class HotspotCommands {
 			command: "/ip/hotspot/active/print",
 			params
 		};
+	}
+
+	// HotspotCommands
+	static getActiveSessionsByMac(macAddress) {
+		return { command: "/ip/hotspot/active/print", params: [`?mac-address=${macAddress}`] };
 	}
 
 	static disconnectSession(id) {

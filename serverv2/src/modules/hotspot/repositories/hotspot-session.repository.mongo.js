@@ -17,6 +17,9 @@ export class HotspotSessionRepositoryMongo extends BaseRepository {
 	async findByMac(macAddress) {
 		return this.findOne({ filter: { macAddress: macAddress.toUpperCase().trim() } });
 	}
+	async revokeByMac(macAddress) {
+		await this.model.updateOne({ macAddress: macAddress.toUpperCase().trim() }, { $set: { status: "revoked", trustedDevice: false } });
+	}
 
 	async update(id, entityOrData) {
 		const persistence = HotspotSessionMapper.toPersistence(entityOrData);

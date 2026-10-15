@@ -178,6 +178,22 @@ export class AccountRepositoryMongo extends BaseRepository {
 		return this.count(NOT_DELETED);
 	}
 
+	// account/repositories/account.repository.mongo.js (add)
+	async findAllByServiceType(serviceType) {
+		const docs = await this.model.find({ serviceType, ...NOT_DELETED }).lean();
+		const accounts = [];
+
+		for (const doc of docs) {
+			try {
+				accounts.push(this.mapOne(doc));
+			} catch (error) {
+				console.error(`[AccountRepository] Skipping unreadable account ${doc._id}:`, error.message);
+			}
+		}
+
+		return accounts;
+	}
+
 	async getDashboardStats() {
 		const [stats] = await this.model.aggregate([
 			{ $match: NOT_DELETED },

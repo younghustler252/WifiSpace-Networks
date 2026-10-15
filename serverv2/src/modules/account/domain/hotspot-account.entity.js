@@ -17,6 +17,31 @@ export class HotspotAccount extends Account {
 		this.routerPassword = routerPassword;
 	}
 
+	registerDevice({ macAddress, hostname = null, limit = this.maxDevices }) {
+		if (!macAddress) throw new ValidationError("MAC address is required");
+
+		const mac = macAddress.toUpperCase();
+		const known = this.devices.find((d) => d.macAddress === mac);
+
+		if (known) {
+			known.lastSeenAt = new Date();
+			if (hostname) known.hostname = hostname;
+			return { evicted: [] };
+		}
+
+		const evicted = [];
+		const oldestFirst = [...this.devices].sort((a, b) => new Date(a.lastSeenAt) - new Date(b.lastSeenAt));
+
+		while (this.devices.length >= limit && oldestFirst.length) {
+			const oldest = oldestFirst.shift();
+			this.devices = this.devices.filter((d) => d.macAddress !== oldest.macAddress);
+			evicted.push(oldest);
+		}
+
+		this.devices.push({ macAddress: mac, hostname, lastSeenAt: new Date() });
+		return { evicted };
+	}
+
 	canAddDevice() {
 		return this.devices.length < this.maxDevices;
 	}

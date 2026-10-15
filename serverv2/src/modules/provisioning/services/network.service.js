@@ -15,6 +15,7 @@ export class NetworkService {
 	suspend(subscription, metadata = {}) { return this._route("suspend", subscription, metadata); }
 	resume(subscription, metadata = {}) { return this._route("resume", subscription, metadata); }
 	disconnect(subscription, metadata = {}) { return this._route("disconnect", subscription, metadata); }
+	disconnectDevice(subscription, metadata = {}) { return this._route("disconnectDevice", subscription, metadata); }
 	remove(subscription, metadata = {}) { return this._route("remove", subscription, metadata); }
 	retryProvision(subscription, metadata = {}) { return this.activate(subscription, metadata); }
 
@@ -36,12 +37,16 @@ export class NetworkService {
 
 	async _enqueue(action, subscription, metadata) {
 		try {
-			await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "pending", mikrotikError: null });
+			if (["activate", "resume"].includes(action)) {
+				await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "pending", mikrotikError: null });
+			}
 			const job = await provisioningQueue.add(action, { action, subscriptionId: subscription.id, metadata }, JOB_OPTIONS);
 			return { success: true, queued: true, provisioning: { status: "pending", jobId: job.id } };
 		} catch (error) {
 			const message = error.message || "Could not queue provisioning";
-			await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "failed", mikrotikError: message }).catch(() => {});
+			if (["activate", "resume"].includes(action)) {
+				await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "failed", mikrotikError: message }).catch(() => {});
+			}
 			return { success: false, queued: false, error: message, provisioning: { status: "failed", error: message } };
 		}
 	}

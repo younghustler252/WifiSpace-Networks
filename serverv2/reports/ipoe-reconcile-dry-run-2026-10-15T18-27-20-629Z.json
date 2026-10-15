@@ -1,0 +1,24 @@
+{
+  "summary": {
+    "mode": "dry-run",
+    "routerUsersSeen": 0,
+    "routersFailed": 1,
+    "linked": 0,
+    "wouldLink": 0,
+    "alreadyLinked": 0,
+    "unmatchedOnRouter": 0,
+    "ignoredHotspotUsers": 0,
+    "failed": 0,
+    "skipped": {},
+    "drift": {}
+  },
+  "complete": false,
+  "rows": [
+    {
+      "router": "RT-293238",
+      "status": "router_failed",
+      "reason": "SOCKTMOUT"
+    }
+  ],
+  "notFound": null
+}

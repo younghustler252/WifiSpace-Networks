@@ -5,6 +5,16 @@ export class HotspotService {
 		this.mikrotikClient = mikrotikClient;
 	}
 
+	// HotspotService additions
+async getAllUsers(router) {
+	const request = HotspotCommands.getAllUsers();
+	return this.mikrotikClient.execute(router, request.command, request.params);
+}
+
+async getAllHosts(router) {
+	const request = HotspotCommands.getAllHosts();
+	return this.mikrotikClient.execute(router, request.command, request.params);
+}
 	async createUser(router, account) {
 		const request = HotspotCommands.createUser({
 			username: account.wsnId,
@@ -131,35 +141,29 @@ export class HotspotService {
 		);
 	}
 
-	async disconnectUser(router, username) {
-		const session =
-			await this.getActiveSession(
-				router,
-				username
-			);
+	// HotspotService
+	async disconnectMac(router, macAddress) {
+		const request = HotspotCommands.getActiveSessionsByMac(macAddress);
+		const sessions = await this.mikrotikClient.execute(router, request.command, request.params);
 
-		if (!session) {
-			return {
-				success: true,
-				disconnected: false
-			};
+		for (const session of sessions ?? []) {
+			const removal = HotspotCommands.disconnectSession(session[".id"]);
+			await this.mikrotikClient.execute(router, removal.command, removal.params);
 		}
 
-		const request =
-			HotspotCommands.disconnectSession(
-				session[".id"]
-			);
+		return { success: true, disconnected: sessions?.length ?? 0 };
+	}
 
-		await this.mikrotikClient.execute(
-			router,
-			request.command,
-			request.params
-		);
+	async disconnectUser(router, username) {
+		const request = HotspotCommands.getActiveSessions(username);
+		const sessions = await this.mikrotikClient.execute(router, request.command, request.params);
 
-		return {
-			success: true,
-			disconnected: true
-		};
+		for (const session of sessions ?? []) {
+			const removal = HotspotCommands.disconnectSession(session[".id"]);
+			await this.mikrotikClient.execute(router, removal.command, removal.params);
+		}
+
+		return { success: true, disconnected: Boolean(sessions?.length) };
 	}
 
 	async bindMac(

@@ -3,7 +3,8 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
 export class RouterController {
 	constructor({
 		createRouter, updateRouter, deleteRouter, getAllRouters, getRouterById,
-		syncRouterInfo, syncAllRouters, rebootRouter, getRouterProfiles
+		syncRouterInfo, syncAllRouters, rebootRouter, getRouterProfiles,
+		listRouterHotspotUsers
 	}) {
 		this.createRouterUseCase = createRouter;
 		this.updateRouterUseCase = updateRouter;
@@ -14,6 +15,7 @@ export class RouterController {
 		this.syncAllRoutersUseCase = syncAllRouters;
 		this.rebootRouterUseCase = rebootRouter;
 		this.getRouterProfilesUseCase = getRouterProfiles;
+		this.listRouterHotspotUsersUseCase = listRouterHotspotUsers;
 	}
 
 	createRouter = async (req, res) => {
@@ -59,5 +61,17 @@ export class RouterController {
 	getRouterProfiles = async (req, res) => {
 		const profiles = await this.getRouterProfilesUseCase.execute({ routerId: req.params.id, serviceType: req.query.serviceType });
 		return successResponse({ res, data: profiles, message: "Router profiles fetched successfully" });
+	};
+
+	listRouterHotspotUsers = async (req, res) => {
+		const users = await this.listRouterHotspotUsersUseCase.execute({
+			routerId: req.params.id
+		});
+
+		return successResponse({
+			res,
+			data: users,
+			message: "Router hotspot users fetched successfully"
+		});
 	};
 }

@@ -42,6 +42,10 @@ export class MikrotikManager {
 		}
 
 		if (account.serviceType === "hotspot") {
+			for (const mac of metadata.evictMacs ?? []) {
+				await service.disconnectMac(router, mac);
+			}
+
 			await this.routerProvisioningRepository.markSynced({
 				accountId: account.id,
 				subscriptionId: subscription.id,
@@ -63,7 +67,7 @@ export class MikrotikManager {
 
 		return { autoConnected: true, method: "ppp_secret" };
 	}
-
+	
 	async suspend(subscription, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
 		const service = this.getService(account);
@@ -149,6 +153,11 @@ export class MikrotikManager {
 		}
 
 		return { autoConnected: false, method: "resume_user" };
+	}
+
+	async disconnectDevice(subscription, metadata = {}) {
+		const { router } = await this.loadContext(subscription, metadata);
+		return this.hotspotService.disconnectMac(router, metadata.macAddress);
 	}
 
 	resolveService(type) {

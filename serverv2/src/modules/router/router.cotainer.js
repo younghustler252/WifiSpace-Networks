@@ -12,6 +12,9 @@ import { SyncAllRouters } from "./usecases/admin/sync-all-routers.usecase.js";
 import { RebootRouter } from "./usecases/admin/reboot-router.usecase.js";
 import { GetRouterProfiles } from "./usecases/admin/get-router-profiles.usecase.js";
 
+import { LinkIpoeAccount } from "../account/usecases/admin/link-ipoe-account.usecase.js";
+import { ListRouterHotspotUsers } from "./usecases/admin/list-router-hotspot-users.usecase.js";
+
 import { RouterController } from "./controllers/router.controller.js";
 
 export function registerRouter(container) {
@@ -27,6 +30,9 @@ export function registerRouter(container) {
 		syncAllRouters: asClass(SyncAllRouters).scoped(),
 		rebootRouter: asClass(RebootRouter).scoped(),
 		getRouterProfiles: asClass(GetRouterProfiles).scoped(),
+
+		listRouterHotspotUsers: asClass(ListRouterHotspotUsers).scoped(),
+		linkIpoeAccount: asClass(LinkIpoeAccount).scoped(),
 
 		routerController: asClass(RouterController).scoped()
 	});

@@ -21,6 +21,16 @@ export class NetworkExecutor {
 		return this._execute(subscription, () => this.mikrotikManager.disconnect(subscription, metadata));
 	}
 
+	// NetworkExecutor
+	async disconnectDevice(subscription, metadata = {}) {
+		try {
+			const result = await this.mikrotikManager.disconnectDevice(subscription, metadata);
+			return { success: true, result };
+		} catch (error) {
+			return { success: false, error: error.message || "Unknown provisioning error" };
+		}
+	}
+
 	async remove(subscription, metadata = {}) {
 		try {
 			const result = await this.mikrotikManager.remove(subscription, metadata);
