@@ -10,7 +10,7 @@ export class VerifyOtp {
 	}
 
 	async execute({ email, otp, ip = null }) {
-		const user = await this.userRepository.findByEmail(email);
+		const user = await this.userRepository.findAuthByEmail(email);
 
 		if (!user) throw new NotFoundError("User not found", ERROR_CODES.USER_NOT_FOUND);
 		if (user.isVerified) throw new ValidationError("User already verified", ERROR_CODES.USER_ALREADY_VERIFIED);
