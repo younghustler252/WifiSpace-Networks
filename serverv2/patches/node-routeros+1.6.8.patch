@@ -1,19 +1,13 @@
 diff --git a/node_modules/node-routeros/dist/Channel.js b/node_modules/node-routeros/dist/Channel.js
-index ef56575..aade548 100644
+index ef56575..708feaf 100644
 --- a/node_modules/node-routeros/dist/Channel.js
 +++ b/node_modules/node-routeros/dist/Channel.js
-@@ -103,43 +103,53 @@ class Channel extends events_1.EventEmitter {
-      * figure out the answer to give to the
-      * channel listener, either if it's just
-      * the data we were expecting or if
--     * a trap was given.
--     *
--     * @param {Array} packet
--     */
+@@ -107,27 +107,42 @@ class Channel extends events_1.EventEmitter {
+      *
+      * @param {Array} packet
+      */
 -    processPacket(packet) {
-+     * a trap was given.**/
-+
-+processPacket(packet) {
++   processPacket(packet) {
          const reply = packet.shift();
 +
          info('Processing reply %s with data %o', reply, packet);
@@ -37,12 +31,12 @@ index ef56575..aade548 100644
 +                if (this.streaming) {
                      this.emit('stream', parsed);
 +                }
-                 break;
++                break;
 +
 +            case '!empty':
 +                // RouterOS 7.18+ returns !empty when no records match.
 +                // Do not close here because RouterOS sends !done afterwards.
-+                break;
+                 break;
 +
              case '!done':
 -                if (!this.trapped)
@@ -55,17 +49,3 @@ index ef56575..aade548 100644
              default:
                  this.emit('unknown', reply);
                  this.close();
-                 break;
-         }
-     }
--    /**
--     * Parse the packet line, separating the key from the data.
--     * Ex: transform '=interface=ether2' into object {interface:'ether2'}
--     *
-+
-+     /*
-      * @param {Array} packet
--     * @return {Object}
-      */
-     parsePacket(packet) {
-         const obj = {};
