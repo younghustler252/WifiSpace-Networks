@@ -39,6 +39,28 @@ export class PaystackProvider extends PaymentGatewayInterface {
 		}
 	}
 
+	async createVirtualAccount({ email, firstName, lastName, phone }) {
+		try {
+			const customerResponse = await this.client.post("/customer", { email, first_name: firstName, last_name: lastName, phone });
+			const customerCode = customerResponse.data.data.customer_code;
+
+			const accountResponse = await this.client.post("/dedicated_account", {
+				customer: customerCode,
+				preferred_bank: process.env.PAYSTACK_DVA_BANK || "wema-bank"
+			});
+			const account = accountResponse.data.data;
+
+			return {
+				accountNumber: account.account_number,
+				bankName: account.bank?.name ?? null,
+				accountName: account.account_name ?? null,
+				customerCode
+			};
+		} catch (err) {
+			this._handleAxiosError(err, "PAYSTACK_DVA_ERROR", "Failed to create dedicated account");
+		}
+	}
+
 	verifyWebhookSignature(rawBody, signature) {
 		try {
 			if (!signature || !rawBody) return false;
@@ -52,12 +74,24 @@ export class PaystackProvider extends PaymentGatewayInterface {
 	parseWebhookEvent(payload) {
 		const event = payload?.event;
 		const data = payload?.data || {};
+		if (event === "charge.success" && data.channel === "dedicated_nuban") {
+			return {
+				kind: "wallet_funding",
+				reference: data.reference,
+				status: PAYMENT_STATUSES.SUCCESSFUL,
+				amountKobo: data.amount,
+				accountNumber: data.authorization?.receiver_bank_account_number ?? null,
+				customerCode: data.customer?.customer_code ?? null,
+				senderName: data.authorization?.sender_name ?? null
+			};
+		}
+
 		let status;
 		if (event === "charge.success") status = PAYMENT_STATUSES.SUCCESSFUL;
 		else if (event === "charge.failed") status = PAYMENT_STATUSES.FAILED;
 		else return null;
 
-		return { reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
+		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
 	}
 
 	mapStatus(status) {

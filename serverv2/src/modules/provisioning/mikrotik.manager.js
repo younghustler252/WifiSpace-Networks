@@ -11,11 +11,11 @@ export class MikrotikManager {
 		const { account, router } = await this.loadContext(subscription, metadata, { withPassword: true });
 
 		const planSnapshot = subscription.planSnapshot || {};
-		if (planSnapshot.mikrotikProfile && account.routerProfile !== planSnapshot.mikrotikProfile) {
-			account.routerProfile = planSnapshot.mikrotikProfile;
-			await this.accountRepository.update(account.id, {
-				routerProfile: planSnapshot.mikrotikProfile
-			});
+		const profile = this._profileFor(account, planSnapshot);
+
+		if (profile && account.routerProfile !== profile) {
+			account.routerProfile = profile;
+			await this.accountRepository.update(account.id, { routerProfile: profile });
 		}
 
 		const service = this.getService(account);
@@ -103,8 +103,9 @@ export class MikrotikManager {
 		return this.getService(account).changePassword(router, account.wsnId, password);
 	}
 
-	async getProfiles(router, serviceType) {
-		return this.resolveService(serviceType).getProfiles(router);
+	async getProfiles(router, serviceType, accessMethod = null) {
+		const profileType = serviceType === "pppoe" && accessMethod === "ipoe" ? "hotspot" : serviceType;
+		return this.resolveService(profileType).getProfiles(router);
 	}
 
 	async getActiveSession(router, serviceType, username) {
@@ -158,6 +159,17 @@ export class MikrotikManager {
 	async disconnectDevice(subscription, metadata = {}) {
 		const { router } = await this.loadContext(subscription, metadata);
 		return this.hotspotService.disconnectMac(router, metadata.macAddress);
+	}
+
+	_profileFor(account, planSnapshot) {
+		if (account.serviceType === "pppoe" && account.accessMethod === "ipoe") {
+			if (!planSnapshot.ipoeProfile) {
+				throw new Error(`Plan "${planSnapshot.name}" has no IPoE profile set`);
+			}
+			return planSnapshot.ipoeProfile;
+		}
+
+		return planSnapshot.mikrotikProfile;
 	}
 
 	resolveService(type) {

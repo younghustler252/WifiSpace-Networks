@@ -33,5 +33,6 @@ export const updateRouterSchema = z.object({
 
 
 export const routerProfilesQuerySchema = z.object({
-	serviceType: z.enum(SERVICE_TYPE_LIST)
+	serviceType: z.enum(SERVICE_TYPE_LIST),
+	accessMethod: z.enum(["ppp", "ipoe"]).optional()
 });

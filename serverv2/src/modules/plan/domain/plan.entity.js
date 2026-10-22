@@ -25,6 +25,7 @@ export class Plan {
 		devicesAllowed = 1,
 		features = [],
 		mikrotikProfile,
+		ipoeProfile = null,
 		gracePeriodDays = 0,
 
 		discountType = null,
@@ -54,6 +55,7 @@ export class Plan {
 		this.devicesAllowed = devicesAllowed;
 		this.features = features;
 		this.mikrotikProfile = mikrotikProfile?.trim();
+		this.ipoeProfile = serviceType === SERVICE_TYPES.PPPOE ? ipoeProfile?.trim() || null : null;
 		this.gracePeriodDays = gracePeriodDays;
 
 		this.discountType = discountType;
@@ -140,7 +142,7 @@ export class Plan {
 		return {
 			name: this.name, serviceType: this.serviceType, price: this.getEffectivePrice(),
 			durationValue: this.durationValue, durationUnit: this.durationUnit,
-			speedRate: this.speedRate, mikrotikProfile: this.mikrotikProfile,
+			speedRate: this.speedRate, mikrotikProfile: this.mikrotikProfile, ipoeProfile: this.ipoeProfile,
 			devicesAllowed: this.devicesAllowed, gracePeriodDays: this.gracePeriodDays
 		};
 	}
@@ -150,4 +152,4 @@ export class Plan {
 		return { ...this };
 	}
 
-}
+}

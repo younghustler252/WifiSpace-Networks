@@ -62,6 +62,11 @@ export class Payment {
 		this.failureReason = reason;
 	}
 
+	markRefunded(reason = null) {
+		this.status = PAYMENT_STATUSES.REFUNDED;
+		this.failureReason = reason;
+	}
+
 	markExpired() { this.status = PAYMENT_STATUSES.EXPIRED; }
 	markBusinessProcessed() { this.businessProcessed = true; }
 

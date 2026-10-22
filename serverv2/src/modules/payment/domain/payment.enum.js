@@ -8,10 +8,10 @@ export const PAYMENT_STATUSES = {
 };
 export const PAYMENT_STATUS_LIST = Object.values(PAYMENT_STATUSES);
 
-export const PAYMENT_CHANNELS = { CARD: "card", BANK_TRANSFER: "bank_transfer", USSD: "ussd", QR: "qr", MOBILE_MONEY: "mobile_money", CASH: "cash" };
+export const PAYMENT_CHANNELS = { CARD: "card", BANK_TRANSFER: "bank_transfer", USSD: "ussd", QR: "qr", MOBILE_MONEY: "mobile_money", CASH: "cash", WALLET: "wallet" };
 export const PAYMENT_CHANNEL_LIST = Object.values(PAYMENT_CHANNELS);
 
-export const PAYMENT_GATEWAYS = { PAYSTACK: "paystack", FLUTTERWAVE: "flutterwave", CASH: "cash" };
+export const PAYMENT_GATEWAYS = { PAYSTACK: "paystack", FLUTTERWAVE: "flutterwave", CASH: "cash", WALLET: "wallet" };
 export const PAYMENT_GATEWAY_LIST = Object.values(PAYMENT_GATEWAYS);
 
 export const PAYMENT_ACTIONS = { NEW_SUBSCRIPTION: "new_subscription", RENEWAL: "renewal", UPGRADE: "upgrade", DOWNGRADE: "downgrade" };

@@ -27,7 +27,7 @@ export class ChangePlan {
 		subscription.planSnapshot = {
 			name: newPlan.name, serviceType: newPlan.serviceType, price: newPlan.getEffectivePrice(),
 			durationValue: newPlan.durationValue, durationUnit: newPlan.durationUnit,
-			speedRate: newPlan.speedRate, mikrotikProfile: newPlan.mikrotikProfile,
+			speedRate: newPlan.speedRate, mikrotikProfile: newPlan.mikrotikProfile, ipoeProfile: newPlan.ipoeProfile,
 			devicesAllowed: newPlan.devicesAllowed, gracePeriodDays: newPlan.gracePeriodDays
 		};
 		subscription.recordEvent("manual_adjustment", { type: "plan_change", from: previousPlanSnapshot.name, to: newPlan.name });
@@ -51,4 +51,4 @@ export class ChangePlan {
 
 		return updated;
 	}
-}
+}

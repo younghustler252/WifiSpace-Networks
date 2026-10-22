@@ -59,7 +59,7 @@ export class RouterController {
 	};
 
 	getRouterProfiles = async (req, res) => {
-		const profiles = await this.getRouterProfilesUseCase.execute({ routerId: req.params.id, serviceType: req.query.serviceType });
+		const profiles = await this.getRouterProfilesUseCase.execute({ routerId: req.params.id, serviceType: req.query.serviceType, accessMethod: req.query.accessMethod });
 		return successResponse({ res, data: profiles, message: "Router profiles fetched successfully" });
 	};
 

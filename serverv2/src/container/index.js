@@ -21,6 +21,7 @@ import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
 import { registerNotifications } from "../modules/notifications/notification.container.js";
 import { registerRouter } from "../modules/router/router.cotainer.js";
 import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
+import { registerWallet } from "../modules/wallet/wallet.container.js";
 import { registerPayment } from "../modules/payment/payment.container.js";
 import { registerSubscription } from "../modules/subscription/subscription.container.js";
 import { registerPlan } from "../modules/plan/plan.container.js";
@@ -60,6 +61,7 @@ const modules = [
 	registerHotspot,
 	registerRouter,
 	registerProvisioning,
+	registerWallet,
 	registerPayment,
 	registerSubscription,
 	registerPlan,

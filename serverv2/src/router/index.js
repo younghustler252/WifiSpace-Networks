@@ -11,6 +11,7 @@ import notificationRouter from "../modules/notifications/routes/notification.rou
 import dashboardRouter from "../modules/dashboard/routes/dashboard.routes.js";
 import routerRouter from "../modules/router/routes/router.routes.js";
 import usageRouter from "../modules/usage/routes/usage.routes.js";
+import walletRouter from "../modules/wallet/routes/wallet.routes.js";
 import ticketRouter from "../modules/ticket/routes/ticket.routes.js";
 
 const router = Router();
@@ -28,5 +29,6 @@ router.use("/routers", routerRouter)
 router.use("/audit", auditRouter)
 router.use("/usage", usageRouter)
 router.use("/tickets", ticketRouter)
+router.use("/wallet", walletRouter)
 
 export default router;

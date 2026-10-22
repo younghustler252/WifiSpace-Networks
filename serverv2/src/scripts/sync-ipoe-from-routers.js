@@ -16,7 +16,7 @@ const apply = args.has("apply");
 const fixWsnIds = args.has("fix-wsn-ids");
 const routerFilter = args.get("router") ?? null;
 
-const COLUMNS = ["router", "wsnId", "matchType", "status", "reason", "detail", "drift", "macAddress", "profile", "accountWsnId", "accountId", "suggestedPlans"];
+const COLUMNS = ["router", "wsnId", "matchType", "status", "reason", "detail", "drift", "macAddress", "profile", "comment", "accountWsnId", "accountId", "suggestedPlans"];
 
 function toCsv(rows) {
 	const escape = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;

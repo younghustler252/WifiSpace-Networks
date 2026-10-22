@@ -27,6 +27,7 @@ const planSchema = new mongoose.Schema(
 		devicesAllowed: { type: Number, default: 1, min: 1 },
 		features: { type: [String], default: [] },
 		mikrotikProfile: { type: String, required: true, trim: true },
+		ipoeProfile: { type: String, trim: true, default: null },
 		gracePeriodDays: { type: Number, default: 0, min: 0 },
 
 		discountType: { type: String, enum: DISCOUNT_TYPE_LIST, default: null },
@@ -51,4 +52,4 @@ planSchema.index(
 	{ unique: true, partialFilterExpression: { deletedAt: null } }
 );
 
-export default mongoose.model("Plan", planSchema);
+export default mongoose.model("Plan", planSchema);

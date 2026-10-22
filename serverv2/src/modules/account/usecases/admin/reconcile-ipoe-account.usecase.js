@@ -85,7 +85,8 @@ export class ReconcileIpoeAccounts {
 		const byProfile = new Map();
 
 		for (const plan of data) {
-			byProfile.set(plan.mikrotikProfile, [...(byProfile.get(plan.mikrotikProfile) ?? []), plan.name]);
+			if (!plan.ipoeProfile) continue;
+			byProfile.set(plan.ipoeProfile, [...(byProfile.get(plan.ipoeProfile) ?? []), plan.name]);
 		}
 
 		return byProfile;
@@ -135,6 +136,7 @@ export class ReconcileIpoeAccounts {
 					router,
 					wsnId: user.name,
 					profile: user.profile ?? null,
+					comment: user.comment ?? null,
 					disabled: user.disabled === "true",
 					macAddress: normalizeMac(user["mac-address"]) ?? normalizeMac(hostByUser.get(user.name)?.["mac-address"]),
 					suggestedPlans: (plans.get(user.profile) ?? []).join(" | ")
@@ -143,7 +145,7 @@ export class ReconcileIpoeAccounts {
 				if (hotspotNames.has(user.name.toLowerCase())) return { ...base, matchType: "hotspot_account" };
 
 				const exact = index.exact.get(user.name.toLowerCase());
-				if (exact) return { ...base, matchType: "exact", account: exact };
+				if (exact) return { ...base, matchType: exact.wsnId === user.name ? "exact" : "case_differs", account: exact };
 
 				const normalized = index.normalized.get(normalizeKey(user.name)) ?? [];
 				if (normalized.length === 1) return { ...base, matchType: "normalized", account: normalized[0] };
@@ -194,6 +196,7 @@ export class ReconcileIpoeAccounts {
 			wsnId: candidate.wsnId,
 			matchType,
 			profile: candidate.profile,
+			comment: candidate.comment,
 			macAddress: candidate.macAddress,
 			suggestedPlans: candidate.suggestedPlans,
 			accountId: account?.id ?? null,
@@ -254,7 +257,7 @@ export class ReconcileIpoeAccounts {
 
 		if (account.accessMethod !== "ipoe") return { code: "account_is_ppp" };
 
-		if (matchType === "normalized") {
+		if (matchType === "normalized" || matchType === "case_differs") {
 			if (!fixWsnIds) return { code: "needs_fix_wsn_ids", detail: `database has ${account.wsnId}, router has ${wsnId}` };
 
 			if (await this.accountRepository.wsnIdExists(wsnId, { excludeId: account.id })) {
@@ -278,7 +281,7 @@ export class ReconcileIpoeAccounts {
 		if (profile && (!account.routerProfile || account.routerProfile === "default") && profile !== account.routerProfile) {
 			changes.routerProfile = profile;
 		}
-		if (matchType === "normalized") changes.wsnId = wsnId;
+		if (matchType === "normalized" || matchType === "case_differs") changes.wsnId = wsnId;
 
 		return changes;
 	}
@@ -289,7 +292,7 @@ export class ReconcileIpoeAccounts {
 		if (disabled && active) return "router_disabled_but_subscription_active";
 		if (!disabled && !active) return "router_enabled_but_no_active_subscription";
 
-		const planProfile = subscription?.planSnapshot?.mikrotikProfile;
+		const planProfile = subscription?.planSnapshot?.ipoeProfile;
 		if (active && planProfile && profile && planProfile !== profile) return "router_profile_differs_from_plan";
 
 		return "none";

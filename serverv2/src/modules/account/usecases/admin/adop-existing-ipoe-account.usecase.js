@@ -40,7 +40,7 @@ export class AdoptExistingIpoeAccount {
 
 		const account = new PppoeAccount({
 			userId: user.id, routerId, accessMethod: "ipoe", macAddress, staticIp,
-			routerPassword: generateRouterPassword(), routerProfile: plan.mikrotikProfile,
+			routerPassword: generateRouterPassword(), routerProfile: plan.ipoeProfile || plan.mikrotikProfile,
 			approvalStatus: APPROVAL_STATUSES.APPROVED, status: ACCOUNT_STATUSES.ACTIVE
 		});
 		account.approve(actorId);
@@ -49,7 +49,7 @@ export class AdoptExistingIpoeAccount {
 		const planSnapshot = {
 			name: plan.name, serviceType: plan.serviceType, price: plan.getEffectivePrice(),
 			durationValue: plan.durationValue, durationUnit: plan.durationUnit,
-			speedRate: plan.speedRate, mikrotikProfile: plan.mikrotikProfile,
+			speedRate: plan.speedRate, mikrotikProfile: plan.mikrotikProfile, ipoeProfile: plan.ipoeProfile,
 			devicesAllowed: plan.devicesAllowed, gracePeriodDays: plan.gracePeriodDays
 		};
 

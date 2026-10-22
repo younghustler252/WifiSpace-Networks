@@ -10,7 +10,8 @@
     "dev": "nodemon",
     "dev:worker": "nodemon --exec \"node src/worker.js\"",
     "postinstall": "patch-package",
-    "sync:ipoe": "node src/scripts/sync-ipoe-from-routers.js"
+    "sync:ipoe": "node src/scripts/sync-ipoe-from-routers.js",
+    "migrate:ipoe-profiles": "node src/scripts/migrate-plan-ipoe-profiles.js"
   },
   "imports": {
     "#/*": "./src/*"

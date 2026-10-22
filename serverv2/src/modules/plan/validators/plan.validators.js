@@ -18,6 +18,7 @@ export const createPlanSchema = z.object({
 	devicesAllowed: z.number().int().min(1).optional(),
 	features: z.array(z.string()).optional(),
 	mikrotikProfile: z.string().min(1),
+	ipoeProfile: z.string().min(1).nullable().optional(),
 	gracePeriodDays: z.number().int().min(0).optional(),
 	discountType: z.enum(DISCOUNT_TYPE_LIST).optional(),
 	discountValue: z.number().min(0).optional(),

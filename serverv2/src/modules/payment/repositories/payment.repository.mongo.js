@@ -79,6 +79,15 @@ export class PaymentRepositoryMongo extends BaseRepository {
 		await this.model.updateOne({ _id: id }, { $set: { processingLockedAt: null } });
 	}
 
+	async findStalePayments(cutoffDate) {
+		const docs = await this.model.find({
+			status: { $in: [PAYMENT_STATUSES.INITIATED, PAYMENT_STATUSES.PENDING] },
+			gateway: { $nin: ["wallet", "cash"] },
+			createdAt: { $lte: cutoffDate }
+		}).lean();
+		return this.mapArray(docs);
+	}
+
 	async findExpiredPendingPayments(cutoffDate) {
 		const docs = await this.model.find({ status: PAYMENT_STATUSES.PENDING, createdAt: { $lte: cutoffDate } }).lean();
 		return this.mapArray(docs);

@@ -19,6 +19,7 @@ const subscriptionSchema = new mongoose.Schema(
 			durationUnit: { type: String, enum: DURATION_UNIT_LIST, required: true },
 			speedRate: String,
 			mikrotikProfile: String,
+			ipoeProfile: { type: String, default: null },
 			devicesAllowed: { type: Number, default: 1 },
 			gracePeriodDays: { type: Number, default: 0 }
 		},
@@ -78,4 +79,4 @@ subscriptionSchema.index({ accountId: 1 }, { unique: true, partialFilterExpressi
 subscriptionSchema.index({ autoRenewEnabled: 1, nextRenewalDate: 1, status: 1 });
 subscriptionSchema.index({ expiresAt: 1 });
 
-export default mongoose.model("Subscription", subscriptionSchema);
+export default mongoose.model("Subscription", subscriptionSchema);

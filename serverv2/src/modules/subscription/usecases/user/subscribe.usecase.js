@@ -30,7 +30,7 @@ export class Subscribe {
 		const planSnapshot = {
 			name: plan.name, serviceType: plan.serviceType, price: plan.getEffectivePrice(),
 			durationValue: plan.durationValue, durationUnit: plan.durationUnit,
-			speedRate: plan.speedRate, mikrotikProfile: plan.mikrotikProfile,
+			speedRate: plan.speedRate, mikrotikProfile: plan.mikrotikProfile, ipoeProfile: plan.ipoeProfile,
 			devicesAllowed: plan.devicesAllowed, gracePeriodDays: plan.gracePeriodDays
 		};
 
@@ -50,4 +50,4 @@ export class Subscribe {
 
 		return created;
 	}
-}
+}

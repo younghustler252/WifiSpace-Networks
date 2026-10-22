@@ -2,7 +2,8 @@ import { ValidationError, NotFoundError } from "../../../../shared/errors/domain
 import { PAYMENT_ERROR_CODES } from "../../domain/payment.enum.js";
 
 export class HandleWebhook {
-	constructor({ paymentRepository, paymentGatewayRegistry, processSuccessfulPayment, auditService }) {
+	constructor({ paymentRepository, paymentGatewayRegistry, processSuccessfulPayment, fundWalletFromTransfer, auditService }) {
+		this.fundWalletFromTransfer = fundWalletFromTransfer;
 		this.paymentRepository = paymentRepository;
 		this.paymentGatewayRegistry = paymentGatewayRegistry;
 		this.processSuccessfulPayment = processSuccessfulPayment;
@@ -19,6 +20,13 @@ export class HandleWebhook {
 		const event = provider.parseWebhookEvent(payload);
 		if (!event) {
 			return { handled: false, reason: "unrecognized_event" }; // not every webhook event type matters to us — no-op, not an error
+		}
+
+		if (event.kind === "wallet_funding") {
+			return this.fundWalletFromTransfer.execute({
+				reference: event.reference, amountKobo: event.amountKobo,
+				accountNumber: event.accountNumber, customerCode: event.customerCode, senderName: event.senderName
+			});
 		}
 
 		const payment = await this.paymentRepository.findByGatewayReference(event.reference);

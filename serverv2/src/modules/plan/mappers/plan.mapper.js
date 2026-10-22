@@ -17,6 +17,7 @@ export class PlanMapper {
 			devicesAllowed: raw.devicesAllowed,
 			features: raw.features,
 			mikrotikProfile: raw.mikrotikProfile,
+			ipoeProfile: raw.ipoeProfile,
 			gracePeriodDays: raw.gracePeriodDays,
 			discountType: raw.discountType,
 			discountValue: raw.discountValue,
@@ -42,6 +43,7 @@ export class PlanMapper {
 			devicesAllowed: plan.devicesAllowed,
 			features: plan.features,
 			mikrotikProfile: plan.mikrotikProfile,
+			ipoeProfile: plan.ipoeProfile,
 			gracePeriodDays: plan.gracePeriodDays,
 			discountType: plan.discountType,
 			discountValue: plan.discountValue,
@@ -53,4 +55,4 @@ export class PlanMapper {
 
 		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 	}
-}
+}
