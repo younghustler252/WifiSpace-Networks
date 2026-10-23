@@ -19,6 +19,7 @@ import { usePlans } from "@/features/plans/hooks/use-plans";
 import { useAdminSubscriptionActions } from "../hooks/use-subscriptions";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
 import { toastWithProvisioning } from "../lib/provisioning";
+import { StartDateField, startDateToIso } from "./start-date-field";
 
 export function CreateSubscriptionDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const { create } = useAdminSubscriptionActions();
@@ -26,8 +27,9 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 	const [planId, setPlanId] = useState<string | null>(null);
 	const [cycles, setCycles] = useState("1");
 	const [activate, setActivate] = useState(true);
+	const [startDate, setStartDate] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${activate}`);
+	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${activate}|${startDate}`);
 
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
@@ -49,11 +51,18 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 			return;
 		}
 
+		const start = startDateToIso(startDate);
+		if (start.error) {
+			setError(start.error);
+			return;
+		}
+
 		const res = await create.mutateAsync({
 			accountId: account.id,
 			planId,
 			cycles: isPppoe ? cycleCount : undefined,
-			activateImmediately: activate,
+			activateImmediately: activate || !!start.iso,
+			startDate: start.iso,
 			idempotencyKey,
 		});
 		if (!res.success) {
@@ -126,8 +135,17 @@ export function CreateSubscriptionDialog({ account: preset, onClose }: { account
 						</Field>
 					)}
 
+					<StartDateField
+						id="sub-start-date"
+						value={startDate}
+						onChange={(value) => {
+							setStartDate(value);
+							setError(null);
+						}}
+					/>
+
 					<label className="flex items-center gap-2 text-[13px]">
-						<Checkbox checked={activate} onCheckedChange={(checked) => setActivate(checked === true)} />
+						<Checkbox checked={activate || !!startDate} disabled={!!startDate} onCheckedChange={(checked) => setActivate(checked === true)} />
 						Activate immediately
 					</label>
 

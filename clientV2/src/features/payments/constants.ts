@@ -32,4 +32,5 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, string> = {
 	[PAYMENT_ERROR_CODES.GATEWAY_INIT_FAILED]: "We couldn't start the payment. Please try again in a moment.",
 	[PAYMENT_ERROR_CODES.GATEWAY_VERIFY_FAILED]: "We couldn't confirm the payment yet. Try again shortly.",
 	[PAYMENT_ERROR_CODES.UNSUPPORTED_GATEWAY]: "That payment method isn't available right now.",
+	DOWNGRADE_NOT_ALLOWED: "You can only move to a higher plan mid-cycle. Pick your current plan to renew, or a higher one.",
 };

@@ -70,6 +70,7 @@ export interface RecordPaymentBody {
 	cycles?: number;
 	paymentChannel?: string;
 	note?: string;
+	startDate?: string;
 }
 
 export type SettablePaymentStatus = "successful" | "failed" | "expired";

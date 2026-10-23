@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, Lock, MapPin } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ArrowLeft, CreditCard, Loader2, Lock, MapPin, Wallet as WalletIcon } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Field } from "@/components/shared/field";
@@ -11,12 +12,15 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getBestValueId } from "@/features/plans/lib/best-value";
 import { getPlanPricing } from "@/features/plans/lib/pricing";
+import { formatWalletAmount } from "@/features/wallet/lib/money";
 import { formatCurrency, formatDuration } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { useHotspotPlans, useRevokeDevice } from "../hooks/use-hotspots";
 import { readRememberedEmail, rememberEmail } from "../lib/remembered-email";
 import { hotspotsApi } from "../services/hotspots.api";
 import type { HotspotClientInfo, HotspotRouter } from "../types/hotspots.types";
 import { PortalPlanCard } from "./portal-plan-card";
+import { PortalWalletPanel } from "./portal-wallet-panel";
 
 const emailSchema = z.string().trim().email();
 
@@ -24,6 +28,8 @@ interface PlanPickerProps {
 	client: HotspotClientInfo;
 	router: HotspotRouter;
 	isNewDevice: boolean;
+	knownEmail?: string | null;
+	firstNameKnown?: string | null;
 	onLogin: () => void;
 	onExistingUser: (email: string) => void;
 }
@@ -35,10 +41,14 @@ function buildCallbackUrl() {
 	return url.toString();
 }
 
-export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUser }: PlanPickerProps) {
+export function PlanPicker({ client, router, isNewDevice, knownEmail, firstNameKnown, onLogin, onExistingUser }: PlanPickerProps) {
+	const nav = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const { data: plans, isLoading, isError, refetch } = useHotspotPlans();
 	const revoke = useRevokeDevice();
 	const [step, setStep] = useState<"plans" | "details">("plans");
+	const [method, setMethod] = useState<"card" | "wallet">("card");
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [email, setEmail] = useState("");
 	const [firstName, setFirstName] = useState("");
@@ -47,9 +57,9 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 	const start = useMutation({ mutationFn: hotspotsApi.start });
 
 	useEffect(() => {
-		const saved = readRememberedEmail();
+		const saved = knownEmail || readRememberedEmail();
 		if (saved) setEmail(saved);
-	}, []);
+	}, [knownEmail]);
 
 	const selected = plans?.find((p) => p.id === selectedId) ?? null;
 	const bestValueId = useMemo(() => getBestValueId(plans ?? []), [plans]);
@@ -59,8 +69,9 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 	const savedEmailOk = emailSchema.safeParse(email).success;
 	const oneTap = !isNewDevice && savedEmailOk;
 
-	async function pay() {
+	async function pay(walletPassword?: string) {
 		if (!selected || busy) return;
+		const wallet = typeof walletPassword === "string";
 
 		const parsed = emailSchema.safeParse(email);
 		if (!parsed.success) {
@@ -74,11 +85,16 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 			email: parsed.data,
 			firstName: isNewDevice && firstName.trim() ? firstName.trim() : undefined,
 			planId: selected.id,
-			callbackUrl: buildCallbackUrl(),
+			...(wallet ? { payWith: "wallet" as const, password: walletPassword } : { callbackUrl: buildCallbackUrl() }),
 		});
 
 		if (!res.success) {
-			toast.error(res.message);
+			if (res.code === "INSUFFICIENT_BALANCE") {
+				const shortfall = (res.details as { shortfall?: number } | null | undefined)?.shortfall;
+				toast.error(res.message, { description: shortfall ? `You need ${formatWalletAmount(shortfall)} more.` : undefined });
+				return;
+			}
+			toast.error(res.code === "INVALID_CREDENTIALS" ? "Incorrect email or password" : res.message);
 			return;
 		}
 
@@ -91,6 +107,14 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 
 		rememberEmail(parsed.data);
 		setRedirecting(true);
+
+		if (res.data.status === "PAID") {
+			const next = new URLSearchParams(searchParams.toString());
+			next.set("reference", res.data.reference);
+			nav.replace(`${pathname}?${next.toString()}`);
+			return;
+		}
+
 		window.location.assign(res.data.authorizationUrl);
 	}
 
@@ -141,13 +165,45 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 				</div>
 
 				<div className="space-y-3">
-					<Button size="lg" className="w-full" disabled={busy} onClick={pay}>
-						{busy ? <Loader2 className="animate-spin" /> : <Lock />}
-						Pay {formatCurrency(price)}
-					</Button>
-					<p className="text-center text-[12px] text-muted-foreground">
-						You&apos;ll pay on Paystack, then come straight back here. Your internet switches on automatically.
-					</p>
+					<div role="radiogroup" aria-label="Payment method" className="grid grid-cols-2 gap-2">
+						{(
+							[
+								{ value: "card", label: "Card or bank", icon: CreditCard },
+								{ value: "wallet", label: "Wallet", icon: WalletIcon },
+							] as const
+						).map((option) => (
+							<button
+								key={option.value}
+								type="button"
+								role="radio"
+								aria-checked={method === option.value}
+								onClick={() => setMethod(option.value)}
+								className={cn(
+									"flex min-h-12 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition",
+									method === option.value ? "border-primary bg-accent/40 ring-1 ring-primary" : "bg-card hover:border-primary/50"
+								)}
+							>
+								<option.icon className="size-4" />
+								{option.label}
+							</button>
+						))}
+					</div>
+
+					{method === "card" ? (
+						<>
+							<Button size="lg" className="w-full" disabled={busy} onClick={() => pay()}>
+								{busy ? <Loader2 className="animate-spin" /> : <Lock />}
+								Pay {formatCurrency(price)}
+							</Button>
+							<p className="text-center text-[12px] text-muted-foreground">
+								You&apos;ll pay on Paystack, then come straight back here. Your internet switches on automatically.
+							</p>
+						</>
+					) : savedEmailOk ? (
+						<PortalWalletPanel email={email.trim()} price={price} busy={busy} onPay={(password) => pay(password)} />
+					) : (
+						<p className="text-center text-[13px] text-muted-foreground">Enter the email you registered with above to use your wallet.</p>
+					)}
 				</div>
 			</div>
 		);
@@ -160,7 +216,7 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 					<MapPin className="size-3.5" />
 					{router.location || router.name}
 				</p>
-				<h1 className="text-2xl font-semibold tracking-tight">Get online</h1>
+				<h1 className="text-2xl font-semibold tracking-tight">{firstNameKnown ? `Welcome back, ${firstNameKnown}` : "Get online"}</h1>
 				<p className="text-sm text-muted-foreground">Pick how long you need. Pay once, no sign-up.</p>
 			</div>
 
@@ -205,9 +261,21 @@ export function PlanPicker({ client, router, isNewDevice, onLogin, onExistingUse
 						{oneTap && selected && (
 							<p className="mb-2 flex items-center justify-between gap-2 text-[12px] text-muted-foreground">
 								<span className="truncate">Paying as {email}</span>
-								<button type="button" className="shrink-0 font-medium text-primary hover:underline" onClick={() => setStep("details")}>
-									Change
-								</button>
+								<span className="flex shrink-0 gap-3">
+									<button
+										type="button"
+										className="font-medium text-primary hover:underline"
+										onClick={() => {
+											setMethod("wallet");
+											setStep("details");
+										}}
+									>
+										Use wallet
+									</button>
+									<button type="button" className="font-medium text-primary hover:underline" onClick={() => setStep("details")}>
+										Change
+									</button>
+								</span>
 							</p>
 						)}
 						<Button size="lg" className="w-full" disabled={!selected || busy} onClick={() => (oneTap ? pay() : setStep("details"))}>

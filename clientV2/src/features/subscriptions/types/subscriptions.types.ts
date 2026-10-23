@@ -83,6 +83,7 @@ export interface AdminCreateSubscriptionBody {
 	planId: string;
 	cycles?: number;
 	activateImmediately?: boolean;
+	startDate?: string;
 }
 
 export interface UpgradeOption {

@@ -10,15 +10,18 @@ import {
 	HotspotStatus,
 	HotspotLocation,
 	HotspotDevice,
-	HotspotRevokeResult
+	HotspotRevokeResult,
+	HotspotWallet,
+	HotspotWalletBody
 } from "../types/hotspots.types";
 
-type SessionParams = Pick<HotspotClientInfo, "macAddress" | "ipAddress" | "routerId" | "routerUid" | "identity">;
+type SessionParams = Pick<HotspotClientInfo, "macAddress" | "ipAddress" | "routerId" | "routerUid" | "routerCode" | "identity">;
 
 export const hotspotsApi = {
 	session: (params: SessionParams) => API.get<HotspotSession>("/hotspot/session", { params }),
 	plans: () => API.get<Plan[]>("/hotspot/plans"),
 	start: (body: HotspotStartBody) => API.post<HotspotStartResult>("/hotspot/start", body),
+	wallet: (body: HotspotWalletBody) => API.post<HotspotWallet>("/hotspot/wallet", body),
 	login: (body: HotspotLoginBody) => API.post<HotspotLoginResult>("/hotspot/login", body),
 	status: (params: { reference: string; macAddress?: string }) =>
 		API.get<HotspotStatus>("/hotspot/status", { params }),

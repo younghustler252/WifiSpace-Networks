@@ -43,6 +43,7 @@ export function usePortalParams() {
 					userAgent: typeof navigator !== "undefined" ? navigator.userAgent : undefined,
 					routerId: params.get("routerId") ?? undefined,
 					routerUid: params.get("routerUid") ?? undefined,
+					routerCode: params.get("routerCode") ?? undefined,
 					identity: params.get("identity") ?? undefined,
 				}
 			: null;

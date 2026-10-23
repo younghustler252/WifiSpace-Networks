@@ -10,7 +10,7 @@ const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res)
 export const walletApi = {
 	me: () => withMessages(API.get<Wallet>("/wallet/me")),
 	transactions: (params: { page?: number; limit?: number }) => withMessages(API.get<WalletTransaction[]>("/wallet/me/transactions", { params })),
-	virtualAccount: () => withMessages(API.post<Wallet>("/wallet/me/virtual-account", {})),
+	virtualAccount: (phone?: string) => withMessages(API.post<Wallet>("/wallet/me/virtual-account", phone ? { phone } : {})),
 	pay: (body: PayWithWalletBody, key?: string) => withMessages(API.post<PayWithWalletResult>("/wallet/me/pay", body, withIdempotency(key))),
 };
 

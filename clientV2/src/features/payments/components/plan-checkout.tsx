@@ -138,7 +138,7 @@ export function PlanCheckout() {
 	const walletKey = useIdempotencyKey(`${account?.id}|${planId}|wallet`);
 	const price = selected ? getPlanPricing(selected).final : 0;
 	const balance = wallet.data?.balance ?? null;
-	const walletAvailable = !!selected && !isUpgrade && balance !== null;
+	const walletAvailable = !!selected && balance !== null;
 	const canAfford = balance !== null && balance >= price;
 	const useWalletMethod = method === "wallet" && walletAvailable;
 

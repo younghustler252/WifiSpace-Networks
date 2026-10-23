@@ -1,4 +1,5 @@
 import type { Subscription } from "@/features/subscriptions/types/subscriptions.types";
+import type { Wallet } from "@/features/wallet/types/wallet.types";
 
 export type HotspotSessionState = "UNKNOWN_DEVICE" | "PENDING" | "TRUSTED_NEEDS_PLAN" | "ACTIVATING" | "ACTIVATION_FAILED" | "ACTIVE";
 
@@ -7,6 +8,8 @@ export interface HotspotSession {
 	router: HotspotRouter | null;
 	session: Record<string, unknown> | null;
 	subscription: Subscription | null;
+	user?: { email: string; firstName?: string | null } | null;
+	retried?: boolean;
 	provisioning?: "synced" | "pending" | "failed" | (string & {});
 }
 export interface HotspotRouter {
@@ -34,6 +37,7 @@ export interface HotspotClientInfo {
 	userAgent?: string;
 	routerId?: string;
 	routerUid?: string;
+	routerCode?: string;
 	identity?: string;
 }
 
@@ -41,8 +45,17 @@ export interface HotspotStartBody extends HotspotClientInfo {
 	email: string;
 	firstName?: string;
 	planId: string;
-	callbackUrl: string;
+	callbackUrl?: string;
+	payWith?: "gateway" | "wallet";
+	password?: string;
 }
+
+export interface HotspotWalletBody {
+	email: string;
+	password: string;
+}
+
+export type HotspotWallet = Wallet;
 
 export interface HotspotStartExistingUser {
 	status: "EXISTING_USER";
@@ -58,7 +71,15 @@ export interface HotspotStartPaymentRequired {
 	plan: { id: string; name: string; price: number };
 }
 
-export type HotspotStartResult = HotspotStartExistingUser | HotspotStartPaymentRequired;
+export interface HotspotStartPaid {
+	status: "PAID";
+	reference: string;
+	balance: number;
+	provisioning?: unknown;
+	plan: { id: string; name: string; price: number };
+}
+
+export type HotspotStartResult = HotspotStartExistingUser | HotspotStartPaymentRequired | HotspotStartPaid;
 
 export interface HotspotLoginBody extends HotspotClientInfo {
 	email: string;

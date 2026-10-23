@@ -21,6 +21,7 @@ import { useRecordPayment } from "../hooks/use-payments";
 import { settleFailure } from "@/lib/api/failure";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
 import { toastWithProvisioning } from "@/features/subscriptions/lib/provisioning";
+import { StartDateField, startDateToIso } from "@/features/subscriptions/components/start-date-field";
 
 export function RecordPaymentDialog({ account: preset, onClose }: { account?: AdminAccount; onClose: () => void }) {
 	const record = useRecordPayment();
@@ -29,8 +30,9 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 	const [cycles, setCycles] = useState("1");
 	const [channel, setChannel] = useState("cash");
 	const [note, setNote] = useState("");
+	const [startDate, setStartDate] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${channel}|${note}`);
+	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${channel}|${note}|${startDate}`);
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
 
@@ -51,12 +53,19 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			return;
 		}
 
+		const start = startDateToIso(startDate);
+		if (start.error) {
+			setError(start.error);
+			return;
+		}
+
 		const res = await record.mutateAsync({
 			accountId: account.id,
 			planId,
 			cycles: isPppoe ? cycleCount : undefined,
 			paymentChannel: channel,
 			note: note.trim() || undefined,
+			startDate: start.iso,
 			idempotencyKey
 		});
 
@@ -135,6 +144,16 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 							</Field>
 						)}
 					</div>
+
+					<StartDateField
+						id="record-start-date"
+						value={startDate}
+						onChange={(value) => {
+							setStartDate(value);
+							setError(null);
+						}}
+						hint="Only works for this customer's first payment. Set a past date if they paid earlier and nobody recorded it."
+					/>
 
 					<Field label="Note (optional)" htmlFor="record-note">
 						<Textarea id="record-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Receipt number, who collected it…" />

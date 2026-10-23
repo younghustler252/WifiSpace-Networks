@@ -1,9 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { Copy, Landmark, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { Field } from "@/components/shared/field";
 import { SectionCard } from "@/components/shared/section-card";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/stores/auth.store";
+import { Input } from "@/components/ui/input";
+import { WALLET_ERROR_CODES } from "../constants";
+import { normalizePhone } from "../lib/money";
 import { useCreateVirtualAccount } from "../hooks/use-wallet";
 import type { Wallet } from "../types/wallet.types";
 
@@ -34,12 +40,39 @@ function CopyRow({ label, value, mono, copyable }: { label: string; value: strin
 
 export function FundWalletCard({ wallet }: { wallet: Wallet }) {
 	const create = useCreateVirtualAccount();
+	const savedPhone = useAuthStore((s) => (s.user as { phone?: string | null } | null)?.phone);
+	const [needsPhone, setNeedsPhone] = useState(!savedPhone);
+	const [phone, setPhone] = useState("");
+	const [phoneError, setPhoneError] = useState<string | null>(null);
 	const account = wallet.virtualAccount;
 	const ready = !!account?.accountNumber;
 
 	async function setup() {
-		const res = await create.mutateAsync();
-		if (!res.success) toast.error(res.message);
+		let value: string | undefined;
+
+		if (needsPhone) {
+			const normalized = normalizePhone(phone);
+			if (!normalized) {
+				setPhoneError("Enter a phone number with 10 to 15 digits");
+				return;
+			}
+			value = normalized;
+		}
+
+		const res = await create.mutateAsync(value);
+
+		if (!res.success) {
+			const phoneMissing =
+				res.code === WALLET_ERROR_CODES.PHONE_REQUIRED ||
+				(res.code === WALLET_ERROR_CODES.VIRTUAL_ACCOUNT_FAILED && JSON.stringify(res.details ?? "").toLowerCase().includes("phone"));
+
+			if (phoneMissing) {
+				setNeedsPhone(true);
+				if (value) toast.error("Your phone number wasn't accepted yet. Please try again shortly or contact support.");
+				return;
+			}
+			toast.error(res.message);
+		}
 	}
 
 	return (
@@ -63,6 +96,25 @@ export function FundWalletCard({ wallet }: { wallet: Wallet }) {
 					<p className="mx-auto max-w-xs text-sm text-muted-foreground">
 						Get your own bank account number. Anything you send to it lands in this wallet.
 					</p>
+					{needsPhone && (
+						<div className="mx-auto max-w-xs text-left">
+							<Field label="Phone number" htmlFor="wallet-phone" error={phoneError ?? undefined} hint="Your bank needs it to issue the account number. We save it to your profile.">
+								<Input
+									id="wallet-phone"
+									type="tel"
+									inputMode="tel"
+									autoComplete="tel"
+									placeholder="08012345678"
+									value={phone}
+									aria-invalid={!!phoneError}
+									onChange={(e) => {
+										setPhone(e.target.value);
+										setPhoneError(null);
+									}}
+								/>
+							</Field>
+						</div>
+					)}
 					<Button size="lg" className="w-full sm:w-auto" disabled={create.isPending} onClick={setup}>
 						{create.isPending && <Loader2 className="animate-spin" />}
 						Get my account number

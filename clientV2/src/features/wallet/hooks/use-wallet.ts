@@ -33,7 +33,7 @@ export function useCreateVirtualAccount() {
 	const queryClient = useQueryClient();
 
 	return useMutation({
-		mutationFn: () => walletApi.virtualAccount(),
+		mutationFn: (phone?: string) => walletApi.virtualAccount(phone),
 		onSuccess: (res) => {
 			if (res.success) queryClient.setQueryData([...WALLET_KEY, "me"], res.data);
 		},

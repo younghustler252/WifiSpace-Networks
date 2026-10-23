@@ -115,6 +115,8 @@ export function PortalFlow() {
 					client={client}
 					router={data.router}
 					isNewDevice={data.state === "UNKNOWN_DEVICE"}
+					knownEmail={data.user?.email}
+					firstNameKnown={data.user?.firstName}
 					onLogin={() => {
 						setLoginEmail("");
 						setView("login");

@@ -13,11 +13,11 @@ const STATUS_MAX_WAIT_MS = 45_000;
 
 export function useHotspotSession(client: HotspotClientInfo | null, pollOpen: () => boolean = () => true) {
 	return useQuery({
-		queryKey: ["hotspot", "session", client?.macAddress, client?.routerId, client?.routerUid, client?.identity],
+		queryKey: ["hotspot", "session", client?.macAddress, client?.routerId, client?.routerUid, client?.routerCode, client?.identity],
 		enabled: !!client,
 		queryFn: async () => {
-			const { macAddress, ipAddress, routerId, routerUid, identity } = client!;
-			return unwrap(await hotspotsApi.session({ macAddress, ipAddress, routerId, routerUid, identity })).data;
+			const { macAddress, ipAddress, routerId, routerUid, routerCode, identity } = client!;
+			return unwrap(await hotspotsApi.session({ macAddress, ipAddress, routerId, routerUid, routerCode, identity })).data;
 		},
 		refetchInterval: (query) => {
 			const state = query.state.data?.state;

@@ -1,5 +1,6 @@
 "use client";
 
+import { StartDateField, startDateToIso } from "./start-date-field";
 import { useState } from "react";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -122,8 +123,9 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 	const [channel, setChannel] = useState("cash");
 	const [cycles, setCycles] = useState("1");
 	const [note, setNote] = useState("");
+	const [startDate, setStartDate] = useState("");
 	const [error, setError] = useState<string | null>(null);
-	const idempotencyKey = useIdempotencyKey(`${subscription.id}|${channel}|${cycles}|${note}`);
+	const idempotencyKey = useIdempotencyKey(`${subscription.id}|${channel}|${cycles}|${note}|${startDate}`);
 
 	return (
 		<ConfirmDialog
@@ -139,12 +141,19 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 					return false;
 				}
 
+				const start = startDateToIso(startDate);
+				if (start.error) {
+					setError(start.error);
+					return false;
+				}
+
 				const res = await record.mutateAsync({
 					accountId: subscription.accountId,
 					planId: subscription.planId,
 					cycles: isPppoe ? count : undefined,
 					paymentChannel: channel,
 					note: note.trim() || undefined,
+					startDate: start.iso,
 					idempotencyKey,
 				});
 
@@ -157,6 +166,16 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 					tone="info"
 					title="Click once"
 					text="An active subscription gets the new period after its current expiry. One that has ended starts from now. If you see an error, don't click again. Open the subscription and check its payments first."
+				/>
+
+				<StartDateField
+					id="renew-start-date"
+					value={startDate}
+					onChange={(value) => {
+						setStartDate(value);
+						setError(null);
+					}}
+					hint="Optional. Only accepted when this is the customer's first recorded payment. Leave empty for a normal renewal."
 				/>
 
 				<Field label="Payment method" htmlFor="renew-channel">
