@@ -13,7 +13,7 @@ export class AdminCreateSubscription {
 		this.networkService = networkService;
 	}
 
-	async execute({ actorId, accountId, planId, cycles = 1, activateImmediately = false, ip = null }) {
+	async execute({ actorId, accountId, planId, cycles = 1, activateImmediately = false, startDate = null, ip = null }) {
 		const account = await this.accountRepository.findById(accountId);
 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
 
@@ -38,10 +38,20 @@ export class AdminCreateSubscription {
 			planSnapshot, cycles, totalAmount: planSnapshot.price * cycles
 		});
 
-		if (activateImmediately) {
+		if (startDate && new Date(startDate) > new Date()) {
+			throw new ValidationError("Start date cannot be in the future");
+		}
+
+		if (activateImmediately || startDate) {
 			const bonusDays = plan.getBonusDaysForCycle(cycles);
 			subscription.bonusDays = bonusDays;
-			subscription.activate();
+			subscription.activate({ startedAt: startDate ?? null });
+
+			if (subscription.expiresAt <= new Date()) {
+				throw new ValidationError(
+					`A subscription starting ${new Date(startDate).toISOString().slice(0, 10)} would already have expired on ${subscription.expiresAt.toISOString().slice(0, 10)}. Choose a later start date or more cycles.`
+				);
+			}
 		}
 
 		const created = await this.subscriptionRepository.create(subscription);
@@ -50,7 +60,7 @@ export class AdminCreateSubscription {
 		if (this.auditService) {
 			await this.auditService.log({
 				actorId, action: "SUBSCRIPTION_CREATED_BY_ADMIN", entity: "Subscription", entityId: created.id,
-				newValue: { accountId, planId, activateImmediately }, ip
+				newValue: { accountId, planId, activateImmediately, startDate }, ip
 			});
 		}
 

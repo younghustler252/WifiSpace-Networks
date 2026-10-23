@@ -161,7 +161,7 @@ export function ReversePaymentDialog({ payment, onClose }: PaymentDialogProps) {
 			destructive
 			requireText="reverse"
 			title="Reverse this payment?"
-			description={`Marks ${formatCurrency(paymentTotal(payment))} (${payment.gatewayReference}) as refunded and removes it from revenue.`}
+			description={`Marks ${formatCurrency(paymentTotal(payment))} (${payment.gatewayReference}) as refunded, credits it to the customer's wallet and removes it from revenue.`}
 			confirmLabel="Reverse payment"
 			onConfirm={async () => {
 				if (reason.trim().length < 3) {
@@ -171,14 +171,14 @@ export function ReversePaymentDialog({ payment, onClose }: PaymentDialogProps) {
 
 				const res = await reverse.mutateAsync({ id: payment.id, reason: reason.trim() });
 				if (!res.success) return settleFailure(res, "The reversal");
-				toast.success("Payment reversed");
+				toast.success("Payment reversed", { description: "The amount was credited to the customer's wallet." });
 			}}
 		>
 			<div className="space-y-3">
 				<Notice
 					tone="warning"
-					title="This doesn't move any money"
-					text="Refund the customer in Paystack, or hand the cash back, yourself. If they should also lose the time they were given, correct it separately with Extend using negative days."
+					title="The amount goes back to the customer's wallet"
+					text="They can spend it on any plan or ask you to pay it out. Don't refund them separately, or they'll be refunded twice. If they should also lose the time they were given, correct it with Extend using negative days."
 				/>
 				<Textarea
 					value={reason}

@@ -16,7 +16,7 @@ export class RecordPayment {
 		this.auditService = auditService;
 	}
 
-	async execute({ actorId, accountId, planId, cycles = 1, paymentChannel = "cash", note = null, ip = null }) {
+	async execute({ actorId, accountId, planId, cycles = 1, paymentChannel = "cash", note = null, startDate = null, ip = null }) {
 		const account = await this.accountRepository.findById(accountId);
 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
 
@@ -25,6 +25,16 @@ export class RecordPayment {
 		if (plan.serviceType !== account.serviceType) throw new ValidationError("Plan does not match account service type");
 
 		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
+		if (startDate) {
+			if (existingSub) throw new ValidationError("A start date can only be set when recording the first payment for an account");
+			if (new Date(startDate) > new Date()) throw new ValidationError("Start date cannot be in the future");
+
+			const endsAt = new Date(startDate).getTime() + plan.getDurationSeconds() * 1000 * cycles;
+			if (endsAt <= Date.now()) {
+				throw new ValidationError("That start date is too far back: the plan would already have expired. Choose a later start date or more cycles.");
+			}
+		}
+
 		const actionType = existingSub?.status === "active" ? PAYMENT_ACTIONS.RENEWAL : PAYMENT_ACTIONS.NEW_SUBSCRIPTION;
 
 		const basePrice = plan.getEffectivePrice();
@@ -37,7 +47,8 @@ export class RecordPayment {
 			cycles, gateway: PAYMENT_GATEWAYS.CASH, paymentChannel,
 			gatewayReference: `MANUAL-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
 			status: PAYMENT_STATUSES.PENDING,
-			metadata: { recordedByAdmin: actorId, note }
+			paymentDate: startDate ? new Date(startDate) : new Date(),
+			metadata: { recordedByAdmin: actorId, note, startDate: startDate ? new Date(startDate).toISOString() : null }
 		});
 
 		const created = await this.paymentRepository.create(payment);

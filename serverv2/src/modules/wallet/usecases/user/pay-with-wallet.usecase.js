@@ -2,7 +2,8 @@ import crypto from "crypto";
 import { NotFoundError, ValidationError, ConflictError } from "../../../../shared/errors/domain.errors.js";
 import { toKobo } from "../../../../shared/utils/money.js";
 import { Payment } from "../../../payment/domain/payment.entity.js";
-import { PAYMENT_ACTIONS, PAYMENT_STATUSES, PAYMENT_GATEWAYS, PAYMENT_CHANNELS } from "../../../payment/domain/payment.enum.js";
+import { resolveActionType } from "../../../payment/domain/resolve-action-type.js";
+import { PAYMENT_STATUSES, PAYMENT_GATEWAYS, PAYMENT_CHANNELS } from "../../../payment/domain/payment.enum.js";
 import { SUBSCRIPTION_ERROR_CODES } from "../../../subscription/domain/subscription.enum.js";
 import { PLAN_ERROR_CODES } from "../../../plan/domain/plan.enum.js";
 import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
@@ -36,7 +37,7 @@ export class PayWithWallet {
 			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
 		}
 
-		const actionType = actionTypeOverride || (existingSub?.status === "active" ? PAYMENT_ACTIONS.RENEWAL : PAYMENT_ACTIONS.NEW_SUBSCRIPTION);
+		const actionType = resolveActionType({ existingSub, plan, override: actionTypeOverride });
 
 		const unitPrice = plan.getEffectivePrice();
 		const total = unitPrice * cycles;

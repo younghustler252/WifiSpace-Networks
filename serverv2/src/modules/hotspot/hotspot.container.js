@@ -11,6 +11,7 @@ import { GetHotspotSession } from "./usecases/user/get-hotspot-session.usecase.j
 import { GetHotspotPlans } from "./usecases/user/get-hotspot-plans.usecase.js";
 import { GetHotspotConnectionStatus } from "./usecases/user/get-hotspot-connection-status.usecase.js";
 import { HotspotCheckoutFlow } from "./usecases/user/hotspot-checkout.usecase.js";
+import { GetHotspotWallet } from "./usecases/user/get-hotspot-wallet.usecase.js";
 import { StartHotspot } from "./usecases/user/start-hotspot.usecase.js";
 import { ConfirmHotspot } from "./usecases/system/confirm-hotspot.usecase.js";
 import { RegisterHotspotDevice } from "./usecases/user/register-hotspot-device.usecase.js";
@@ -36,6 +37,7 @@ export function registerHotspot(container) {
 		getHotspotPlans: asClass(GetHotspotPlans).scoped(),
 		getHotspotConnectionStatus: asClass(GetHotspotConnectionStatus).scoped(),
 		hotspotCheckoutFlow: asClass(HotspotCheckoutFlow).scoped(),
+		getHotspotWallet: asClass(GetHotspotWallet).scoped(),
 		startHotspot: asClass(StartHotspot).scoped(),
 		confirmHotspot: asClass(ConfirmHotspot).scoped(),
 		registerHotspotDevice: asClass(RegisterHotspotDevice).scoped(),

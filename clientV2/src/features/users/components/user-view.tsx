@@ -16,6 +16,7 @@ import { UserDevicesCard } from "@/features/accounts/components/hotspot-connecti
 import { useAdminAccounts } from "@/features/accounts/hooks/use-accounts";
 import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import { EntityActivityCard } from "@/features/audit/components/entity-activity-card";
+import { AdminWalletCard } from "@/features/wallet/components/admin-wallet-card";
 import { LinkedPaymentsCard } from "@/features/payments/components/linked-payments-card";
 import { useAdminSubscriptions } from "@/features/subscriptions/hooks/use-subscriptions";
 import { getSubscriptionPhase } from "@/features/subscriptions/lib/subscription-phase";
@@ -147,6 +148,7 @@ export function UserView({ id }: { id: string }) {
 				</div>
 
 				<div className="space-y-4">
+					<AdminWalletCard userId={id} />
 					<ContactCard user={user} />
 					<SignInCard user={user} />
 					{hasHotspot && <UserDevicesCard userId={id} accountLabels={accountLabels} />}

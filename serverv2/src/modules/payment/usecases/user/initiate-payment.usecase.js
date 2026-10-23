@@ -5,6 +5,7 @@ import { SUBSCRIPTION_ERROR_CODES } from "../../../subscription/domain/subscript
 import { PLAN_ERROR_CODES } from "../../../plan/domain/plan.enum.js";
 import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
 import { Payment } from "../../domain/payment.entity.js";
+import { resolveActionType } from "../../domain/resolve-action-type.js";
 
 export class InitiatePayment {
 	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, userRepository, paymentGatewayRegistry, auditService }) {
@@ -35,11 +36,7 @@ export class InitiatePayment {
 			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
 		}
 
-		const actionType = actionTypeOverride || (
-			existingSub?.status === "active"
-				? PAYMENT_ACTIONS.RENEWAL
-				: PAYMENT_ACTIONS.NEW_SUBSCRIPTION
-		);
+		const actionType = resolveActionType({ existingSub, plan, override: actionTypeOverride });
 
 		const user = await this.userRepository.findById(userId);
 

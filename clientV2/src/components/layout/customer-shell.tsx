@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, LayoutDashboard, Receipt, User, Zap } from "lucide-react";
+import { Bell, LayoutDashboard, Receipt, User, Wallet, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { HeaderStatus } from "@/features/accounts/components/header-status";
 import { AppShell, type NavGroup } from "./app-shell";
@@ -12,7 +12,8 @@ const GROUPS: NavGroup[] = [
 		items: [
 			{ href: "/overview", label: "Overview", icon: LayoutDashboard, mobile: true, also: ["/accounts"] },
 			{ href: "/plans", label: "Buy a plan", shortLabel: "Plans", icon: Zap, mobile: true },
-			{ href: "/payments", label: "Payments", icon: Receipt, mobile: true },
+			{ href: "/wallet", label: "Wallet", icon: Wallet, mobile: true },
+			{ href: "/payments", label: "Payments", icon: Receipt },
 		],
 	},
 	{

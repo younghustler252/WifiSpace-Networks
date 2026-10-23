@@ -86,7 +86,7 @@ export class ProcessSuccessfulPayment {
 			const bonusDays = plan.getBonusDaysForCycle(subscription.cycles + payment.cycles);
 			subscription.renew({ cycles: payment.cycles, bonusDays, ...paymentInfo });
 		} else {
-			subscription.activate(paymentInfo);
+			subscription.activate({ ...paymentInfo, startedAt: payment.metadata?.startDate ?? null });
 		}
 	}
 

@@ -8,9 +8,16 @@ export const subscribeSchema = z.object({
 });
 
 export const adminCreateSubscriptionSchema = subscribeSchema.extend({
-	activateImmediately: z.boolean().optional()
+	activateImmediately: z.boolean().optional(),
+	startDate: z.coerce.date().optional()
 });
 export const changePlanSchema = z.object({ newPlanId: z.string().min(1) });
+export const customerChangePlanSchema = z.object({
+	accountId: z.string().min(1),
+	newPlanId: z.string().min(1),
+	payWith: z.enum(["gateway", "wallet"]).optional(),
+	callbackUrl: z.string().url().optional()
+});
 export const suspendSubscriptionSchema = z.object({ reason: z.string().optional() });
 export const cancelSubscriptionSchema = z.object({ reason: z.string().optional() });
 export const extendSubscriptionSchema = z.object({

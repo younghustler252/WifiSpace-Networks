@@ -65,9 +65,10 @@ export class RouterRepositoryMongo extends BaseRepository {
 		return this._mapWithCredentials(doc);
 	}
 
-	async findRouterForHotspot({ routerId, routerUid, identity }) {
+	async findRouterForHotspot({ routerId, routerUid, routerCode, identity }) {
 		if (routerId) { const r = await this.findById(routerId); if (r) return r; }
 		if (routerUid) { const r = await this.findByRouterUid(routerUid); if (r) return r; }
+		if (routerCode) { const r = await this.findByCode(routerCode); if (r) return r; }
 		if (identity) { const r = await this.findByIdentity(identity); if (r) return r; }
 		return this.findDefaultRouter();
 	}

@@ -4,8 +4,9 @@ import { successResponse } from "../../../shared/utils/api-response.js";
 export class HotspotController {
 	constructor({
 		resolveHotspotSession, authenticateHotspotSession, startHotspot,
-		getHotspotPlans, refreshHotspotSession, revokeHotspotSession, getHotspotConnectionStatus
+		getHotspotPlans, refreshHotspotSession, revokeHotspotSession, getHotspotConnectionStatus, getHotspotWallet
 	}) {
+		this.getHotspotWalletUseCase = getHotspotWallet;
 		this.resolveHotspotSessionUseCase = resolveHotspotSession;
 		this.authenticateHotspotSessionUseCase = authenticateHotspotSession;
 		this.startHotspotUseCase = startHotspot;
@@ -27,7 +28,12 @@ export class HotspotController {
 
 	startHotspot = async (req, res) => {
 		const result = await this.startHotspotUseCase.execute({ ...req.body, ip: req.ip });
-		return successResponse({ res, data: result, message: "Checkout started", statusCode: 201 });
+		return successResponse({ res, data: { ...result, payment: result.payment?.toJSON?.() ?? result.payment }, message: result.status === "PAID" ? "Paid from wallet" : "Checkout started", statusCode: 201 });
+	};
+
+	getWallet = async (req, res) => {
+		const wallet = await this.getHotspotWalletUseCase.execute({ ...req.body });
+		return successResponse({ res, data: wallet, message: "Wallet fetched successfully" });
 	};
 
 	getPlans = async (req, res) => {

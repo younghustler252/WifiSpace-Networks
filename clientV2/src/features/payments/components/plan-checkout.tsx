@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Loader2, WifiOff } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CreditCard, Loader2, Wallet as WalletIcon, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { Notice } from "@/components/shared/notice";
 import { PageHeader } from "@/components/shared/page-header";
@@ -22,6 +22,13 @@ import { getSubscriptionPhase, pickCurrentSubscription } from "@/features/subscr
 import { formatCurrency } from "@/lib/format";
 import { useStartPayment } from "../hooks/use-payments";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
+import { settleFailure } from "@/lib/api/failure";
+import { toastWithProvisioning } from "@/features/subscriptions/lib/provisioning";
+import { WALLET_ERROR_CODES } from "@/features/wallet/constants";
+import { usePayWithWallet, useWallet } from "@/features/wallet/hooks/use-wallet";
+import { formatWalletAmount } from "@/features/wallet/lib/money";
+import type { InsufficientBalanceDetails } from "@/features/wallet/types/wallet.types";
+import { cn } from "@/lib/utils";
 
 
 interface PlanGroupProps {
@@ -59,11 +66,50 @@ function PlanGroup({ title, description, plans, selectedId, bestValueId, highlig
 	);
 }
 
+type PayMethod = "card" | "wallet";
+
+interface MethodOptionProps {
+	icon: typeof CreditCard;
+	title: string;
+	text: string;
+	active: boolean;
+	disabled?: boolean;
+	onSelect: () => void;
+}
+
+function MethodOption({ icon: Icon, title, text, active, disabled, onSelect }: MethodOptionProps) {
+	return (
+		<button
+			type="button"
+			role="radio"
+			aria-checked={active}
+			disabled={disabled}
+			onClick={onSelect}
+			className={cn(
+				"card-elevated flex min-h-14 w-full items-center gap-3 p-3 text-left transition disabled:opacity-50",
+				active ? "border-signal bg-accent" : "bg-surface-2 hover:border-signal/40"
+			)}
+		>
+			<span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-background text-signal">
+				<Icon className="size-4" />
+			</span>
+			<span className="min-w-0">
+				<span className="block text-sm font-medium">{title}</span>
+				<span className="block truncate text-[12px] text-muted-foreground">{text}</span>
+			</span>
+		</button>
+	);
+}
+
 export function PlanCheckout() {
+	const nav = useRouter();
 	const searchParams = useSearchParams();
 	const accounts = useAccounts();
 	const subscriptions = useSubscriptions();
 	const startPayment = useStartPayment();
+	const payWithWallet = usePayWithWallet();
+	const wallet = useWallet();
+	const [method, setMethod] = useState<PayMethod>("card");
 	const [chosenAccountId, setChosenAccountId] = useState<string | null>(searchParams.get("account"));
 	const [planId, setPlanId] = useState<string | null>(null);
 	const [redirecting, setRedirecting] = useState(false);
@@ -86,12 +132,40 @@ export function PlanCheckout() {
 	const bestValueId = useMemo(() => (isActive ? null : getBestValueId(plans.data ?? [])), [isActive, plans.data]);
 	const loading = plans.isLoading || subscriptions.isLoading || (isActive && upgrades.isLoading);
 	const failed = plans.isError || (isActive && upgrades.isError);
-	const busy = startPayment.isPending || redirecting;
+	const busy = startPayment.isPending || payWithWallet.isPending || redirecting;
 	const isUpgrade = isActive && !!selected && selected.id !== current?.planId;
 	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}`);
+	const walletKey = useIdempotencyKey(`${account?.id}|${planId}|wallet`);
+	const price = selected ? getPlanPricing(selected).final : 0;
+	const balance = wallet.data?.balance ?? null;
+	const walletAvailable = !!selected && !isUpgrade && balance !== null;
+	const canAfford = balance !== null && balance >= price;
+	const useWalletMethod = method === "wallet" && walletAvailable;
+
+	async function handleWalletPay() {
+		if (!account || !selected) return;
+
+		const res = await payWithWallet.mutateAsync({ accountId: account.id, planId: selected.id, idempotencyKey: walletKey });
+
+		if (!res.success) {
+			if (res.code === WALLET_ERROR_CODES.INSUFFICIENT_BALANCE) {
+				const details = res.details as InsufficientBalanceDetails | null | undefined;
+				toast.error(res.message, {
+					description: details?.shortfall ? `You need ${formatWalletAmount(details.shortfall)} more.` : undefined,
+				});
+				return;
+			}
+			if (settleFailure(res, "The wallet payment")) nav.push("/overview");
+			return;
+		}
+
+		toastWithProvisioning("Paid from your wallet", res.data);
+		nav.push("/overview");
+	}
 
 	async function handlePay() {
 		if (!account || !selected || busy) return;
+		if (useWalletMethod) return handleWalletPay();
 
 		const res = await startPayment.mutateAsync({
 			accountId: account.id,
@@ -226,7 +300,7 @@ export function PlanCheckout() {
 		<div className="space-y-6">
 			<PageHeader
 				title={isActive ? "Renew or upgrade" : "Choose a plan"}
-				description="Pay securely with Paystack. Your service activates automatically."
+				description="Pay by card or bank, or from your wallet. Your service activates automatically."
 			/>
 
 			{eligible.length > 1 && (
@@ -252,6 +326,29 @@ export function PlanCheckout() {
 
 			{renderPlans()}
 
+			{!loading && !failed && walletAvailable && (
+				<section className="space-y-3">
+					<h2 className="text-sm font-medium">Pay with</h2>
+					<div role="radiogroup" aria-label="Payment method" className="grid gap-3 sm:grid-cols-2">
+						<MethodOption icon={CreditCard} title="Card or bank" text="Secure checkout by Paystack" active={!useWalletMethod} onSelect={() => setMethod("card")} />
+						<MethodOption
+							icon={WalletIcon}
+							title="Wallet"
+							text={`Balance ${formatWalletAmount(balance ?? 0)}`}
+							active={useWalletMethod}
+							onSelect={() => setMethod("wallet")}
+						/>
+					</div>
+					{useWalletMethod && !canAfford && (
+						<Notice
+							tone="warning"
+							title="Your wallet doesn't cover this plan"
+							text={`You need ${formatWalletAmount(price - (balance ?? 0))} more. Add money from the Wallet page, or pay by card.`}
+						/>
+					)}
+				</section>
+			)}
+
 			{!loading && !failed && visiblePlans.length > 0 && (
 				<div className="card-elevated sticky bottom-20 flex items-center justify-between gap-4 bg-background/95 p-3 backdrop-blur lg:bottom-4">
 					<div className="min-w-0">
@@ -260,9 +357,9 @@ export function PlanCheckout() {
 							{selected ? formatCurrency(getPlanPricing(selected).final) : "Select a plan to continue"}
 						</p>
 					</div>
-					<Button size="lg" disabled={!selected || busy} onClick={handlePay}>
+					<Button size="lg" disabled={!selected || busy || (useWalletMethod && !canAfford)} onClick={handlePay}>
 						{busy && <Loader2 className="animate-spin" />}
-						{isUpgrade ? "Upgrade and pay" : "Pay securely"}
+						{isUpgrade ? "Upgrade and pay" : useWalletMethod ? "Pay from wallet" : "Pay securely"}
 					</Button>
 				</div>
 			)}

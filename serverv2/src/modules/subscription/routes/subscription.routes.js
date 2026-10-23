@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	subscribeSchema, adminCreateSubscriptionSchema, suspendSubscriptionSchema,
-	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, resyncSubscriptionSchema
+	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, customerChangePlanSchema, resyncSubscriptionSchema
 } from "../validators/subscription.validators.js";
 
 const router = Router();
@@ -20,7 +20,7 @@ router.use(authenticate);
 router.post("/", validate(subscribeSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.subscribe));
 router.get("/me", asyncHandler(subscriptionController.getMySubscriptions));
 router.get("/upgrade-options", asyncHandler(subscriptionController.getUpgradeOptions));
-router.post("/change-plan", validate(changePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.changePlan));
+router.post("/change-plan", validate(customerChangePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.changePlan));
 
 const adminRouter = Router();
 adminRouter.use(requireStaff);

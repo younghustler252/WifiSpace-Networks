@@ -1,13 +1,13 @@
 import type { Subscription } from "@/features/subscriptions/types/subscriptions.types";
 
-export type HotspotSessionState = "UNKNOWN_DEVICE" | "PENDING" | "TRUSTED_NEEDS_PLAN" | "ACTIVE";
+export type HotspotSessionState = "UNKNOWN_DEVICE" | "PENDING" | "TRUSTED_NEEDS_PLAN" | "ACTIVATING" | "ACTIVATION_FAILED" | "ACTIVE";
 
 export interface HotspotSession {
 	state: HotspotSessionState;
 	router: HotspotRouter | null;
 	session: Record<string, unknown> | null;
 	subscription: Subscription | null;
-	provisioning?: unknown;
+	provisioning?: "synced" | "pending" | "failed" | (string & {});
 }
 export interface HotspotRouter {
 	id: string;
@@ -23,6 +23,11 @@ export interface HotspotSubscription {
 	planSnapshot?: { name: string; price: number; durationValue: number; durationUnit: string };
 	expiresAt?: string | null;
 }
+export interface HotspotRevokeResult {
+	macAddress?: string;
+	status?: string;
+}
+
 export interface HotspotClientInfo {
 	macAddress: string;
 	ipAddress?: string;
@@ -72,10 +77,14 @@ export interface HotspotLoginResult {
 	account: { id: string; wsnId: string; serviceType: string; maxDevices: number };
 }
 
+export type HotspotStage = "awaiting_payment" | "payment_failed" | "provisioning" | "provisioning_failed" | "connected";
+
 export interface HotspotStatus {
-	paymentStatus: "initiated" | "pending" | "successful" | "failed" | (string & {});
+	paymentStatus: "initiated" | "pending" | "successful" | "failed" | "expired" | (string & {});
 	businessProcessed: boolean;
 	connected: boolean;
+	stage: HotspotStage;
+	expiresAt?: string | null;
 }
 
 export interface RouterRef {

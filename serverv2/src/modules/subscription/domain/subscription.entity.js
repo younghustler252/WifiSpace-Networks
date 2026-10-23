@@ -70,8 +70,8 @@ export class Subscription {
 		this.lastPaymentAmount = paymentAmount;
 	}
 
-	activate({ paymentId = null, paymentAmount = null, paymentDate = new Date() } = {}) {
-		const now = new Date();
+	activate({ paymentId = null, paymentAmount = null, paymentDate = new Date(), startedAt = null } = {}) {
+		const now = startedAt ? new Date(startedAt) : new Date();
 		const bonusMs = (this.bonusDays + this.manualAdjustmentDays) * 86400000;
 
 		this.status = SUBSCRIPTION_STATUSES.ACTIVE;

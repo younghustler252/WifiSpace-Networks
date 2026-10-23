@@ -15,6 +15,7 @@ export const recordPaymentSchema = z.object({
 	planId: z.string().min(1),
 	cycles: z.number().int().min(1).optional(),
 	paymentChannel: z.string().optional(),
+	startDate: z.coerce.date().optional(),
 	note: z.string().optional()
 });
 

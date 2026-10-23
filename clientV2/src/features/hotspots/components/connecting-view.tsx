@@ -1,32 +1,31 @@
 "use client";
 
 import { Clock, Wifi, XCircle } from "lucide-react";
+import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { useConnectionStatus } from "../hooks/use-hotspots";
 import { ConnectedView } from "./connected-view";
-import { StatusMessage } from "../../../components/shared/status-message";
+import { ProgressSteps } from "./progress-steps";
+
+const STEPS = ["Confirming your payment", "Switching on your internet", "You're online"];
 
 interface ConnectingViewProps {
 	reference: string;
 	macAddress: string;
+	linkOrig?: string;
 	onTryAgain: () => void;
 }
 
-export function ConnectingView({ reference, macAddress, onTryAgain }: ConnectingViewProps) {
-	const { connected, failed, timedOut, restart } = useConnectionStatus(reference, macAddress);
+export function ConnectingView({ reference, macAddress, linkOrig, onTryAgain }: ConnectingViewProps) {
+	const { stage, connected, paymentFailed, activationFailed, timedOut, expiresAt, restart } = useConnectionStatus(reference, macAddress);
 
 	if (connected) {
-		return <ConnectedView title="You're online!" text="You can close this page and start browsing." />;
+		return <ConnectedView title="You're online!" text="You can close this page and start browsing." expiresAt={expiresAt} linkOrig={linkOrig} />;
 	}
 
-	if (failed) {
+	if (paymentFailed) {
 		return (
-			<StatusMessage
-				icon={XCircle}
-				tone="destructive"
-				title="Payment didn't go through"
-				text="We couldn't confirm your payment. Pick a plan to try again."
-			>
+			<StatusMessage icon={XCircle} tone="destructive" title="Payment didn't go through" text="You haven't been charged for this attempt. Pick a plan to try again.">
 				<Button size="lg" className="w-full" onClick={onTryAgain}>
 					Try again
 				</Button>
@@ -34,14 +33,26 @@ export function ConnectingView({ reference, macAddress, onTryAgain }: Connecting
 		);
 	}
 
-	if (timedOut) {
+	if (activationFailed) {
 		return (
 			<StatusMessage
-				icon={Clock}
+				icon={XCircle}
 				tone="warning"
-				title="Still activating"
-				text="This is taking longer than usual. If you've paid, your internet will switch on automatically."
+				title="Paid, but not switched on yet"
+				text="Your payment went through and your plan is safe. We couldn't switch your internet on automatically. Tap check again, or contact support with the reference below."
 			>
+				<p className="text-mono text-xs text-muted-foreground">Reference: {reference}</p>
+				<Button size="lg" className="w-full" onClick={restart}>
+					Check again
+				</Button>
+			</StatusMessage>
+		);
+	}
+
+	if (timedOut) {
+		return (
+			<StatusMessage icon={Clock} tone="warning" title="Still working on it" text="This is taking longer than usual. If you've paid, your internet will switch on automatically.">
+				<p className="text-mono text-xs text-muted-foreground">Reference: {reference}</p>
 				<Button size="lg" className="w-full" onClick={restart}>
 					Check again
 				</Button>
@@ -52,12 +63,35 @@ export function ConnectingView({ reference, macAddress, onTryAgain }: Connecting
 		);
 	}
 
+	const current = stage === "provisioning" ? 1 : 0;
+
 	return (
-		<StatusMessage
-			icon={Wifi}
-			pulse
-			title="Connecting you…"
-			text="Confirming your payment and switching on your internet. This usually takes a few seconds."
-		/>
+		<StatusMessage icon={Wifi} pulse title={current === 0 ? "Confirming your payment…" : "Switching your internet on…"} text="Keep this page open. It usually takes a few seconds.">
+			<ProgressSteps steps={STEPS} current={current} />
+			<p className="text-mono text-xs text-muted-foreground">Reference: {reference}</p>
+		</StatusMessage>
+	);
+}
+
+interface ActivatingViewProps {
+	timedOut: boolean;
+	onCheckAgain: () => void;
+}
+
+export function ActivatingView({ timedOut, onCheckAgain }: ActivatingViewProps) {
+	if (timedOut) {
+		return (
+			<StatusMessage icon={Clock} tone="warning" title="Still setting things up" text="Your plan is active but your internet isn't on yet. Tap check again, or ask staff nearby for help.">
+				<Button size="lg" className="w-full" onClick={onCheckAgain}>
+					Check again
+				</Button>
+			</StatusMessage>
+		);
+	}
+
+	return (
+		<StatusMessage icon={Wifi} pulse title="Switching your internet on…" text="Your plan is active. This usually takes a few seconds.">
+			<ProgressSteps steps={STEPS} current={1} />
+		</StatusMessage>
 	);
 }

@@ -1,31 +1,41 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { hotspotsApi, hotspotsAdminApi } from "../services/hotspots.api";
 import type { HotspotClientInfo } from "../types/hotspots.types";
-import { readProvisioning } from "@/features/subscriptions/lib/provisioning";
 
+export const ACTIVATION_MAX_WAIT_MS = 90_000;
+const SESSION_POLL_MS = 3000;
 const STATUS_POLL_MS = 2500;
-const STATUS_MAX_WAIT_MS = 30_000;
+const STATUS_MAX_WAIT_MS = 45_000;
 
-export function useHotspotSession(client: HotspotClientInfo | null) {
+export function useHotspotSession(client: HotspotClientInfo | null, pollOpen: () => boolean = () => true) {
 	return useQuery({
 		queryKey: ["hotspot", "session", client?.macAddress, client?.routerId, client?.routerUid, client?.identity],
 		enabled: !!client,
 		queryFn: async () => {
-			const { macAddress, routerId, routerUid, identity } = client!;
-			return unwrap(await hotspotsApi.session({ macAddress, routerId, routerUid, identity })).data;
+			const { macAddress, ipAddress, routerId, routerUid, identity } = client!;
+			return unwrap(await hotspotsApi.session({ macAddress, ipAddress, routerId, routerUid, identity })).data;
 		},
 		refetchInterval: (query) => {
-			const data = query.state.data;
-			if (!data) return false;
-			if (data.state === "PENDING") return 3000;
-			if (data.state === "ACTIVE" && (readProvisioning(data) === "pending" || data.subscription?.mikrotikStatus === "pending")) return 3000;
+			const state = query.state.data?.state;
+			if (state === "PENDING" || state === "ACTIVATING") return pollOpen() ? SESSION_POLL_MS : false;
 			return false;
 		},
 		staleTime: 0,
+	});
+}
+
+export function useRevokeDevice() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (macAddress: string) => hotspotsApi.revoke(macAddress),
+		onSuccess: (res) => {
+			if (res.success) queryClient.invalidateQueries({ queryKey: ["hotspot", "session"] });
+		},
 	});
 }
 
@@ -46,11 +56,10 @@ export function useConnectionStatus(reference: string | null, macAddress: string
 	const query = useQuery({
 		queryKey: ["hotspot", "status", reference, macAddress],
 		enabled: !!reference && !!macAddress,
-		queryFn: async () =>
-			unwrap(await hotspotsApi.status({ reference: reference!, macAddress: macAddress! })).data,
+		queryFn: async () => unwrap(await hotspotsApi.status({ reference: reference!, macAddress: macAddress! })).data,
 		refetchInterval: (q) => {
-			const data = q.state.data;
-			if (data?.connected || data?.paymentStatus === "failed") return false;
+			const stage = q.state.data?.stage;
+			if (stage === "connected" || stage === "payment_failed" || stage === "provisioning_failed") return false;
 			return poll.isOpen() ? STATUS_POLL_MS : false;
 		},
 		retry: false,
@@ -58,13 +67,19 @@ export function useConnectionStatus(reference: string | null, macAddress: string
 		gcTime: 0,
 	});
 
-	const connected = query.data?.connected === true;
-	const failed = query.data?.paymentStatus === "failed";
+	const data = query.data;
+	const stage = data?.stage ?? "awaiting_payment";
+	const connected = stage === "connected" || data?.connected === true;
+	const paymentFailed = stage === "payment_failed" || data?.paymentStatus === "failed" || data?.paymentStatus === "expired";
+	const activationFailed = stage === "provisioning_failed";
 
 	return {
+		stage,
 		connected,
-		failed,
-		timedOut: poll.expired && !connected && !failed,
+		paymentFailed,
+		activationFailed,
+		expiresAt: data?.expiresAt ?? null,
+		timedOut: poll.expired && !connected && !paymentFailed && !activationFailed,
 		restart: () => {
 			poll.restart();
 			query.refetch();

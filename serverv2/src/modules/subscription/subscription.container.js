@@ -9,6 +9,7 @@ import { GetAllSubscriptions } from "./usecases/admin/get-all-subscriptions.usec
 import { GetSubscriptionById } from "./usecases/admin/get-subscription-by-id.usecase.js";
 import { AdminSuspendSubscription } from "./usecases/admin/suspend-subscription.usecase.js";
 import { AdminResumeSubscription } from "./usecases/admin/resume-subscription.usecase.js";
+import { InitiatePlanChange } from "./usecases/user/initiate-plan-change.usecase.js";
 import { GetUpgradeOptions } from "./usecases/user/get-upgrade-options.usecase.js";
 import { CancelSubscription } from "./usecases/admin/cancel-subscription.usecase.js";
 import { ExtendSubscription } from "./usecases/admin/extend-subscription.usecase.js";
@@ -32,6 +33,7 @@ export function registerSubscription(container) {
 		adminCreateSubscription: asClass(AdminCreateSubscription).scoped(),
 		getAllSubscriptions: asClass(GetAllSubscriptions).scoped(),
 		getSubscriptionById: asClass(GetSubscriptionById).scoped(),
+		initiatePlanChange: asClass(InitiatePlanChange).scoped(),
 		getUpgradeOptions: asClass(GetUpgradeOptions).scoped(),
 		adminSuspendSubscription: asClass(AdminSuspendSubscription).scoped(),
 		adminResumeSubscription: asClass(AdminResumeSubscription).scoped(),

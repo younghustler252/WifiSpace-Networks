@@ -7,6 +7,17 @@ import type { HotspotClientInfo } from "../types/hotspots.types";
 
 const MAC_KEYS = ["mac", "macAddress"];
 const IP_KEYS = ["ip", "ipAddress"];
+const ORIGIN_KEYS = ["link-orig", "linkOrig", "dst"];
+
+function safeHttpUrl(value?: string) {
+	if (!value) return undefined;
+	try {
+		const url = new URL(value);
+		return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 function pick(params: URLSearchParams, keys: string[]) {
 	for (const key of keys) {
@@ -36,6 +47,10 @@ export function usePortalParams() {
 				}
 			: null;
 
-		return { client, reference: params.get("reference") ?? params.get("trxref") ?? null };
+		return {
+			client,
+			reference: params.get("reference") ?? params.get("trxref") ?? null,
+			linkOrig: safeHttpUrl(pick(params, ORIGIN_KEYS)),
+		};
 	}, [query]);
 }

@@ -1,9 +1,8 @@
 "use client";
 
-import { CheckCircle2, Wifi } from "lucide-react";
+import { CheckCircle2, Globe } from "lucide-react";
 import { StatusMessage } from "@/components/shared/status-message";
-import type { ProvisioningState } from "@/features/subscriptions/lib/provisioning";
-import type { Subscription } from "@/features/subscriptions/types/subscriptions.types";
+import { Button } from "@/components/ui/button";
 import { useCountdown } from "@/hooks/use-countdown";
 import { formatDateTime, formatRemaining } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -11,9 +10,12 @@ import { cn } from "@/lib/utils";
 interface ConnectedViewProps {
 	title: string;
 	text: string;
-	subscription?: Subscription | null;
-	provisioning?: ProvisioningState | null;
+	planName?: string | null;
+	expiresAt?: string | null;
+	linkOrig?: string;
 }
+
+const FALLBACK_URL = "https://www.google.com";
 
 function Stat({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
 	return (
@@ -24,21 +26,11 @@ function Stat({ label, value, mono }: { label: string; value: string; mono?: boo
 	);
 }
 
-export function ConnectedView({ title, text, subscription, provisioning }: ConnectedViewProps) {
-	const expiresAt = subscription?.expiresAt;
+export function ConnectedView({ title, text, planName, expiresAt, linkOrig }: ConnectedViewProps) {
 	const secondsLeft = useCountdown(expiresAt);
-	const planName = subscription?.planSnapshot?.name;
-	const sync = subscription?.mikrotikStatus;
-	const connecting = provisioning === "pending" || sync === "pending";
 
 	return (
-		<StatusMessage
-			icon={connecting ? Wifi : CheckCircle2}
-			tone={connecting ? "primary" : "success"}
-			pulse={connecting}
-			title={connecting ? "Switching your internet on…" : title}
-			text={connecting ? "Your plan is active and we're connecting you now. This usually takes a few seconds." : text}
-		>
+		<StatusMessage icon={CheckCircle2} tone="success" title={title} text={text}>
 			{(planName || expiresAt) && (
 				<div className="grid grid-cols-2 gap-3">
 					{planName && <Stat label="Plan" value={planName} />}
@@ -46,11 +38,12 @@ export function ConnectedView({ title, text, subscription, provisioning }: Conne
 				</div>
 			)}
 			{expiresAt && <p className="text-xs text-muted-foreground">Expires {formatDateTime(expiresAt)}</p>}
-			{sync === "failed" && (
-				<p className="text-xs text-destructive">
-					We&apos;re having trouble switching your internet on. If it doesn&apos;t work shortly, please contact support.
-				</p>
-			)}
+			<Button asChild size="lg" className="w-full">
+				<a href={linkOrig ?? FALLBACK_URL}>
+					<Globe />
+					Start browsing
+				</a>
+			</Button>
 		</StatusMessage>
 	);
 }

@@ -1,0 +1,959 @@
+diff --git a/serverv2/src/container/index.js b/serverv2/src/container/index.js
+index 041e373..f39aebc 100644
+--- a/serverv2/src/container/index.js
++++ b/serverv2/src/container/index.js
+@@ -21,6 +21,7 @@ import { registerHotspot } from "../modules/hotspot/hotspot.container.js";
+ import { registerNotifications } from "../modules/notifications/notification.container.js";
+ import { registerRouter } from "../modules/router/router.cotainer.js";
+ import { registerProvisioning } from "../modules/provisioning/provisioning.container.js";
++import { registerWallet } from "../modules/wallet/wallet.container.js";
+ import { registerPayment } from "../modules/payment/payment.container.js";
+ import { registerSubscription } from "../modules/subscription/subscription.container.js";
+ import { registerPlan } from "../modules/plan/plan.container.js";
+@@ -60,6 +61,7 @@ const modules = [
+ 	registerHotspot,
+ 	registerRouter,
+ 	registerProvisioning,
++	registerWallet,
+ 	registerPayment,
+ 	registerSubscription,
+ 	registerPlan,
+diff --git a/serverv2/src/infrastructure/payments/providers/paystack.provider.js b/serverv2/src/infrastructure/payments/providers/paystack.provider.js
+index 1af04ea..52ff04d 100644
+--- a/serverv2/src/infrastructure/payments/providers/paystack.provider.js
++++ b/serverv2/src/infrastructure/payments/providers/paystack.provider.js
+@@ -39,6 +39,28 @@ export class PaystackProvider extends PaymentGatewayInterface {
+ 		}
+ 	}
+ 
++	async createVirtualAccount({ email, firstName, lastName, phone }) {
++		try {
++			const customerResponse = await this.client.post("/customer", { email, first_name: firstName, last_name: lastName, phone });
++			const customerCode = customerResponse.data.data.customer_code;
++
++			const accountResponse = await this.client.post("/dedicated_account", {
++				customer: customerCode,
++				preferred_bank: process.env.PAYSTACK_DVA_BANK || "wema-bank"
++			});
++			const account = accountResponse.data.data;
++
++			return {
++				accountNumber: account.account_number,
++				bankName: account.bank?.name ?? null,
++				accountName: account.account_name ?? null,
++				customerCode
++			};
++		} catch (err) {
++			this._handleAxiosError(err, "PAYSTACK_DVA_ERROR", "Failed to create dedicated account");
++		}
++	}
++
+ 	verifyWebhookSignature(rawBody, signature) {
+ 		try {
+ 			if (!signature || !rawBody) return false;
+@@ -52,12 +74,24 @@ export class PaystackProvider extends PaymentGatewayInterface {
+ 	parseWebhookEvent(payload) {
+ 		const event = payload?.event;
+ 		const data = payload?.data || {};
++		if (event === "charge.success" && data.channel === "dedicated_nuban") {
++			return {
++				kind: "wallet_funding",
++				reference: data.reference,
++				status: PAYMENT_STATUSES.SUCCESSFUL,
++				amountKobo: data.amount,
++				accountNumber: data.authorization?.receiver_bank_account_number ?? null,
++				customerCode: data.customer?.customer_code ?? null,
++				senderName: data.authorization?.sender_name ?? null
++			};
++		}
++
+ 		let status;
+ 		if (event === "charge.success") status = PAYMENT_STATUSES.SUCCESSFUL;
+ 		else if (event === "charge.failed") status = PAYMENT_STATUSES.FAILED;
+ 		else return null;
+ 
+-		return { reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
++		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
+ 	}
+ 
+ 	mapStatus(status) {
+diff --git a/serverv2/src/modules/payment/domain/payment.entity.js b/serverv2/src/modules/payment/domain/payment.entity.js
+index 5c8c997..118d9a2 100644
+--- a/serverv2/src/modules/payment/domain/payment.entity.js
++++ b/serverv2/src/modules/payment/domain/payment.entity.js
+@@ -62,6 +62,11 @@ export class Payment {
+ 		this.failureReason = reason;
+ 	}
+ 
++	markRefunded(reason = null) {
++		this.status = PAYMENT_STATUSES.REFUNDED;
++		this.failureReason = reason;
++	}
++
+ 	markExpired() { this.status = PAYMENT_STATUSES.EXPIRED; }
+ 	markBusinessProcessed() { this.businessProcessed = true; }
+ 
+diff --git a/serverv2/src/modules/payment/domain/payment.enum.js b/serverv2/src/modules/payment/domain/payment.enum.js
+index 4c8dd87..e576f81 100644
+--- a/serverv2/src/modules/payment/domain/payment.enum.js
++++ b/serverv2/src/modules/payment/domain/payment.enum.js
+@@ -8,10 +8,10 @@ export const PAYMENT_STATUSES = {
+ };
+ export const PAYMENT_STATUS_LIST = Object.values(PAYMENT_STATUSES);
+ 
+-export const PAYMENT_CHANNELS = { CARD: "card", BANK_TRANSFER: "bank_transfer", USSD: "ussd", QR: "qr", MOBILE_MONEY: "mobile_money", CASH: "cash" };
++export const PAYMENT_CHANNELS = { CARD: "card", BANK_TRANSFER: "bank_transfer", USSD: "ussd", QR: "qr", MOBILE_MONEY: "mobile_money", CASH: "cash", WALLET: "wallet" };
+ export const PAYMENT_CHANNEL_LIST = Object.values(PAYMENT_CHANNELS);
+ 
+-export const PAYMENT_GATEWAYS = { PAYSTACK: "paystack", FLUTTERWAVE: "flutterwave", CASH: "cash" };
++export const PAYMENT_GATEWAYS = { PAYSTACK: "paystack", FLUTTERWAVE: "flutterwave", CASH: "cash", WALLET: "wallet" };
+ export const PAYMENT_GATEWAY_LIST = Object.values(PAYMENT_GATEWAYS);
+ 
+ export const PAYMENT_ACTIONS = { NEW_SUBSCRIPTION: "new_subscription", RENEWAL: "renewal", UPGRADE: "upgrade", DOWNGRADE: "downgrade" };
+diff --git a/serverv2/src/modules/payment/repositories/payment.repository.mongo.js b/serverv2/src/modules/payment/repositories/payment.repository.mongo.js
+index 24b5d9d..5fa46f2 100644
+--- a/serverv2/src/modules/payment/repositories/payment.repository.mongo.js
++++ b/serverv2/src/modules/payment/repositories/payment.repository.mongo.js
+@@ -79,6 +79,15 @@ export class PaymentRepositoryMongo extends BaseRepository {
+ 		await this.model.updateOne({ _id: id }, { $set: { processingLockedAt: null } });
+ 	}
+ 
++	async findStalePayments(cutoffDate) {
++		const docs = await this.model.find({
++			status: { $in: [PAYMENT_STATUSES.INITIATED, PAYMENT_STATUSES.PENDING] },
++			gateway: { $nin: ["wallet", "cash"] },
++			createdAt: { $lte: cutoffDate }
++		}).lean();
++		return this.mapArray(docs);
++	}
++
+ 	async findExpiredPendingPayments(cutoffDate) {
+ 		const docs = await this.model.find({ status: PAYMENT_STATUSES.PENDING, createdAt: { $lte: cutoffDate } }).lean();
+ 		return this.mapArray(docs);
+diff --git a/serverv2/src/modules/payment/usecases/admin/reverse-payment.usecase.js b/serverv2/src/modules/payment/usecases/admin/reverse-payment.usecase.js
+index afd3501..5ad5ed9 100644
+--- a/serverv2/src/modules/payment/usecases/admin/reverse-payment.usecase.js
++++ b/serverv2/src/modules/payment/usecases/admin/reverse-payment.usecase.js
+@@ -1,10 +1,13 @@
+ // payment/usecases/admin/reverse-payment.usecase.js
+ import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
++import { toKobo } from "../../../../shared/utils/money.js";
++import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../../wallet/domain/wallet.enum.js";
+ import { PAYMENT_ERROR_CODES } from "../../domain/payment.enum.js";
+ 
+ export class ReversePayment {
+-	constructor({ paymentRepository, auditService }) {
++	constructor({ paymentRepository, walletRepository, auditService }) {
+ 		this.paymentRepository = paymentRepository;
++		this.walletRepository = walletRepository;
+ 		this.auditService = auditService;
+ 	}
+ 
+@@ -13,10 +16,24 @@ export class ReversePayment {
+ 		if (!payment) throw new NotFoundError("Payment not found", PAYMENT_ERROR_CODES.PAYMENT_NOT_FOUND);
+ 		if (!payment.isSuccessful()) throw new ValidationError("Only a successful payment can be reversed");
+ 
++		const amountKobo = toKobo(payment.totalAmount);
++
++		if (amountKobo > 0) {
++			await this.walletRepository.apply({
++				userId: payment.userId,
++				type: WALLET_TX_TYPES.CREDIT,
++				amountKobo,
++				source: WALLET_TX_SOURCES.REVERSAL,
++				reference: `reversal:${payment.id}`,
++				description: reason ? `Refund: ${reason}` : "Payment reversed",
++				metadata: { paymentId: payment.id, actorId }
++			});
++		}
++
+ 		payment.markRefunded(reason);
+ 		const updated = await this.paymentRepository.update(payment.id, payment);
+ 
+-		await this.auditService?.log({ actorId, action: "PAYMENT_REVERSED", entity: "Payment", entityId: paymentId, newValue: { reason }, ip });
++		await this.auditService?.log({ actorId, action: "PAYMENT_REVERSED", entity: "Payment", entityId: paymentId, newValue: { reason, creditedToWalletKobo: amountKobo }, ip });
+ 
+ 		return updated;
+ 	}
+diff --git a/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js b/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
+index 0e20059..3130823 100644
+--- a/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
++++ b/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
+@@ -2,7 +2,8 @@ import { ValidationError, NotFoundError } from "../../../../shared/errors/domain
+ import { PAYMENT_ERROR_CODES } from "../../domain/payment.enum.js";
+ 
+ export class HandleWebhook {
+-	constructor({ paymentRepository, paymentGatewayRegistry, processSuccessfulPayment, auditService }) {
++	constructor({ paymentRepository, paymentGatewayRegistry, processSuccessfulPayment, fundWalletFromTransfer, auditService }) {
++		this.fundWalletFromTransfer = fundWalletFromTransfer;
+ 		this.paymentRepository = paymentRepository;
+ 		this.paymentGatewayRegistry = paymentGatewayRegistry;
+ 		this.processSuccessfulPayment = processSuccessfulPayment;
+@@ -21,6 +22,13 @@ export class HandleWebhook {
+ 			return { handled: false, reason: "unrecognized_event" }; // not every webhook event type matters to us — no-op, not an error
+ 		}
+ 
++		if (event.kind === "wallet_funding") {
++			return this.fundWalletFromTransfer.execute({
++				reference: event.reference, amountKobo: event.amountKobo,
++				accountNumber: event.accountNumber, customerCode: event.customerCode, senderName: event.senderName
++			});
++		}
++
+ 		const payment = await this.paymentRepository.findByGatewayReference(event.reference);
+ 		if (!payment) {
+ 			// A webhook for a reference we don't recognize is suspicious but not our fault to crash on —
+diff --git a/serverv2/src/modules/wallet/controllers/wallet-admin.controller.js b/serverv2/src/modules/wallet/controllers/wallet-admin.controller.js
+new file mode 100644
+index 0000000..6274fe2
+--- /dev/null
++++ b/serverv2/src/modules/wallet/controllers/wallet-admin.controller.js
+@@ -0,0 +1,24 @@
++import { successResponse, paginatedResponse } from "../../../shared/utils/api-response.js";
++
++export class WalletAdminController {
++	constructor({ getMyWallet, getMyWalletTransactions, adjustWallet }) {
++		this.getWalletUseCase = getMyWallet;
++		this.getTransactionsUseCase = getMyWalletTransactions;
++		this.adjustWalletUseCase = adjustWallet;
++	}
++
++	getWallet = async (req, res) => {
++		const wallet = await this.getWalletUseCase.execute({ userId: req.params.userId });
++		return successResponse({ res, data: wallet, message: "Wallet fetched successfully" });
++	};
++
++	getTransactions = async (req, res) => {
++		const result = await this.getTransactionsUseCase.execute({ userId: req.params.userId, page: req.query.page, limit: req.query.limit });
++		return paginatedResponse({ res, data: result.data, meta: result.meta, message: "Wallet transactions fetched successfully" });
++	};
++
++	adjust = async (req, res) => {
++		const wallet = await this.adjustWalletUseCase.execute({ actorId: req.user.id, userId: req.params.userId, ...req.body, ip: req.ip });
++		return successResponse({ res, data: wallet, message: "Wallet adjusted successfully" });
++	};
++}
+diff --git a/serverv2/src/modules/wallet/controllers/wallet.controller.js b/serverv2/src/modules/wallet/controllers/wallet.controller.js
+new file mode 100644
+index 0000000..f6b4afa
+--- /dev/null
++++ b/serverv2/src/modules/wallet/controllers/wallet.controller.js
+@@ -0,0 +1,35 @@
++import { successResponse, paginatedResponse } from "../../../shared/utils/api-response.js";
++
++export class WalletController {
++	constructor({ getMyWallet, getMyWalletTransactions, ensureVirtualAccount, payWithWallet }) {
++		this.getMyWalletUseCase = getMyWallet;
++		this.getMyWalletTransactionsUseCase = getMyWalletTransactions;
++		this.ensureVirtualAccountUseCase = ensureVirtualAccount;
++		this.payWithWalletUseCase = payWithWallet;
++	}
++
++	getMyWallet = async (req, res) => {
++		const wallet = await this.getMyWalletUseCase.execute({ userId: req.user.id });
++		return successResponse({ res, data: wallet, message: "Wallet fetched successfully" });
++	};
++
++	getMyTransactions = async (req, res) => {
++		const result = await this.getMyWalletTransactionsUseCase.execute({ userId: req.user.id, page: req.query.page, limit: req.query.limit });
++		return paginatedResponse({ res, data: result.data, meta: result.meta, message: "Wallet transactions fetched successfully" });
++	};
++
++	getVirtualAccount = async (req, res) => {
++		const wallet = await this.ensureVirtualAccountUseCase.execute({ userId: req.user.id });
++		return successResponse({ res, data: wallet, message: "Dedicated account ready" });
++	};
++
++	pay = async (req, res) => {
++		const result = await this.payWithWalletUseCase.execute({ userId: req.user.id, ...req.body, ip: req.ip });
++		return successResponse({
++			res,
++			data: { payment: result.payment.toJSON(), balance: result.balance, provisioning: result.outcome?.provisioning ?? null },
++			message: "Payment successful",
++			statusCode: 201
++		});
++	};
++}
+diff --git a/serverv2/src/modules/wallet/database/wallet-transaction.model.js b/serverv2/src/modules/wallet/database/wallet-transaction.model.js
+new file mode 100644
+index 0000000..c36df44
+--- /dev/null
++++ b/serverv2/src/modules/wallet/database/wallet-transaction.model.js
+@@ -0,0 +1,21 @@
++import mongoose from "mongoose";
++import { WALLET_TX_TYPE_LIST, WALLET_TX_SOURCE_LIST } from "../domain/wallet.enum.js";
++
++const walletTransactionSchema = new mongoose.Schema(
++	{
++		walletId: { type: mongoose.Schema.Types.ObjectId, ref: "Wallet", required: true, index: true },
++		userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
++		type: { type: String, enum: WALLET_TX_TYPE_LIST, required: true },
++		source: { type: String, enum: WALLET_TX_SOURCE_LIST, required: true },
++		amountKobo: { type: Number, required: true, min: 1 },
++		balanceAfterKobo: { type: Number, default: null },
++		reference: { type: String, required: true, unique: true },
++		description: { type: String, default: null },
++		metadata: { type: mongoose.Schema.Types.Mixed, default: {} }
++	},
++	{ timestamps: { createdAt: true, updatedAt: false } }
++);
++
++walletTransactionSchema.index({ userId: 1, createdAt: -1 });
++
++export default mongoose.model("WalletTransaction", walletTransactionSchema);
+diff --git a/serverv2/src/modules/wallet/database/wallet.model.js b/serverv2/src/modules/wallet/database/wallet.model.js
+new file mode 100644
+index 0000000..707f0d0
+--- /dev/null
++++ b/serverv2/src/modules/wallet/database/wallet.model.js
+@@ -0,0 +1,19 @@
++import mongoose from "mongoose";
++
++const walletSchema = new mongoose.Schema(
++	{
++		userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, unique: true, index: true },
++		balanceKobo: { type: Number, default: 0, min: 0 },
++		currency: { type: String, default: "NGN" },
++		virtualAccount: {
++			accountNumber: { type: String, default: null, index: true, sparse: true },
++			bankName: { type: String, default: null },
++			accountName: { type: String, default: null },
++			customerCode: { type: String, default: null, index: true, sparse: true },
++			assignedAt: { type: Date, default: null }
++		}
++	},
++	{ timestamps: true }
++);
++
++export default mongoose.model("Wallet", walletSchema);
+diff --git a/serverv2/src/modules/wallet/domain/wallet.enum.js b/serverv2/src/modules/wallet/domain/wallet.enum.js
+new file mode 100644
+index 0000000..13616bb
+--- /dev/null
++++ b/serverv2/src/modules/wallet/domain/wallet.enum.js
+@@ -0,0 +1,17 @@
++export const WALLET_TX_TYPES = { CREDIT: "credit", DEBIT: "debit" };
++export const WALLET_TX_TYPE_LIST = Object.values(WALLET_TX_TYPES);
++
++export const WALLET_TX_SOURCES = {
++	TRANSFER: "transfer",
++	PAYMENT: "payment",
++	PAYMENT_ROLLBACK: "payment_rollback",
++	REVERSAL: "reversal",
++	ADMIN_ADJUSTMENT: "admin_adjustment"
++};
++export const WALLET_TX_SOURCE_LIST = Object.values(WALLET_TX_SOURCES);
++
++export const WALLET_ERROR_CODES = {
++	WALLET_NOT_FOUND: "WALLET_NOT_FOUND",
++	INSUFFICIENT_BALANCE: "INSUFFICIENT_BALANCE",
++	VIRTUAL_ACCOUNT_FAILED: "VIRTUAL_ACCOUNT_FAILED"
++};
+diff --git a/serverv2/src/modules/wallet/repositories/wallet.repository.mongo.js b/serverv2/src/modules/wallet/repositories/wallet.repository.mongo.js
+new file mode 100644
+index 0000000..5612e89
+--- /dev/null
++++ b/serverv2/src/modules/wallet/repositories/wallet.repository.mongo.js
+@@ -0,0 +1,178 @@
++import mongoose from "mongoose";
++import WalletModel from "../database/wallet.model.js";
++import WalletTransactionModel from "../database/wallet-transaction.model.js";
++import { ValidationError } from "../../../shared/errors/domain.errors.js";
++import { WALLET_TX_TYPES, WALLET_ERROR_CODES } from "../domain/wallet.enum.js";
++
++const toWallet = (doc) => doc && {
++	id: doc._id.toString(),
++	userId: doc.userId.toString(),
++	balanceKobo: doc.balanceKobo,
++	currency: doc.currency,
++	virtualAccount: doc.virtualAccount?.accountNumber ? { ...doc.virtualAccount } : null,
++	createdAt: doc.createdAt,
++	updatedAt: doc.updatedAt
++};
++
++const toTransaction = (doc) => doc && {
++	id: doc._id.toString(),
++	walletId: doc.walletId.toString(),
++	userId: doc.userId.toString(),
++	type: doc.type,
++	source: doc.source,
++	amountKobo: doc.amountKobo,
++	balanceAfterKobo: doc.balanceAfterKobo,
++	reference: doc.reference,
++	description: doc.description,
++	metadata: doc.metadata,
++	createdAt: doc.createdAt
++};
++
++const isDuplicateKey = (error) => error?.code === 11000;
++const lacksTransactions = (error) => /replica set|Transaction numbers are only allowed/i.test(error?.message ?? "");
++
++export class WalletRepositoryMongo {
++	constructor() {
++		this.transactionsSupported = true;
++	}
++
++	async ensureWallet(userId) {
++		try {
++			const doc = await WalletModel.findOneAndUpdate(
++				{ userId },
++				{ $setOnInsert: { userId } },
++				{ upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
++			).lean();
++
++			return toWallet(doc);
++		} catch (error) {
++			if (!isDuplicateKey(error)) throw error;
++			return toWallet(await WalletModel.findOne({ userId }).lean());
++		}
++	}
++
++	async findByUserId(userId) {
++		return toWallet(await WalletModel.findOne({ userId }).lean());
++	}
++
++	async findByAccountNumber(accountNumber) {
++		return toWallet(await WalletModel.findOne({ "virtualAccount.accountNumber": accountNumber }).lean());
++	}
++
++	async findByCustomerCode(customerCode) {
++		return toWallet(await WalletModel.findOne({ "virtualAccount.customerCode": customerCode }).lean());
++	}
++
++	async saveVirtualAccount(userId, virtualAccount) {
++		const doc = await WalletModel.findOneAndUpdate(
++			{ userId },
++			{ $set: { virtualAccount: { ...virtualAccount, assignedAt: new Date() } } },
++			{ upsert: true, returnDocument: "after" }
++		).lean();
++
++		return toWallet(doc);
++	}
++
++	async findTransactionByReference(reference) {
++		return toTransaction(await WalletTransactionModel.findOne({ reference }).lean());
++	}
++
++	async listTransactions(userId, { page = 1, limit = 20 } = {}) {
++		const safeLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
++		const safePage = Math.max(parseInt(page, 10) || 1, 1);
++		const filter = { userId };
++
++		const [docs, total] = await Promise.all([
++			WalletTransactionModel.find(filter).sort({ createdAt: -1 }).skip((safePage - 1) * safeLimit).limit(safeLimit).lean(),
++			WalletTransactionModel.countDocuments(filter)
++		]);
++
++		return { data: docs.map(toTransaction), meta: { page: safePage, limit: safeLimit, total, totalPages: Math.ceil(total / safeLimit) } };
++	}
++
++	async apply({ userId, type, amountKobo, source, reference, description = null, metadata = {} }) {
++		if (!Number.isInteger(amountKobo) || amountKobo <= 0) throw new ValidationError("Amount must be a positive whole number of kobo");
++
++		const existing = await this.findTransactionByReference(reference);
++		if (existing) return { duplicate: true, transaction: existing, wallet: await this.findByUserId(userId) };
++
++		await this.ensureWallet(userId);
++		const entry = { userId, type, amountKobo, source, reference, description, metadata };
++
++		try {
++			if (this.transactionsSupported) return await this._applyInTransaction(entry);
++			return await this._applyWithoutTransaction(entry);
++		} catch (error) {
++			if (isDuplicateKey(error)) {
++				const transaction = await this.findTransactionByReference(reference);
++				if (transaction) return { duplicate: true, transaction, wallet: await this.findByUserId(userId) };
++			}
++
++			if (this.transactionsSupported && lacksTransactions(error)) {
++				this.transactionsSupported = false;
++				console.warn("[wallet] MongoDB has no replica set, falling back to non-transactional wallet writes");
++				return this._applyWithoutTransaction(entry);
++			}
++
++			throw error;
++		}
++	}
++
++	async _applyInTransaction(entry) {
++		const session = await mongoose.startSession();
++
++		try {
++			let result;
++
++			await session.withTransaction(async () => {
++				const walletDoc = await this._moveBalance(entry, session);
++				const [transaction] = await WalletTransactionModel.create(
++					[{ ...entry, walletId: walletDoc._id, balanceAfterKobo: walletDoc.balanceKobo }],
++					{ session }
++				);
++
++				result = { duplicate: false, transaction: toTransaction(transaction.toObject()), wallet: toWallet(walletDoc) };
++			});
++
++			return result;
++		} finally {
++			await session.endSession();
++		}
++	}
++
++	async _applyWithoutTransaction(entry) {
++		const wallet = await WalletModel.findOne({ userId: entry.userId }).select("_id").lean();
++		const claimed = await WalletTransactionModel.create({ ...entry, walletId: wallet._id, balanceAfterKobo: null });
++
++		try {
++			const walletDoc = await this._moveBalance(entry, null);
++			await WalletTransactionModel.updateOne({ _id: claimed._id }, { $set: { balanceAfterKobo: walletDoc.balanceKobo } });
++
++			return {
++				duplicate: false,
++				transaction: toTransaction({ ...claimed.toObject(), balanceAfterKobo: walletDoc.balanceKobo }),
++				wallet: toWallet(walletDoc)
++			};
++		} catch (error) {
++			await WalletTransactionModel.deleteOne({ _id: claimed._id });
++			throw error;
++		}
++	}
++
++	async _moveBalance({ userId, type, amountKobo }, session) {
++		const options = { returnDocument: "after", ...(session ? { session } : {}) };
++
++		if (type === WALLET_TX_TYPES.CREDIT) {
++			return WalletModel.findOneAndUpdate({ userId }, { $inc: { balanceKobo: amountKobo } }, options).lean();
++		}
++
++		const doc = await WalletModel.findOneAndUpdate(
++			{ userId, balanceKobo: { $gte: amountKobo } },
++			{ $inc: { balanceKobo: -amountKobo } },
++			options
++		).lean();
++
++		if (!doc) throw new ValidationError("Insufficient wallet balance", WALLET_ERROR_CODES.INSUFFICIENT_BALANCE);
++		return doc;
++	}
++}
+diff --git a/serverv2/src/modules/wallet/routes/wallet.routes.js b/serverv2/src/modules/wallet/routes/wallet.routes.js
+new file mode 100644
+index 0000000..996e342
+--- /dev/null
++++ b/serverv2/src/modules/wallet/routes/wallet.routes.js
+@@ -0,0 +1,29 @@
++import { Router } from "express";
++import asyncHandler from "express-async-handler";
++import { container } from "../../../container/index.js";
++import { validate } from "../../../infrastructure/middleware/validate.middleware.js";
++import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
++import { payWithWalletSchema, adjustWalletSchema } from "../validators/wallet.validators.js";
++
++const router = Router();
++
++const authenticate = container.resolve("authenticate");
++const idempotent = container.resolve("idempotent");
++const walletController = container.resolve("walletController");
++const adminController = container.resolve("walletAdminController");
++
++router.use(authenticate);
++
++router.get("/me", asyncHandler(walletController.getMyWallet));
++router.get("/me/transactions", asyncHandler(walletController.getMyTransactions));
++router.post("/me/virtual-account", asyncHandler(walletController.getVirtualAccount));
++router.post("/me/pay", validate(payWithWalletSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(walletController.pay));
++
++const adminRouter = Router();
++adminRouter.use(requireStaff);
++adminRouter.get("/:userId", asyncHandler(adminController.getWallet));
++adminRouter.get("/:userId/transactions", asyncHandler(adminController.getTransactions));
++adminRouter.post("/:userId/adjust", validate(adjustWalletSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.adjust));
++router.use("/admin", adminRouter);
++
++export default router;
+diff --git a/serverv2/src/modules/wallet/usecases/admin/adjust-wallet.usecase.js b/serverv2/src/modules/wallet/usecases/admin/adjust-wallet.usecase.js
+new file mode 100644
+index 0000000..934e7b6
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/admin/adjust-wallet.usecase.js
+@@ -0,0 +1,36 @@
++import crypto from "crypto";
++import { ValidationError } from "../../../../shared/errors/domain.errors.js";
++import { toKobo } from "../../../../shared/utils/money.js";
++import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
++import { presentWallet } from "../user/get-my-wallet.usecase.js";
++
++export class AdjustWallet {
++	constructor({ walletRepository, userRepository, auditService }) {
++		this.walletRepository = walletRepository;
++		this.userRepository = userRepository;
++		this.auditService = auditService;
++	}
++
++	async execute({ actorId, userId, direction, amount, reason, ip = null }) {
++		const user = await this.userRepository.findById(userId);
++		if (!user) throw new ValidationError("User not found");
++
++		const type = direction === "debit" ? WALLET_TX_TYPES.DEBIT : WALLET_TX_TYPES.CREDIT;
++		const result = await this.walletRepository.apply({
++			userId,
++			type,
++			amountKobo: toKobo(amount),
++			source: WALLET_TX_SOURCES.ADMIN_ADJUSTMENT,
++			reference: `admin:${crypto.randomUUID()}`,
++			description: reason,
++			metadata: { actorId }
++		});
++
++		await this.auditService?.log({
++			actorId, action: "WALLET_ADJUSTED", entity: "Wallet", entityId: result.wallet.id,
++			newValue: { direction: type, amount, reason }, ip
++		});
++
++		return presentWallet(result.wallet);
++	}
++}
+diff --git a/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js b/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js
+new file mode 100644
+index 0000000..f587519
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js
+@@ -0,0 +1,39 @@
++import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
++
++export class FundWalletFromTransfer {
++	constructor({ walletRepository, auditService }) {
++		this.walletRepository = walletRepository;
++		this.auditService = auditService;
++	}
++
++	async execute({ reference, amountKobo, accountNumber, customerCode, senderName = null }) {
++		const wallet =
++			(accountNumber && (await this.walletRepository.findByAccountNumber(accountNumber))) ||
++			(customerCode && (await this.walletRepository.findByCustomerCode(customerCode))) ||
++			null;
++
++		if (!wallet) {
++			console.error(`[FundWalletFromTransfer] No wallet for account ${accountNumber ?? "?"} / customer ${customerCode ?? "?"} (ref ${reference})`);
++			return { handled: false, reason: "wallet_not_found" };
++		}
++
++		const result = await this.walletRepository.apply({
++			userId: wallet.userId,
++			type: WALLET_TX_TYPES.CREDIT,
++			amountKobo,
++			source: WALLET_TX_SOURCES.TRANSFER,
++			reference: `paystack:${reference}`,
++			description: senderName ? `Transfer from ${senderName}` : "Bank transfer",
++			metadata: { gatewayReference: reference, accountNumber }
++		});
++
++		if (!result.duplicate) {
++			await this.auditService?.log({
++				actorId: null, actorType: "system", action: "WALLET_FUNDED", entity: "Wallet", entityId: wallet.id,
++				newValue: { amountKobo, reference }
++			});
++		}
++
++		return { handled: true, duplicate: result.duplicate, wallet: result.wallet };
++	}
++}
+diff --git a/serverv2/src/modules/wallet/usecases/user/ensure-virtual-account.usecase.js b/serverv2/src/modules/wallet/usecases/user/ensure-virtual-account.usecase.js
+new file mode 100644
+index 0000000..2a4d3ed
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/user/ensure-virtual-account.usecase.js
+@@ -0,0 +1,41 @@
++import { NotFoundError, AppError } from "../../../../shared/errors/domain.errors.js";
++import { WALLET_ERROR_CODES } from "../../domain/wallet.enum.js";
++import { presentWallet } from "./get-my-wallet.usecase.js";
++
++export class EnsureVirtualAccount {
++	constructor({ walletRepository, userRepository, paystackProvider, auditService }) {
++		this.walletRepository = walletRepository;
++		this.userRepository = userRepository;
++		this.paystackProvider = paystackProvider;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId }) {
++		const wallet = await this.walletRepository.ensureWallet(userId);
++		if (wallet.virtualAccount?.accountNumber) return presentWallet(wallet);
++
++		const user = await this.userRepository.findById(userId);
++		if (!user) throw new NotFoundError("User not found");
++
++		let account;
++		try {
++			account = await this.paystackProvider.createVirtualAccount({
++				email: user.email,
++				firstName: user.firstName,
++				lastName: user.lastName,
++				phone: user.phone
++			});
++		} catch (error) {
++			throw new AppError("Could not create your dedicated account number right now. Please try again shortly.", 502, WALLET_ERROR_CODES.VIRTUAL_ACCOUNT_FAILED, error.details ?? null);
++		}
++
++		const saved = await this.walletRepository.saveVirtualAccount(userId, account);
++
++		await this.auditService?.log({
++			actorId: userId, action: "WALLET_VIRTUAL_ACCOUNT_ASSIGNED", entity: "Wallet", entityId: saved.id,
++			newValue: { accountNumber: account.accountNumber, bankName: account.bankName }
++		});
++
++		return presentWallet(saved);
++	}
++}
+diff --git a/serverv2/src/modules/wallet/usecases/user/get-my-wallet-transactions.usecase.js b/serverv2/src/modules/wallet/usecases/user/get-my-wallet-transactions.usecase.js
+new file mode 100644
+index 0000000..0be3857
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/user/get-my-wallet-transactions.usecase.js
+@@ -0,0 +1,16 @@
++import { toNaira } from "../../../../shared/utils/money.js";
++
++export class GetMyWalletTransactions {
++	constructor({ walletRepository }) {
++		this.walletRepository = walletRepository;
++	}
++
++	async execute({ userId, page, limit }) {
++		const result = await this.walletRepository.listTransactions(userId, { page, limit });
++
++		return {
++			...result,
++			data: result.data.map((tx) => ({ ...tx, amount: toNaira(tx.amountKobo), balanceAfter: tx.balanceAfterKobo == null ? null : toNaira(tx.balanceAfterKobo) }))
++		};
++	}
++}
+diff --git a/serverv2/src/modules/wallet/usecases/user/get-my-wallet.usecase.js b/serverv2/src/modules/wallet/usecases/user/get-my-wallet.usecase.js
+new file mode 100644
+index 0000000..9d38305
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/user/get-my-wallet.usecase.js
+@@ -0,0 +1,24 @@
++import { toNaira } from "../../../../shared/utils/money.js";
++
++export function presentWallet(wallet) {
++	return {
++		id: wallet.id,
++		balance: toNaira(wallet.balanceKobo),
++		balanceKobo: wallet.balanceKobo,
++		currency: wallet.currency,
++		virtualAccount: wallet.virtualAccount
++			? { accountNumber: wallet.virtualAccount.accountNumber, bankName: wallet.virtualAccount.bankName, accountName: wallet.virtualAccount.accountName }
++			: null
++	};
++}
++
++export class GetMyWallet {
++	constructor({ walletRepository }) {
++		this.walletRepository = walletRepository;
++	}
++
++	async execute({ userId }) {
++		const wallet = await this.walletRepository.ensureWallet(userId);
++		return presentWallet(wallet);
++	}
++}
+diff --git a/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js b/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js
+new file mode 100644
+index 0000000..d67aaaa
+--- /dev/null
++++ b/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js
+@@ -0,0 +1,116 @@
++import crypto from "crypto";
++import { NotFoundError, ValidationError, ConflictError } from "../../../../shared/errors/domain.errors.js";
++import { toKobo } from "../../../../shared/utils/money.js";
++import { Payment } from "../../../payment/domain/payment.entity.js";
++import { PAYMENT_ACTIONS, PAYMENT_STATUSES, PAYMENT_GATEWAYS, PAYMENT_CHANNELS } from "../../../payment/domain/payment.enum.js";
++import { SUBSCRIPTION_ERROR_CODES } from "../../../subscription/domain/subscription.enum.js";
++import { PLAN_ERROR_CODES } from "../../../plan/domain/plan.enum.js";
++import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
++import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
++
++export class PayWithWallet {
++	constructor({ walletRepository, paymentRepository, subscriptionRepository, planRepository, accountRepository, processSuccessfulPayment, auditService }) {
++		this.walletRepository = walletRepository;
++		this.paymentRepository = paymentRepository;
++		this.subscriptionRepository = subscriptionRepository;
++		this.planRepository = planRepository;
++		this.accountRepository = accountRepository;
++		this.processSuccessfulPayment = processSuccessfulPayment;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, ip = null }) {
++		const account = await this.accountRepository.findById(accountId);
++		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
++		if (account.userId !== userId) throw new ValidationError("You do not have access to this account");
++
++		const plan = await this.planRepository.findByIdOrNull(planId);
++		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
++		if (!plan.isActive()) throw new ValidationError("This plan is not currently available", SUBSCRIPTION_ERROR_CODES.PLAN_NOT_ACTIVE);
++		if (plan.serviceType !== account.serviceType) {
++			throw new ValidationError("Plan does not match account service type", SUBSCRIPTION_ERROR_CODES.PLAN_SERVICE_TYPE_MISMATCH);
++		}
++
++		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
++		if (existingSub?.status === "pending") {
++			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
++		}
++
++		const actionType = actionTypeOverride || (existingSub?.status === "active" ? PAYMENT_ACTIONS.RENEWAL : PAYMENT_ACTIONS.NEW_SUBSCRIPTION);
++
++		const unitPrice = plan.getEffectivePrice();
++		const total = unitPrice * cycles;
++		const totalKobo = toKobo(total);
++		if (totalKobo <= 0) throw new ValidationError("This plan has no price to charge from the wallet");
++
++		const wallet = await this.walletRepository.ensureWallet(userId);
++		if (wallet.balanceKobo < totalKobo) {
++			throw new ValidationError("Insufficient wallet balance", "INSUFFICIENT_BALANCE", {
++				balance: wallet.balanceKobo / 100,
++				required: total,
++				shortfall: (totalKobo - wallet.balanceKobo) / 100
++			});
++		}
++
++		const reference = `WSN-W-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
++
++		const payment = await this.paymentRepository.create(new Payment({
++			userId, accountId, planId, actionType,
++			amount: { total, base: plan.price * cycles, discount: (plan.price - unitPrice) * cycles },
++			cycles,
++			gateway: PAYMENT_GATEWAYS.WALLET,
++			paymentChannel: PAYMENT_CHANNELS.WALLET,
++			gatewayReference: reference,
++			status: PAYMENT_STATUSES.INITIATED,
++			idempotencyKey: crypto.randomBytes(16).toString("hex"),
++			metadata: { planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata }
++		}));
++
++		try {
++			await this.walletRepository.apply({
++				userId,
++				type: WALLET_TX_TYPES.DEBIT,
++				amountKobo: totalKobo,
++				source: WALLET_TX_SOURCES.PAYMENT,
++				reference: `pay:${payment.id}`,
++				description: `${plan.name} x${cycles}`,
++				metadata: { paymentId: payment.id, accountId, planId }
++			});
++		} catch (error) {
++			payment.markFailed(error.message);
++			await this.paymentRepository.update(payment.id, payment);
++			throw error;
++		}
++
++		let outcome;
++		try {
++			outcome = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: "wallet" } });
++		} catch (error) {
++			await this.walletRepository.apply({
++				userId,
++				type: WALLET_TX_TYPES.CREDIT,
++				amountKobo: totalKobo,
++				source: WALLET_TX_SOURCES.PAYMENT_ROLLBACK,
++				reference: `pay-rollback:${payment.id}`,
++				description: `Refund for failed activation of ${plan.name}`,
++				metadata: { paymentId: payment.id }
++			});
++
++			const fresh = await this.paymentRepository.findById(payment.id);
++			if (fresh && !fresh.businessProcessed) {
++				fresh.markFailed(`Activation failed: ${error.message}`);
++				await this.paymentRepository.update(fresh.id, fresh);
++			}
++
++			throw error;
++		}
++
++		await this.auditService?.log({
++			actorId: userId, action: "PAYMENT_WALLET", entity: "Payment", entityId: payment.id,
++			newValue: { accountId, planId, total }, ip
++		});
++
++		const finalWallet = await this.walletRepository.findByUserId(userId);
++		return { payment: outcome.payment ?? payment, outcome, balance: finalWallet.balanceKobo / 100 };
++	}
++}
+diff --git a/serverv2/src/modules/wallet/validators/wallet.validators.js b/serverv2/src/modules/wallet/validators/wallet.validators.js
+new file mode 100644
+index 0000000..65a8d3a
+--- /dev/null
++++ b/serverv2/src/modules/wallet/validators/wallet.validators.js
+@@ -0,0 +1,13 @@
++import { z } from "zod";
++
++export const payWithWalletSchema = z.object({
++	accountId: z.string().min(1),
++	planId: z.string().min(1),
++	cycles: z.number().int().min(1).max(24).optional()
++});
++
++export const adjustWalletSchema = z.object({
++	direction: z.enum(["credit", "debit"]),
++	amount: z.number().positive().max(10000000),
++	reason: z.string().min(3).max(200)
++});
+diff --git a/serverv2/src/modules/wallet/wallet.container.js b/serverv2/src/modules/wallet/wallet.container.js
+new file mode 100644
+index 0000000..888a72e
+--- /dev/null
++++ b/serverv2/src/modules/wallet/wallet.container.js
+@@ -0,0 +1,28 @@
++import { asClass } from "awilix";
++import { WalletRepositoryMongo } from "./repositories/wallet.repository.mongo.js";
++
++import { GetMyWallet } from "./usecases/user/get-my-wallet.usecase.js";
++import { GetMyWalletTransactions } from "./usecases/user/get-my-wallet-transactions.usecase.js";
++import { EnsureVirtualAccount } from "./usecases/user/ensure-virtual-account.usecase.js";
++import { PayWithWallet } from "./usecases/user/pay-with-wallet.usecase.js";
++import { FundWalletFromTransfer } from "./usecases/system/fund-wallet-from-transfer.usecase.js";
++import { AdjustWallet } from "./usecases/admin/adjust-wallet.usecase.js";
++
++import { WalletController } from "./controllers/wallet.controller.js";
++import { WalletAdminController } from "./controllers/wallet-admin.controller.js";
++
++export function registerWallet(container) {
++	container.register({
++		walletRepository: asClass(WalletRepositoryMongo).singleton(),
++
++		getMyWallet: asClass(GetMyWallet).scoped(),
++		getMyWalletTransactions: asClass(GetMyWalletTransactions).scoped(),
++		ensureVirtualAccount: asClass(EnsureVirtualAccount).scoped(),
++		payWithWallet: asClass(PayWithWallet).scoped(),
++		fundWalletFromTransfer: asClass(FundWalletFromTransfer).scoped(),
++		adjustWallet: asClass(AdjustWallet).scoped(),
++
++		walletController: asClass(WalletController).scoped(),
++		walletAdminController: asClass(WalletAdminController).scoped()
++	});
++}
+diff --git a/serverv2/src/router/index.js b/serverv2/src/router/index.js
+index 953cde6..d98c0cf 100644
+--- a/serverv2/src/router/index.js
++++ b/serverv2/src/router/index.js
+@@ -11,6 +11,7 @@ import notificationRouter from "../modules/notifications/routes/notification.rou
+ import dashboardRouter from "../modules/dashboard/routes/dashboard.routes.js";
+ import routerRouter from "../modules/router/routes/router.routes.js";
+ import usageRouter from "../modules/usage/routes/usage.routes.js";
++import walletRouter from "../modules/wallet/routes/wallet.routes.js";
+ import ticketRouter from "../modules/ticket/routes/ticket.routes.js";
+ 
+ const router = Router();
+@@ -28,5 +29,6 @@ router.use("/routers", routerRouter)
+ router.use("/audit", auditRouter)
+ router.use("/usage", usageRouter)
+ router.use("/tickets", ticketRouter)
++router.use("/wallet", walletRouter)
+ 
+ export default router;
+\ No newline at end of file
+diff --git a/serverv2/src/shared/utils/money.js b/serverv2/src/shared/utils/money.js
+new file mode 100644
+index 0000000..b69b088
+--- /dev/null
++++ b/serverv2/src/shared/utils/money.js
+@@ -0,0 +1,2 @@
++export const toKobo = (naira) => Math.round(Number(naira) * 100);
++export const toNaira = (kobo) => Number(kobo) / 100;

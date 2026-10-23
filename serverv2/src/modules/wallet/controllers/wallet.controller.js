@@ -19,7 +19,7 @@ export class WalletController {
 	};
 
 	getVirtualAccount = async (req, res) => {
-		const wallet = await this.ensureVirtualAccountUseCase.execute({ userId: req.user.id });
+		const wallet = await this.ensureVirtualAccountUseCase.execute({ userId: req.user.id, phone: req.body?.phone });
 		return successResponse({ res, data: wallet, message: "Dedicated account ready" });
 	};
 

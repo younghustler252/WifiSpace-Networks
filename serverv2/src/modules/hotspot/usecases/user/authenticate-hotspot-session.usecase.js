@@ -16,7 +16,7 @@ export class AuthenticateHotspotSession {
 		this.hotspotSessionRepository = hotspotSessionRepository;
 	}
 
-	async execute({ email, password, macAddress, ipAddress, userAgent, routerId, routerUid, identity }) {
+	async execute({ email, password, macAddress, ipAddress, userAgent, routerId, routerUid, routerCode, identity }) {
 		if (!email || !password) throw new ValidationError("Email and password are required");
 		if (!macAddress) throw new ValidationError("Device MAC address is required");
 
@@ -29,7 +29,7 @@ export class AuthenticateHotspotSession {
 		const account = await this.accountRepository.findOne({ userId: user.id, serviceType: SERVICE_TYPES.HOTSPOT });
 		if (!account) throw new ValidationError("No hotspot account found for this user", HOTSPOT_ERROR_CODES.ACCOUNT_NOT_FOUND);
 
-		const router = await this.routerRepository.findRouterForHotspot({ routerId, routerUid, identity });
+		const router = await this.routerRepository.findRouterForHotspot({ routerId, routerUid, routerCode, identity });
 		if (!router) throw new ValidationError("Could not resolve router for this hotspot", HOTSPOT_ERROR_CODES.ROUTER_NOT_RESOLVED);
 
 		const session = await this.hotspotSessionRepository.upsertByMac(macAddress, {

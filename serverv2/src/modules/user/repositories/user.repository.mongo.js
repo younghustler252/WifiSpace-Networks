@@ -24,6 +24,11 @@ export class UserRepositoryMongo extends BaseRepository {
 		return this.mapOne(doc);
 	}
 
+	async updatePhone(id, phone) {
+		if (!this.isValidId(id)) return null;
+		await this.model.updateOne({ _id: id }, { $set: { phone } });
+	}
+
 	async updateSecurityState(id, data) {
 		if (!this.isValidId(id)) return null;
 		await this.model.findByIdAndUpdate(id, UserMapper.toPersistence(data), { new: true });

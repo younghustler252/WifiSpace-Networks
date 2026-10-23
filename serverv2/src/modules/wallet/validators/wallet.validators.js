@@ -6,6 +6,8 @@ export const payWithWalletSchema = z.object({
 	cycles: z.number().int().min(1).max(24).optional()
 });
 
+export const virtualAccountSchema = z.object({ phone: z.string().min(10).max(20).optional() });
+
 export const adjustWalletSchema = z.object({
 	direction: z.enum(["credit", "debit"]),
 	amount: z.number().positive().max(10000000),
