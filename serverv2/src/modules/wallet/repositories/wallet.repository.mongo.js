@@ -73,6 +73,11 @@ export class WalletRepositoryMongo {
 		return toWallet(doc);
 	}
 
+	async listVirtualAccountNumbers() {
+		const docs = await WalletModel.find({ "virtualAccount.accountNumber": { $ne: null } }).select("virtualAccount.accountNumber").lean();
+		return docs.map((doc) => doc.virtualAccount.accountNumber);
+	}
+
 	async findTransactionByReference(reference) {
 		return toTransaction(await WalletTransactionModel.findOne({ reference }).lean());
 	}

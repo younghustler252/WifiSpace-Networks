@@ -17,6 +17,8 @@ export class HandleWebhook {
 			throw new ValidationError("Invalid webhook signature", PAYMENT_ERROR_CODES.INVALID_WEBHOOK_SIGNATURE);
 		}
 
+		console.log(`[HandleWebhook] ${gateway} event=${payload?.event} channel=${payload?.data?.channel ?? payload?.data?.authorization?.channel ?? "-"} ref=${payload?.data?.reference ?? "-"}`);
+
 		const event = provider.parseWebhookEvent(payload);
 		if (!event) {
 			return { handled: false, reason: "unrecognized_event" }; // not every webhook event type matters to us — no-op, not an error
@@ -25,7 +27,7 @@ export class HandleWebhook {
 		if (event.kind === "wallet_funding") {
 			return this.fundWalletFromTransfer.execute({
 				reference: event.reference, amountKobo: event.amountKobo,
-				accountNumber: event.accountNumber, customerCode: event.customerCode, senderName: event.senderName
+				accountNumber: event.accountNumber, customerCode: event.customerCode, email: event.email, senderName: event.senderName
 			});
 		}
 

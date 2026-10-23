@@ -40,26 +40,85 @@ export class PaystackProvider extends PaymentGatewayInterface {
 	}
 
 	async createVirtualAccount({ email, firstName, lastName, phone }) {
-		try {
-			const customerResponse = await this.client.post("/customer", { email, first_name: firstName, last_name: lastName, phone });
-			const customerCode = customerResponse.data.data.customer_code;
-
-			const accountResponse = await this.client.post("/dedicated_account", {
-				customer: customerCode,
-				preferred_bank: process.env.PAYSTACK_DVA_BANK || "wema-bank"
-			});
-			const account = accountResponse.data.data;
-
-			return {
-				accountNumber: account.account_number,
-				bankName: account.bank?.name ?? null,
-				accountName: account.account_name ?? null,
-				customerCode
-			};
-		} catch (err) {
-			this._handleAxiosError(err, "PAYSTACK_DVA_ERROR", "Failed to create dedicated account");
+	try {
+		if (!phone || !/^\+?\d{10,15}$/.test(phone)) {
+			throw new AppError(
+				"A valid customer phone number is required",
+				400,
+				"PHONE_REQUIRED"
+			);
 		}
+
+		const customerResponse = await this.client.post("/customer", {
+			email,
+			first_name: firstName,
+			last_name: lastName,
+			phone
+		});
+
+		const customer = customerResponse.data.data;
+		const customerCode = customer.customer_code;
+
+		if (!customerCode) {
+			throw new AppError(
+				"Paystack did not return a customer code",
+				502,
+				"PAYSTACK_CUSTOMER_ERROR"
+			);
+		}
+
+		// Ensure the customer has the required phone number.
+		if (!customer.phone || customer.phone !== phone) {
+			await this.client.put(
+				`/customer/${encodeURIComponent(customerCode)}`,
+				{
+					first_name: firstName,
+					last_name: lastName,
+					phone
+				}
+			);
+		}
+
+		// Confirm Paystack has saved the phone number.
+		const verifiedResponse = await this.client.get(
+			`/customer/${encodeURIComponent(customerCode)}`
+		);
+
+		const verifiedCustomer = verifiedResponse.data.data;
+
+		if (!verifiedCustomer?.phone) {
+			throw new AppError(
+				"Paystack customer phone number was not saved",
+				502,
+				"PAYSTACK_CUSTOMER_PHONE_MISSING"
+			);
+		}
+
+		const accountResponse = await this.client.post(
+			"/dedicated_account",
+			{
+				customer: customerCode,
+				preferred_bank:
+					process.env.PAYSTACK_DVA_BANK || "wema-bank"
+			}
+		);
+
+		const account = accountResponse.data.data;
+
+		return {
+			accountNumber: account.account_number,
+			bankName: account.bank?.name ?? null,
+			accountName: account.account_name ?? null,
+			customerCode
+		};
+	} catch (err) {
+		this._handleAxiosError(
+			err,
+			"PAYSTACK_DVA_ERROR",
+			"Failed to create dedicated account"
+		);
 	}
+}
 
 	verifyWebhookSignature(rawBody, signature) {
 		try {
@@ -74,16 +133,8 @@ export class PaystackProvider extends PaymentGatewayInterface {
 	parseWebhookEvent(payload) {
 		const event = payload?.event;
 		const data = payload?.data || {};
-		if (event === "charge.success" && data.channel === "dedicated_nuban") {
-			return {
-				kind: "wallet_funding",
-				reference: data.reference,
-				status: PAYMENT_STATUSES.SUCCESSFUL,
-				amountKobo: data.amount,
-				accountNumber: data.authorization?.receiver_bank_account_number ?? null,
-				customerCode: data.customer?.customer_code ?? null,
-				senderName: data.authorization?.sender_name ?? null
-			};
+		if (event === "charge.success" && this.isDedicatedTransfer(data)) {
+			return this.toWalletFundingEvent(data);
 		}
 
 		let status;
@@ -92,6 +143,62 @@ export class PaystackProvider extends PaymentGatewayInterface {
 		else return null;
 
 		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
+	}
+
+	isDedicatedTransfer(transaction) {
+		return transaction?.channel === "dedicated_nuban"
+			|| transaction?.authorization?.channel === "dedicated_nuban"
+			|| Boolean(transaction?.authorization?.receiver_bank_account_number);
+	}
+
+	toWalletFundingEvent(data) {
+		return {
+			kind: "wallet_funding",
+			reference: data.reference,
+			status: PAYMENT_STATUSES.SUCCESSFUL,
+			amountKobo: data.amount,
+			accountNumber: data.authorization?.receiver_bank_account_number ?? null,
+			customerCode: data.customer?.customer_code ?? null,
+			email: data.customer?.email ?? null,
+			senderName: data.authorization?.sender_name ?? null,
+			paidAt: data.paid_at ?? data.paidAt ?? null
+		};
+	}
+
+	async listDedicatedTransfers({ from, to }) {
+		try {
+			const events = [];
+			let page = 1;
+			let pageCount = 1;
+
+			do {
+				const response = await this.client.get("/transaction", {
+					params: { status: "success", from: from.toISOString(), to: to.toISOString(), perPage: 100, page }
+				});
+
+				for (const transaction of response.data.data ?? []) {
+					if (this.isDedicatedTransfer(transaction)) events.push(this.toWalletFundingEvent(transaction));
+				}
+
+				pageCount = response.data.meta?.pageCount ?? 1;
+				page++;
+			} while (page <= pageCount && page <= 50);
+
+			return events;
+		} catch (err) {
+			this._handleAxiosError(err, "PAYSTACK_LIST_ERROR", "Failed to list Paystack transactions");
+		}
+	}
+
+	async requeryDedicatedAccount({ accountNumber, providerSlug, date }) {
+		try {
+			const response = await this.client.get("/dedicated_account/requery", {
+				params: { account_number: accountNumber, provider_slug: providerSlug, date }
+			});
+			return response.data;
+		} catch (err) {
+			this._handleAxiosError(err, "PAYSTACK_REQUERY_ERROR", "Failed to requery dedicated account");
+		}
 	}
 
 	mapStatus(status) {

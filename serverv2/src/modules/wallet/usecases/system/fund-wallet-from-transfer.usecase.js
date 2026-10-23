@@ -1,19 +1,25 @@
 import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
 
 export class FundWalletFromTransfer {
-	constructor({ walletRepository, auditService }) {
+	constructor({ walletRepository, userRepository, auditService }) {
+		this.userRepository = userRepository;
 		this.walletRepository = walletRepository;
 		this.auditService = auditService;
 	}
 
-	async execute({ reference, amountKobo, accountNumber, customerCode, senderName = null }) {
-		const wallet =
+	async execute({ reference, amountKobo, accountNumber, customerCode, email = null, senderName = null }) {
+		let wallet =
 			(accountNumber && (await this.walletRepository.findByAccountNumber(accountNumber))) ||
 			(customerCode && (await this.walletRepository.findByCustomerCode(customerCode))) ||
 			null;
 
+		if (!wallet && email) {
+			const user = await this.userRepository.findByEmail(email);
+			wallet = user ? await this.walletRepository.findByUserId(user.id) : null;
+		}
+
 		if (!wallet) {
-			console.error(`[FundWalletFromTransfer] No wallet for account ${accountNumber ?? "?"} / customer ${customerCode ?? "?"} (ref ${reference})`);
+			console.error(`[FundWalletFromTransfer] No wallet for account ${accountNumber ?? "?"} / customer ${customerCode ?? "?"} / ${email ?? "?"} (ref ${reference})`);
 			return { handled: false, reason: "wallet_not_found" };
 		}
 

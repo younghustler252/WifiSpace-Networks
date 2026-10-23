@@ -33,6 +33,7 @@ export class EnsureVirtualAccount {
 				phone: cleanedPhone
 			});
 		} catch (error) {
+			if (error instanceof AppError && error.statusCode < 500) throw error;
 			throw new AppError("Could not create your dedicated account number right now. Please try again shortly.", 502, WALLET_ERROR_CODES.VIRTUAL_ACCOUNT_FAILED, error.details ?? null);
 		}
 

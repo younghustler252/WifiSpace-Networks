@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
 import { container } from "../../../container/index.js";
 import { validate } from "../../../infrastructure/middleware/validate.middleware.js";
 import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
-import { payWithWalletSchema, adjustWalletSchema, virtualAccountSchema } from "../validators/wallet.validators.js";
+import { payWithWalletSchema, adjustWalletSchema, virtualAccountSchema, reconcileWalletSchema } from "../validators/wallet.validators.js";
 
 const router = Router();
 
@@ -21,6 +21,7 @@ router.post("/me/pay", validate(payWithWalletSchema), idempotent({ duplicateGuar
 
 const adminRouter = Router();
 adminRouter.use(requireStaff);
+adminRouter.post("/reconcile", validate(reconcileWalletSchema), asyncHandler(adminController.reconcile));
 adminRouter.get("/:userId", asyncHandler(adminController.getWallet));
 adminRouter.get("/:userId/transactions", asyncHandler(adminController.getTransactions));
 adminRouter.post("/:userId/adjust", validate(adjustWalletSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.adjust));
