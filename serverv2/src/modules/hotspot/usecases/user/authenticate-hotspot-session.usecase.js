@@ -6,9 +6,9 @@ import { SERVICE_TYPES } from "../../../../shared/constants/service-type.enum.js
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class AuthenticateHotspotSession {
-	constructor({ userRepository, accountRepository, routerRepository, subscriptionRepository, networkService, passwordService, hotspotSessionRepository }) {
+	constructor({ userRepository, ensureHotspotAccount, routerRepository, subscriptionRepository, networkService, passwordService, hotspotSessionRepository }) {
 		this.userRepository = userRepository;
-		this.accountRepository = accountRepository;
+		this.ensureHotspotAccount = ensureHotspotAccount;
 		this.routerRepository = routerRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.networkService = networkService;
@@ -26,8 +26,7 @@ export class AuthenticateHotspotSession {
 		const valid = await this.passwordService.compare(password, user.hashedPassword);
 		if (!valid) throw new UnauthorizedError("Invalid credentials", HOTSPOT_ERROR_CODES.INVALID_CREDENTIALS);
 
-		const account = await this.accountRepository.findOne({ userId: user.id, serviceType: SERVICE_TYPES.HOTSPOT });
-		if (!account) throw new ValidationError("No hotspot account found for this user", HOTSPOT_ERROR_CODES.ACCOUNT_NOT_FOUND);
+		const account = await this.ensureHotspotAccount.execute({ userId: user.id });
 
 		const router = await this.routerRepository.findRouterForHotspot({ routerId, routerUid, routerCode, identity });
 		if (!router) throw new ValidationError("Could not resolve router for this hotspot", HOTSPOT_ERROR_CODES.ROUTER_NOT_RESOLVED);

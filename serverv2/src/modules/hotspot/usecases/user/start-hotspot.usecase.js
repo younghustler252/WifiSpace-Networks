@@ -1,11 +1,11 @@
-import { ValidationError, UnauthorizedError, NotFoundError } from "../../../../shared/errors/domain.errors.js";
+import { ValidationError, UnauthorizedError } from "../../../../shared/errors/domain.errors.js";
 import { HOTSPOT_ERROR_CODES } from "../../domain/hotspot-session.enum.js";
 
 export class StartHotspot {
-	constructor({ userRepository, registerHotspotUser, routerRepository, hotspotCheckoutFlow, hotspotSessionRepository, payWithWallet, passwordService, accountRepository, planRepository }) {
+	constructor({ userRepository, registerHotspotUser, routerRepository, hotspotCheckoutFlow, hotspotSessionRepository, payWithWallet, passwordService, ensureHotspotAccount, planRepository }) {
+		this.ensureHotspotAccount = ensureHotspotAccount;
 		this.payWithWallet = payWithWallet;
 		this.passwordService = passwordService;
-		this.accountRepository = accountRepository;
 		this.planRepository = planRepository;
 		this.userRepository = userRepository;
 		this.registerHotspotUser = registerHotspotUser;
@@ -58,8 +58,7 @@ export class StartHotspot {
 		const valid = user ? await this.passwordService.compare(password, user.hashedPassword) : false;
 		if (!valid) throw new UnauthorizedError("Invalid credentials", HOTSPOT_ERROR_CODES.INVALID_CREDENTIALS);
 
-		const account = await this.accountRepository.findOne({ userId: user.id, serviceType: "hotspot" });
-		if (!account) throw new NotFoundError("Hotspot account not found", HOTSPOT_ERROR_CODES.ACCOUNT_NOT_FOUND);
+		const account = await this.ensureHotspotAccount.execute({ userId: user.id });
 
 		const plan = await this.planRepository.findByIdOrNull(planId);
 		if (!plan || plan.serviceType !== "hotspot") throw new ValidationError("Plan is not a hotspot plan");

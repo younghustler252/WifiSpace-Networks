@@ -4,8 +4,8 @@ import { PLAN_ERROR_CODES } from "../../../plan/domain/plan.enum.js";
 import { SERVICE_TYPES } from "../../../../shared/constants/service-type.enum.js";
 
 export class HotspotCheckoutFlow {
-	constructor({ accountRepository, planRepository, initiatePayment, auditService }) {
-		this.accountRepository = accountRepository;
+	constructor({ ensureHotspotAccount, planRepository, initiatePayment, auditService }) {
+		this.ensureHotspotAccount = ensureHotspotAccount;
 		this.planRepository = planRepository;
 		this.initiatePayment = initiatePayment;
 		this.auditService = auditService;
@@ -14,8 +14,7 @@ export class HotspotCheckoutFlow {
 	async execute({ userId, planId, callbackUrl, metadata = {}, ip = null }) {
 		if (!callbackUrl) throw new ValidationError("callbackUrl is required");
 
-		const account = await this.accountRepository.findOne({ userId, serviceType: SERVICE_TYPES.HOTSPOT });
-		if (!account) throw new NotFoundError("Hotspot account not found", HOTSPOT_ERROR_CODES.ACCOUNT_NOT_FOUND);
+		const account = await this.ensureHotspotAccount.execute({ userId });
 
 		const plan = await this.planRepository.findByIdOrNull(planId);
 		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);

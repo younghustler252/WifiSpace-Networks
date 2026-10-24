@@ -1,76 +1,135 @@
 import mongoose from "mongoose";
 import "../config/env.js";
 
-await mongoose.connect(process.env.MONGO_URI);
+// Exact accounts to delete.
+// WSN0010 and WSN0014 are intentionally excluded.
+const TARGET_WSN_IDS = [
+	"WSN0009",
+	"WSN0011",
+	"WSN0012",
+	"WSN0013",
+	"WSN0015",
+	"WSN0016",
+];
 
-try {
-	const db = mongoose.connection.db;
+const args = process.argv.slice(2);
 
-	const accounts = db.collection("accounts");
-	const users = db.collection("users");
+const APPLY = args.includes("--apply");
+const CONFIRM = args.includes("--confirm-delete");
+const EXPECT_DB = args
+	.find((arg) => arg.startsWith("--expect-db="))
+	?.split("=")[1];
 
-	const cursor = accounts.find(
-		{},
-		{
-			projection: {
+async function main() {
+	if (APPLY && !CONFIRM) {
+		throw new Error(
+			"Deletion requires both --apply and --confirm-delete"
+		);
+	}
+
+	if (APPLY && !EXPECT_DB) {
+		throw new Error(
+			"Specify --expect-db=YOUR_DATABASE_NAME before deleting"
+		);
+	}
+
+	await mongoose.connect(process.env.MONGO_URI);
+
+	try {
+		const db = mongoose.connection.db;
+		const accounts = db.collection("accounts");
+
+		console.log("\n=== WSN Account Cleanup ===");
+		console.log("Database:", db.databaseName);
+		console.log("Mode:", APPLY ? "DELETE" : "PREVIEW");
+
+		if (EXPECT_DB && db.databaseName !== EXPECT_DB) {
+			throw new Error(
+				`Database mismatch! Expected ${EXPECT_DB}, connected to ${db.databaseName}`
+			);
+		}
+
+		const query = {
+			wsnId: { $in: TARGET_WSN_IDS },
+		};
+
+		const matches = await accounts
+			.find(query)
+			.project({
 				_id: 1,
 				wsnId: 1,
 				userId: 1,
 				serviceType: 1,
 				status: 1,
-			},
-		}
-	);
+				approvalStatus: 1,
+			})
+			.sort({ wsnId: 1 })
+			.toArray();
 
-	const orphaned = [];
-	let scanned = 0;
+		console.log("\n=== Matching Accounts ===");
 
-	for await (const account of cursor) {
-		scanned++;
-
-		if (
-			!account.userId ||
-			!mongoose.isValidObjectId(account.userId)
-		) {
-			orphaned.push({
-				accountId: String(account._id),
-				wsnId: account.wsnId ?? null,
-				serviceType: account.serviceType ?? null,
-				reason: "Missing or invalid userId",
-			});
-
-			continue;
-		}
-
-		const userExists = await users.findOne(
-			{ _id: account.userId },
-			{ projection: { _id: 1 } }
+		console.table(
+			matches.map((account) => ({
+				id: account._id.toString(),
+				wsnId: account.wsnId,
+				serviceType: account.serviceType,
+				status: account.status,
+				userId: account.userId?.toString(),
+			}))
 		);
 
-		if (!userExists) {
-			orphaned.push({
-				accountId: String(account._id),
-				wsnId: account.wsnId ?? null,
-				serviceType: account.serviceType ?? null,
-				userId: String(account.userId),
-				reason: "Referenced user does not exist",
-			});
+		const foundIds = new Set(
+			matches.map((account) => account.wsnId)
+		);
+
+		const missing = TARGET_WSN_IDS.filter(
+			(id) => !foundIds.has(id)
+		);
+
+		console.log("\nTarget accounts:", TARGET_WSN_IDS.length);
+		console.log("Found:", matches.length);
+		console.log("Missing:", missing);
+
+		if (!APPLY) {
+			console.log("\nPREVIEW ONLY: Nothing deleted.");
+			console.log(
+				"Use --apply --confirm-delete --expect-db=YOUR_DATABASE_NAME to delete."
+			);
+			return;
 		}
+
+		if (matches.length === 0) {
+			console.log("No matching accounts found.");
+			return;
+		}
+
+		// Delete only the exact records found during preview.
+		// Recheck both _id and wsnId before deleting.
+		const deleteQuery = {
+			$or: matches.map((account) => ({
+				_id: account._id,
+				wsnId: account.wsnId,
+			})),
+		};
+
+		const result = await accounts.deleteMany(deleteQuery);
+
+		console.log("\n=== Deletion Result ===");
+		console.log("Deleted:", result.deletedCount);
+		console.log(
+			"Skipped or changed:",
+			matches.length - result.deletedCount
+		);
+
+		console.log(
+			"\nWSN0010 and WSN0014 were not targeted."
+		);
+	} finally {
+		await mongoose.disconnect();
 	}
-
-	console.log("\n========== ORPHAN ACCOUNT SCAN ==========");
-	console.log("Database:", db.databaseName);
-	console.log("Accounts scanned:", scanned);
-	console.log("Potential orphan accounts:", orphaned.length);
-
-	console.table(orphaned);
-
-	console.log(
-		"\nRead-only scan completed. No records were deleted."
-	);
-} catch (error) {
-	console.error("Orphan scan failed:", error.message);
-	process.exitCode = 1;
-} finally {
-	await mongoose.disconnect();
 }
+
+main().catch((error) => {
+	console.error("Cleanup failed:", error.message);
+	process.exitCode = 1;
+});
