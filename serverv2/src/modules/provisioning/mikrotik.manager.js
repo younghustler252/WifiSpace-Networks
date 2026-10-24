@@ -103,6 +103,18 @@ export class MikrotikManager {
 		return this.getService(account).changePassword(router, account.wsnId, password);
 	}
 
+	async syncPassword(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata, { withPassword: true });
+		const service = this.getService(account);
+
+		if (!(await service.userExists(router, account.wsnId))) {
+			return { success: true, skipped: "user_not_on_router" };
+		}
+
+		await service.changePassword(router, account.wsnId, account.routerPassword);
+		return { success: true };
+	}
+
 	async getProfiles(router, serviceType, accessMethod = null) {
 		const profileType = serviceType === "pppoe" && accessMethod === "ipoe" ? "hotspot" : serviceType;
 		return this.resolveService(profileType).getProfiles(router);

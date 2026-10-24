@@ -2,7 +2,9 @@ import crypto from "crypto";
 import { PppoeAccount } from "../../domain/pppoe-account.entity.js";
 import { HotspotAccount } from "../../domain/hotspot-account.entity.js";
 import { SERVICE_TYPES, PPPOE_ACCESS_METHODS } from "../../domain/account.enum.js";
-import { ValidationError, NotFoundError } from "../../../../shared/errors/domain.errors.js";
+import { ValidationError, NotFoundError, ConflictError } from "../../../../shared/errors/domain.errors.js";
+import { ACCOUNT_ERROR_CODES } from "../../domain/account.enum.js";
+import { normalizeWsnId, normalizeRouterPassword } from "../../domain/wsn-id.js";
 import { USER_ERROR_CODES } from "../../../user/domain/user.enum.js";
 
 function generateRouterPassword() {
@@ -36,6 +38,8 @@ export class CreateAccount {
 		macAddress,
 		staticIp,
 		maxDevices,
+		wsnId,
+		routerPassword,
 		ip = null
 	}) {
 		const user = await this.userRepository.findById(userId);
@@ -48,6 +52,12 @@ export class CreateAccount {
 		}
 
 		let account;
+		let assignedRouterPassword = null;
+
+		const requestedWsnId = wsnId ? normalizeWsnId(wsnId) : null;
+		if (requestedWsnId && (await this.accountRepository.wsnIdExists(requestedWsnId))) {
+			throw new ConflictError(`WSN ID ${requestedWsnId} is already used by another account`, ACCOUNT_ERROR_CODES.WSN_ID_CONFLICT);
+		}
 
 		if (serviceType === SERVICE_TYPES.PPPOE) {
 			if (!routerId) {
@@ -63,8 +73,11 @@ export class CreateAccount {
 				throw new ValidationError("Invalid PPPoE access method");
 			}
 
+			assignedRouterPassword = routerPassword ? normalizeRouterPassword(routerPassword) : generateRouterPassword();
+
 			account = new PppoeAccount({
 				userId,
+				wsnId: requestedWsnId,
 				accountType,
 				businessName,
 				companyRegistrationNumber,
@@ -72,10 +85,7 @@ export class CreateAccount {
 				routerId,
 				routerProfile,
 				accessMethod: resolvedAccessMethod,
-				routerPassword:
-					resolvedAccessMethod === PPPOE_ACCESS_METHODS.PPP
-						? generateRouterPassword()
-						: null,
+				routerPassword: assignedRouterPassword,
 				macAddress:
 					resolvedAccessMethod === PPPOE_ACCESS_METHODS.IPOE
 						? macAddress
@@ -90,6 +100,7 @@ export class CreateAccount {
 		} else if (serviceType === SERVICE_TYPES.HOTSPOT) {
 			account = new HotspotAccount({
 				userId,
+				wsnId: requestedWsnId,
 				maxDevices
 			});
 
@@ -110,7 +121,10 @@ export class CreateAccount {
 				newValue: {
 					userId,
 					serviceType,
-					accountType
+					accountType,
+					wsnId: createdAccount.wsnId,
+					wsnIdAssignedManually: Boolean(requestedWsnId),
+					routerPasswordSuppliedByAdmin: Boolean(routerPassword)
 				},
 				ip
 			});
@@ -130,6 +144,11 @@ export class CreateAccount {
 			});
 		}
 
-		return createdAccount;
+		return {
+			account: createdAccount,
+			routerCredentials: assignedRouterPassword
+				? { username: createdAccount.wsnId, password: assignedRouterPassword, generated: !routerPassword }
+				: null
+		};
 	}
 }

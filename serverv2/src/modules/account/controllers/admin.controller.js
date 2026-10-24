@@ -3,8 +3,12 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
 export class AdminController {
 	constructor({
 		getAccountById, getAllAccounts, createAccount, approveAccount, rejectAccount,
-		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount
+		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount,
+		changeWsnId, getRouterCredentials, setRouterPassword
 	}) {
+		this.changeWsnIdUseCase = changeWsnId;
+		this.getRouterCredentialsUseCase = getRouterCredentials;
+		this.setRouterPasswordUseCase = setRouterPassword;
 		this.getAccountByIdUseCase = getAccountById;
 		this.getAllAccountsUseCase = getAllAccounts;
 		this.createAccountUseCase = createAccount;
@@ -41,8 +45,28 @@ export class AdminController {
 	};
 
 	createAccount = async (req, res) => {
-		const account = await this.createAccountUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
-		return successResponse({ res, data: account.toJSON(), message: "Account created successfully", statusCode: 201 });
+		const { account, routerCredentials } = await this.createAccountUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
+		return successResponse({ res, data: { ...account.toJSON(), routerCredentials }, message: "Account created successfully", statusCode: 201 });
+	};
+
+	changeWsnId = async (req, res) => {
+		const force = req.body.force === true && req.user.role === "superadmin";
+		if (req.body.force === true && !force) {
+			return res.status(403).json({ success: false, code: "FORBIDDEN", message: "Only a superadmin can force a WSN ID change" });
+		}
+
+		const { account, warning } = await this.changeWsnIdUseCase.execute({ actorId: req.user.id, accountId: req.params.id, wsnId: req.body.wsnId, force, ip: req.ip });
+		return successResponse({ res, data: { account: account.toJSON(), warning }, message: "WSN ID updated successfully" });
+	};
+
+	getRouterCredentials = async (req, res) => {
+		const credentials = await this.getRouterCredentialsUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ip: req.ip });
+		return successResponse({ res, data: credentials, message: "Router credentials fetched successfully" });
+	};
+
+	setRouterPassword = async (req, res) => {
+		const result = await this.setRouterPasswordUseCase.execute({ actorId: req.user.id, accountId: req.params.id, password: req.body.password, ip: req.ip });
+		return successResponse({ res, data: result, message: result.generated ? "Router password generated" : "Router password updated" });
 	};
 
 	approveAccount = async (req, res) => {

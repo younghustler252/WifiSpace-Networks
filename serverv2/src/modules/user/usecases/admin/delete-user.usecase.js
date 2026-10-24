@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import { HardDeleteCleanupService } from "../../../../shared/services/hard-delete-cleanup.service.js";
 import { NotFoundError, ForbiddenError } from "../../../../shared/errors/domain.errors.js";
 import { USER_ERROR_CODES } from "../../domain/user.enum.js";
 import { USER_ROLE } from "../../domain/user.enum.js";
@@ -20,7 +22,16 @@ export class DeleteUser {
 			throw new ForbiddenError("Only a superadmin can delete a superadmin", USER_ERROR_CODES.CANNOT_MODIFY_SUPERADMIN);
 		}
 
-		await this.userRepository.delete(targetId);
+		// All dependent MongoDB records must be removed atomically.
+		const session = await mongoose.startSession();
+		try {
+			await session.withTransaction(async () => {
+				const cleanup = new HardDeleteCleanupService();
+				await cleanup.cleanup({ userIds: [targetId], deleteUsers: true, dryRun: false, session });
+			});
+		} finally {
+			await session.endSession();
+		}
 
 		if (this.auditService) {
 			await this.auditService.log({

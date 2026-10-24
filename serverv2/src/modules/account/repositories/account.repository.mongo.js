@@ -31,7 +31,7 @@ export class AccountRepositoryMongo extends BaseRepository {
 	async create(accountEntity) {
 		if (!accountEntity.wsnId) {
 			const prefix = accountEntity.serviceType === SERVICE_TYPES.HOTSPOT ? "HS" : "WSN";
-			accountEntity.wsnId = await this.generateWsnId(prefix);
+			accountEntity.wsnId = await this.generateAvailableWsnId(prefix);
 		}
 
 		const persistence = AccountMapper.toPersistence(accountEntity);
@@ -163,6 +163,49 @@ export class AccountRepositoryMongo extends BaseRepository {
 		}
 
 		return stored;
+	}
+
+	async wsnIdExists(wsnId, { excludeId = null } = {}) {
+		const escaped = String(wsnId).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const filter = { wsnId: new RegExp(`^${escaped}$`, "i") };
+		if (excludeId) filter._id = { $ne: excludeId };
+
+		return Boolean(await this.model.exists(filter));
+	}
+
+	async setWsnId(id, wsnId) {
+		await this.model.updateOne({ _id: id }, { $set: { wsnId } });
+	}
+
+	async setRouterPassword(id, password) {
+		const base = await this.model.findById(id).select("serviceType").lean();
+		if (!base) return null;
+
+		await this._modelFor(base.serviceType).updateOne(
+			{ _id: id },
+			{ $set: { routerPasswordEncrypted: this.credentialCipherService.encrypt(password) } }
+		);
+
+		const stored = await this.findRouterCredentials(id);
+		if (stored?.routerPassword !== password) {
+			throw new Error(`Router password could not be saved for ${base.serviceType} account ${id}`);
+		}
+
+		return stored;
+	}
+
+	async generateAvailableWsnId(prefix = "WSN") {
+		const floor = Number(process.env.WSN_ID_START || 0);
+		if (floor > 1) {
+			await CounterModel.updateOne({ _id: `wsnId_${prefix}` }, { $max: { sequence_value: floor - 1 } }, { upsert: true });
+		}
+
+		for (let attempt = 0; attempt < 1000; attempt++) {
+			const candidate = await this.generateWsnId(prefix);
+			if (!(await this.wsnIdExists(candidate))) return candidate;
+		}
+
+		throw new Error(`Could not find a free ${prefix} ID after 1000 attempts`);
 	}
 
 	async generateWsnId(prefix = "WSN") {

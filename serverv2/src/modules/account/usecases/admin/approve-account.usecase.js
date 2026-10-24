@@ -25,6 +25,17 @@ export class ApproveAccount {
 
 		if (routerId) account.moveToRouter(routerId);
 		if (routerProfile) account.updateRouterProfile(routerProfile);
+
+		// Normal account reads omit encrypted router credentials. Resolve the PPP
+		// password only when approval needs it; never expose it in list responses.
+		if (account.serviceType === "pppoe" && account.accessMethod === "ppp") {
+			const credentials = await this.accountRepository.ensureRouterCredentials(account.id);
+			if (!credentials?.routerPassword) {
+				throw new ValidationError("Router password could not be resolved for this PPPoE account");
+			}
+			account.updateRouterPassword(credentials.routerPassword);
+		}
+
 		account.approve(actorId);
 
 		const updated = await this.accountRepository.update(account.id, {

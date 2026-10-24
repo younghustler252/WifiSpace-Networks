@@ -25,7 +25,9 @@ export class PppoeAccount extends Account {
 		this.staticIp = staticIp;
 		this.requestedLocation = requestedLocation;
 
-		if (accessMethod === PPPOE_ACCESS_METHODS.PPP && !routerPassword) {
+		// New PPP accounts require a password. Hydrated accounts have an id and
+		// normal repository reads intentionally omit the plaintext credential.
+		if (!this.id && accessMethod === PPPOE_ACCESS_METHODS.PPP && !routerPassword) {
 			throw new ValidationError("routerPassword is required for PPP access accounts");
 		}
 

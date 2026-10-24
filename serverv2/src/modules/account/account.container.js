@@ -21,6 +21,9 @@ import { TransferAccount } from "./usecases/admin/transfer-account.usecase.js";
 import { DeleteAccount } from "./usecases/admin/delete-account.usecase.js";
 import { SyncIpoeToRouter } from "./usecases/admin/sync-ipoe-to-router.usecase.js";
 import { AdoptExistingIpoeAccount } from "./usecases/admin/adop-existing-ipoe-account.usecase.js";
+import { ChangeWsnId } from "./usecases/admin/change-wsn-id.usecase.js";
+import { GetRouterCredentials } from "./usecases/admin/get-router-credentials.usecase.js";
+import { SetRouterPassword } from "./usecases/admin/set-router-password.usecase.js";
 import { ReconcileIpoeAccounts } from "./usecases/admin/reconcile-ipoe-account.usecase.js";
 
 import { AccountController } from "./controllers/account.controller.js";
@@ -49,6 +52,9 @@ export function registerAccount(container) {
 		deleteAccount: asClass(DeleteAccount).scoped(),
 		syncIpoeToRouter: asClass(SyncIpoeToRouter).scoped(),
 		adoptIpoeAccount: asClass(AdoptExistingIpoeAccount).scoped(),
+		changeWsnId: asClass(ChangeWsnId).scoped(),
+		getRouterCredentials: asClass(GetRouterCredentials).scoped(),
+		setRouterPassword: asClass(SetRouterPassword).scoped(),
 		reconcileIpoeAccounts: asClass(ReconcileIpoeAccounts).scoped(),
 
 		accountController: asClass(AccountController).scoped(),

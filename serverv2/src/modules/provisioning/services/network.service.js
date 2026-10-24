@@ -17,6 +17,7 @@ export class NetworkService {
 	disconnect(subscription, metadata = {}) { return this._route("disconnect", subscription, metadata); }
 	disconnectDevice(subscription, metadata = {}) { return this._route("disconnectDevice", subscription, metadata); }
 	remove(subscription, metadata = {}) { return this._route("remove", subscription, metadata); }
+	syncPassword(subscription, metadata = {}) { return this._route("syncPassword", subscription, metadata); }
 	retryProvision(subscription, metadata = {}) { return this.activate(subscription, metadata); }
 
 	async _route(action, subscription, metadata) {

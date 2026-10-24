@@ -32,13 +32,24 @@ export const adminCreateAccountSchema = z.object({
 	accessMethod: z.enum(["ppp", "ipoe"]).optional(),
 	macAddress: z.string().optional(),
 	staticIp: z.string().optional(),
-	maxDevices: z.number().int().min(1).optional()
+	maxDevices: z.number().int().min(1).optional(),
+	wsnId: z.string().min(3).max(20).optional(),
+	routerPassword: z.string().min(6).max(64).optional()
 })
 	.refine((d) => d.serviceType !== "pppoe" || !!d.routerId, { message: "routerId is required for PPPoE accounts", path: ["routerId"] })
 	.refine((d) => d.serviceType !== "pppoe" || d.accessMethod !== "ipoe" || !!d.macAddress, { message: "macAddress is required for IPoE accounts", path: ["macAddress"] })
 	.refine((d) => d.serviceType === "pppoe" || (!d.businessName && !d.companyRegistrationNumber && !d.taxId), { message: "Business fields only apply to PPPoE accounts", path: ["businessName"] });
 
 
+
+export const changeWsnIdSchema = z.object({
+	wsnId: z.string().min(3).max(20),
+	force: z.boolean().optional()
+});
+
+export const setRouterPasswordSchema = z.object({
+	password: z.string().min(6).max(64).optional()
+});
 
 export const rejectAccountSchema = z.object({
 	note: z.string().min(1, "A rejection reason is required")

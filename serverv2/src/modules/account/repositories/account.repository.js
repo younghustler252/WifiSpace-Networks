@@ -8,6 +8,7 @@ export class AccountRepository {
 	async findByMac(macAddress) { throw new Error("Not implemented"); }
 	async update(id, data) { throw new Error("Not implemented"); }
 	async findRouterCredentials(id) { throw new Error("Not implemented"); }
+	async ensureRouterCredentials(id) { throw new Error("Not implemented"); }
 	async deleteById(id) { throw new Error("Not implemented"); }
 	async generateWsnId(prefix) { throw new Error("Not implemented"); }
 	async countAllAccounts() { throw new Error("Not implemented"); }

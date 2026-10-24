@@ -31,6 +31,15 @@ export class NetworkExecutor {
 		}
 	}
 
+	async syncPassword(subscription, metadata = {}) {
+		try {
+			const result = await this.mikrotikManager.syncPassword(subscription, metadata);
+			return { success: true, result };
+		} catch (error) {
+			return { success: false, error: error.message || "Unknown provisioning error" };
+		}
+	}
+
 	async remove(subscription, metadata = {}) {
 		try {
 			const result = await this.mikrotikManager.remove(subscription, metadata);

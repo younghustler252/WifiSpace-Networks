@@ -1,123 +1,75 @@
 import mongoose from "mongoose";
 import "../config/env.js";
 
-// Deletes only confirmed orphaned account records.
-// Rechecks user references immediately before deletion.
-
-const ORPHAN_ACCOUNT_IDS = [
-	"6a40bdd131efef69a75fda16", // ESN1072 - pppoe
-	"6a4402edde8ae12c7e491bfc", // HS0004 - hotspot
-	"6ac9f0f3b751eb2a02fab214", // HS0035 - hotspot
-];
-
 await mongoose.connect(process.env.MONGO_URI);
 
 try {
 	const db = mongoose.connection.db;
+
 	const accounts = db.collection("accounts");
 	const users = db.collection("users");
 
-	console.log("=== Database ===");
-	console.log({
-		database: db.databaseName,
-		targetAccounts: ORPHAN_ACCOUNT_IDS.length,
-	});
+	const cursor = accounts.find(
+		{},
+		{
+			projection: {
+				_id: 1,
+				wsnId: 1,
+				userId: 1,
+				serviceType: 1,
+				status: 1,
+			},
+		}
+	);
 
-	let deleted = 0;
-	let skipped = 0;
-	let failed = 0;
+	const orphaned = [];
+	let scanned = 0;
 
-	for (const id of ORPHAN_ACCOUNT_IDS) {
-		const accountId = new mongoose.Types.ObjectId(id);
+	for await (const account of cursor) {
+		scanned++;
 
-		try {
-			const account = await accounts.findOne({
-				_id: accountId,
+		if (
+			!account.userId ||
+			!mongoose.isValidObjectId(account.userId)
+		) {
+			orphaned.push({
+				accountId: String(account._id),
+				wsnId: account.wsnId ?? null,
+				serviceType: account.serviceType ?? null,
+				reason: "Missing or invalid userId",
 			});
 
-			if (!account) {
-				console.log("SKIPPED: Account not found.", { id });
-				skipped++;
-				continue;
-			}
+			continue;
+		}
 
-			if (
-				!account.userId ||
-				!(account.userId instanceof mongoose.Types.ObjectId)
-			) {
-				console.log(
-					"SKIPPED: userId is missing or invalid; requires manual review.",
-					{
-						id,
-						wsnId: account.wsnId ?? null,
-					}
-				);
-				skipped++;
-				continue;
-			}
+		const userExists = await users.findOne(
+			{ _id: account.userId },
+			{ projection: { _id: 1 } }
+		);
 
-			// Recheck the referenced user immediately before deletion.
-			const userExists = await users.findOne(
-				{ _id: account.userId },
-				{ projection: { _id: 1 } }
-			);
-
-			if (userExists) {
-				console.log(
-					"SKIPPED: Referenced user now exists.",
-					{
-						id,
-						wsnId: account.wsnId ?? null,
-						userId: account.userId.toString(),
-					}
-				);
-				skipped++;
-				continue;
-			}
-
-			// Delete only if the account still references the same missing user.
-			const result = await accounts.deleteOne({
-				_id: accountId,
-				userId: account.userId,
+		if (!userExists) {
+			orphaned.push({
+				accountId: String(account._id),
+				wsnId: account.wsnId ?? null,
+				serviceType: account.serviceType ?? null,
+				userId: String(account.userId),
+				reason: "Referenced user does not exist",
 			});
-
-			if (result.deletedCount === 1) {
-				console.log("DELETED: Confirmed orphaned account.", {
-					accountId: id,
-					wsnId: account.wsnId ?? null,
-					serviceType: account.serviceType ?? null,
-					userId: account.userId.toString(),
-				});
-				deleted++;
-			} else {
-				console.log(
-					"SKIPPED: Account changed or was already removed.",
-					{ id }
-				);
-				skipped++;
-			}
-		} catch (error) {
-			console.error("FAILED:", {
-				accountId: id,
-				error: error.message,
-			});
-			failed++;
 		}
 	}
 
-	console.log("\n=== Cleanup Summary ===");
-	console.log({
-		database: db.databaseName,
-		deleted,
-		skipped,
-		failed,
-	});
+	console.log("\n========== ORPHAN ACCOUNT SCAN ==========");
+	console.log("Database:", db.databaseName);
+	console.log("Accounts scanned:", scanned);
+	console.log("Potential orphan accounts:", orphaned.length);
 
-	if (failed > 0) {
-		process.exitCode = 1;
-	}
+	console.table(orphaned);
+
+	console.log(
+		"\nRead-only scan completed. No records were deleted."
+	);
 } catch (error) {
-	console.error("Orphan cleanup failed:", error.message);
+	console.error("Orphan scan failed:", error.message);
 	process.exitCode = 1;
 } finally {
 	await mongoose.disconnect();
