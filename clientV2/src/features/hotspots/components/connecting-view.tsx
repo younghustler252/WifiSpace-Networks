@@ -5,7 +5,10 @@ import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { useConnectionStatus } from "../hooks/use-hotspots";
 import { ConnectedView } from "./connected-view";
+import { buildSupportMessage } from "../lib/support";
+import type { HotspotRouter } from "../types/hotspots.types";
 import { ProgressSteps } from "./progress-steps";
+import { SupportButton } from "./support-link";
 
 const STEPS = ["Confirming your payment", "Switching on your internet", "You're online"];
 
@@ -13,10 +16,12 @@ interface ConnectingViewProps {
 	reference: string;
 	macAddress: string;
 	linkOrig?: string;
+	router?: HotspotRouter | null;
 	onTryAgain: () => void;
 }
 
-export function ConnectingView({ reference, macAddress, linkOrig, onTryAgain }: ConnectingViewProps) {
+export function ConnectingView({ reference, macAddress, linkOrig, router, onTryAgain }: ConnectingViewProps) {
+	const support = (issue: string) => buildSupportMessage({ issue, location: router?.location ?? router?.name, routerCode: router?.code, reference, macAddress });
 	const { stage, connected, paymentFailed, activationFailed, timedOut, expiresAt, restart } = useConnectionStatus(reference, macAddress);
 
 	if (connected) {
@@ -29,6 +34,7 @@ export function ConnectingView({ reference, macAddress, linkOrig, onTryAgain }: 
 				<Button size="lg" className="w-full" onClick={onTryAgain}>
 					Try again
 				</Button>
+				<SupportButton message={support("My payment didn't go through.")} />
 			</StatusMessage>
 		);
 	}
@@ -45,6 +51,7 @@ export function ConnectingView({ reference, macAddress, linkOrig, onTryAgain }: 
 				<Button size="lg" className="w-full" onClick={restart}>
 					Check again
 				</Button>
+				<SupportButton message={support("I paid but my internet isn't switched on.")} />
 			</StatusMessage>
 		);
 	}
@@ -59,6 +66,7 @@ export function ConnectingView({ reference, macAddress, linkOrig, onTryAgain }: 
 				<Button size="lg" variant="outline" className="w-full bg-surface-2" onClick={onTryAgain}>
 					Back to plans
 				</Button>
+				<SupportButton message={support("I paid but my internet is taking too long to switch on.")} />
 			</StatusMessage>
 		);
 	}

@@ -3,7 +3,7 @@ export const company = {
 	tagline: "Internet that works",
 	description: "Fast, reliable home and hotspot internet with instant activation and simple billing.",
 	supportHref: "",
-	contact: { email: "" as string, phone: "" as string, address: "" as string },
+	contact: { email: "" as string, phone: "" as string, whatsapp: "" as string, address: "" as string },
 	legal: { termsHref: "" as string, privacyHref: "" as string },
 	logo: {
 		mark: "/brand/logo.png",

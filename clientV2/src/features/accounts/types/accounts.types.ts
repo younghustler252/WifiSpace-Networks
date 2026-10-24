@@ -84,6 +84,43 @@ export interface AdminCreateAccountBody {
 	macAddress?: string;
 	staticIp?: string;
 	maxDevices?: number;
+	wsnId?: string;
+	routerPassword?: string;
+}
+
+export interface RouterCredentials {
+	username: string;
+	password: string;
+	generated: boolean;
+}
+
+export type AdminAccountCreated = AdminAccount & { routerCredentials?: RouterCredentials | null };
+
+export interface ChangeWsnIdBody {
+	wsnId: string;
+	force?: boolean;
+}
+
+export interface ChangeWsnIdResult {
+	account: { id: string; wsnId: string };
+	warning: string | null;
+}
+
+export interface RouterCredentialsView {
+	username: string;
+	password: string | null;
+	passwordSet: boolean;
+	serviceType: string;
+	accessMethod?: string | null;
+	profile?: string | null;
+	router: { id: string; name: string; code: string } | null;
+}
+
+export interface RouterPasswordResult {
+	username: string;
+	password: string;
+	generated: boolean;
+	routerSync: { status: "not_needed" | "pending" | "failed" | (string & {}); jobId?: string };
 }
 
 export interface UpdateAccountBody {

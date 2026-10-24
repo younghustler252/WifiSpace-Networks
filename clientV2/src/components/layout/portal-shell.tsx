@@ -1,5 +1,7 @@
 import { ShieldCheck } from "lucide-react";
 import { Logo } from "@/components/shared/logo";
+import { SupportFooterLink } from "@/features/hotspots/components/support-link";
+import { buildSupportMessage } from "@/features/hotspots/lib/support";
 
 export function PortalShell({ children }: { children: React.ReactNode }) {
 	return (
@@ -17,9 +19,12 @@ export function PortalShell({ children }: { children: React.ReactNode }) {
 
 			<main className="relative mx-auto w-full max-w-md flex-1 px-4 pb-6">{children}</main>
 
-			<footer className="relative mx-auto flex w-full max-w-md items-center justify-center gap-1.5 px-4 pb-5 text-[11px] text-muted-foreground">
-				<ShieldCheck className="size-3.5" />
-				Secure payments by Paystack
+			<footer className="relative mx-auto flex w-full max-w-md flex-col items-center gap-1 px-4 pb-5 text-[11px] text-muted-foreground">
+				<SupportFooterLink message={buildSupportMessage({ issue: "I have a question." })} />
+				<span className="inline-flex items-center gap-1.5">
+					<ShieldCheck className="size-3.5" />
+					Secure payments by Paystack
+				</span>
 			</footer>
 		</div>
 	);

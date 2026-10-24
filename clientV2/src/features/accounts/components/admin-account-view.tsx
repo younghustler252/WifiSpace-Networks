@@ -24,6 +24,7 @@ import { useAdminAccount } from "../hooks/use-accounts";
 import { approvalOf, getAccountTitle } from "../lib/account-meta";
 import type { AdminAccount } from "../types/accounts.types";
 import { AccountActionsMenu, type AccountAction } from "./account-actions-menu";
+import { ChangeWsnIdDialog, RouterCredentialsCard } from "./account-credentials";
 import { AccountActionDialog } from "./account-dialogs";
 import { AccountDetailsCard, InstallCard, OwnerCard } from "./account-side-cards";
 import { AccountSubscriptionsCard } from "./account-subscriptions-card";
@@ -132,6 +133,7 @@ function AccountUsage({ accountId }: { accountId: string }) {
 export function AdminAccountView({ id }: { id: string }) {
 	const { data, isLoading, isError, error, refetch } = useAdminAccount(id);
 	const [action, setAction] = useState<AccountAction | null>(null);
+	const [changingId, setChangingId] = useState(false);
 
 	if (isLoading) {
 		return (
@@ -181,6 +183,9 @@ export function AdminAccountView({ id }: { id: string }) {
 					description={`${getAccountTitle(account)} · Created ${formatDate(account.createdAt)}`}
 					actions={
 						<div className="flex items-center gap-2">
+							<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => setChangingId(true)}>
+								Change ID
+							</Button>
 							<StatusBadge status={account.status} />
 							{approval !== "approved" && <StatusBadge status={approval} />}
 							<AccountActionsMenu account={account} onAction={setAction} />
@@ -207,12 +212,16 @@ export function AdminAccountView({ id }: { id: string }) {
 							<HotspotLocationsCard accountId={account.id} />
 						</>
 					) : (
-						<InstallCard account={account} router={router} />
+						<>
+							<InstallCard account={account} router={router} />
+							<RouterCredentialsCard account={account} />
+						</>
 					)}
 					{/* <AccountTicketsCard userId={account.userId} accountId={account.id} /> */}
 				</div>
 			</div>
 
+			{changingId && <ChangeWsnIdDialog account={account} onClose={() => setChangingId(false)} />}
 			{action && <AccountActionDialog action={action} account={account} onClose={() => setAction(null)} />}
 		</div>
 	);

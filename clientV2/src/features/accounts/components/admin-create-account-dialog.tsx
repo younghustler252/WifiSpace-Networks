@@ -16,17 +16,22 @@ import type { UserProfile } from "@/features/users/types/users.types";
 import { SERVICE_TYPE_OPTIONS } from "../constants";
 import { useAdminAccountActions } from "../hooks/use-accounts";
 import { AdminCreateAccountValues, adminCreateAccountSchema } from "../schemas/accounts.schemas";
+import type { AdminAccountCreated } from "../types/accounts.types";
+import { ACCOUNT_ERROR_CODES } from "../constants";
+import { CredentialsBox } from "./account-credentials";
 
 export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?: UserProfile; onClose: () => void }) {
 	const { create } = useAdminAccountActions();
 	const [user, setUser] = useState<UserProfile | null>(presetUser ?? null);
 	const [userError, setUserError] = useState<string | null>(null);
+	const [created, setCreated] = useState<AdminAccountCreated | null>(null);
 
 	const {
 		register,
 		control,
 		handleSubmit,
 		watch,
+		setError,
 		formState: { errors, isSubmitting },
 	} = useForm<AdminCreateAccountValues>({
 		resolver: zodResolver(adminCreateAccountSchema),
@@ -41,6 +46,8 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 			macAddress: "",
 			staticIp: "",
 			maxDevices: "",
+			wsnId: "",
+			routerPassword: "",
 		},
 	});
 
@@ -73,15 +80,57 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 			macAddress: isPppoe && values.accessMethod === "ipoe" ? values.macAddress.replace(/-/g, ":").toUpperCase() : undefined,
 			staticIp: isPppoe && values.staticIp ? values.staticIp : undefined,
 			maxDevices: !isPppoe && values.maxDevices ? Number(values.maxDevices) : undefined,
+			wsnId: values.wsnId ? values.wsnId.toUpperCase() : undefined,
+			routerPassword: isPppoe && values.routerPassword ? values.routerPassword : undefined,
 		});
 
 		if (!res.success) {
+			if (res.code === ACCOUNT_ERROR_CODES.WSN_ID_INVALID || res.code === ACCOUNT_ERROR_CODES.WSN_ID_CONFLICT) {
+				setError("wsnId", { message: res.message });
+				return;
+			}
+			if (res.code === ACCOUNT_ERROR_CODES.ROUTER_PASSWORD_INVALID) {
+				setError("routerPassword", { message: res.message });
+				return;
+			}
+			if (res.code === "VALIDATION_ERROR" && Array.isArray(res.details)) {
+				let mapped = false;
+				for (const item of res.details as { field?: string; message?: string }[]) {
+					if (item.field === "wsnId" || item.field === "routerPassword") {
+						setError(item.field, { message: item.message ?? "Invalid value" });
+						mapped = true;
+					}
+				}
+				if (mapped) return;
+			}
 			toast.error(res.message);
 			return;
 		}
 
 		toast.success("Account created");
+		const data = res.data as AdminAccountCreated;
+		if (data.routerCredentials) {
+			setCreated(data);
+			return;
+		}
 		onClose();
+	}
+
+	if (created?.routerCredentials) {
+		return (
+			<Dialog open onOpenChange={(open) => !open && onClose()}>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>{created.wsnId} is ready</DialogTitle>
+						<DialogDescription>Give the engineer this login for the MikroTik. You can reveal it again later from the account page.</DialogDescription>
+					</DialogHeader>
+					<CredentialsBox username={created.routerCredentials.username} password={created.routerCredentials.password} generated={created.routerCredentials.generated} />
+					<Button size="lg" className="w-full" onClick={onClose}>
+						Done
+					</Button>
+				</DialogContent>
+			</Dialog>
+		);
 	}
 
 	return (
@@ -227,6 +276,16 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 					) : (
 						<Field label="Max devices (optional)" htmlFor="create-devices" error={errors.maxDevices?.message}>
 							<Input id="create-devices" inputMode="numeric" aria-invalid={!!errors.maxDevices} {...register("maxDevices")} />
+						</Field>
+					)}
+
+					<Field label="WSN ID (optional)" htmlFor="create-wsn" error={errors.wsnId?.message} hint="Leave blank to generate one.">
+						<Input id="create-wsn" autoCapitalize="characters" autoComplete="off" aria-invalid={!!errors.wsnId} {...register("wsnId")} />
+					</Field>
+
+					{isPppoe && (
+						<Field label="Router password (optional)" htmlFor="create-router-password" error={errors.routerPassword?.message} hint="6 to 64 characters, no spaces. Leave blank to generate one.">
+							<Input id="create-router-password" autoComplete="off" aria-invalid={!!errors.routerPassword} {...register("routerPassword")} />
 						</Field>
 					)}
 

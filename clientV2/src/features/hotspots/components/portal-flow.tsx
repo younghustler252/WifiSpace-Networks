@@ -11,7 +11,9 @@ import { usePortalParams } from "../hooks/use-portal-params";
 import { ConnectedView } from "./connected-view";
 import { ActivatingView, ConnectingView } from "./connecting-view";
 import { PlanPicker } from "./plan-picker";
+import { buildSupportMessage } from "../lib/support";
 import { PortalLoginForm } from "./portal-login-form";
+import { SupportButton } from "./support-link";
 
 export function PortalFlow() {
 	const nav = useRouter();
@@ -47,7 +49,7 @@ export function PortalFlow() {
 	}
 
 	if (reference) {
-		return <ConnectingView reference={reference} macAddress={client.macAddress} linkOrig={linkOrig} onTryAgain={clearReference} />;
+		return <ConnectingView reference={reference} macAddress={client.macAddress} linkOrig={linkOrig} router={session.data?.router} onTryAgain={clearReference} />;
 	}
 
 	if (session.isError) {
@@ -56,6 +58,7 @@ export function PortalFlow() {
 				<Button size="lg" className="w-full" onClick={() => session.refetch()}>
 					Try again
 				</Button>
+				<SupportButton message={buildSupportMessage({ issue: "The hotspot page can't reach the network.", macAddress: client.macAddress })} />
 			</StatusMessage>
 		);
 	}
@@ -72,6 +75,7 @@ export function PortalFlow() {
 				<Button size="lg" variant="outline" className="w-full bg-surface-2" onClick={() => session.refetch()}>
 					Try again
 				</Button>
+				<SupportButton message={buildSupportMessage({ issue: "This hotspot says it can't be identified.", macAddress: client.macAddress })} />
 			</StatusMessage>
 		);
 	}
@@ -104,6 +108,15 @@ export function PortalFlow() {
 				<Button size="lg" className="w-full" onClick={checkAgain}>
 					Check again
 				</Button>
+				<SupportButton
+					message={buildSupportMessage({
+						issue: "My plan is paid but my internet isn't switched on.",
+						location: data.router.location ?? data.router.name,
+						routerCode: data.router.code,
+						reference: data.subscription?.id?.slice(-8).toUpperCase(),
+						macAddress: client.macAddress,
+					})}
+				/>
 			</StatusMessage>
 		);
 	}

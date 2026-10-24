@@ -3,6 +3,7 @@ import { friendly } from "@/lib/api/friendly";
 import { withIdempotency } from "@/lib/api/idempotency";
 import type { ApiResponse } from "@/types/api-response";
 import { WALLET_ERROR_MESSAGES } from "../constants";
+import type { ReconcileBody, ReconcileResult } from "../types/reconcile.types";
 import type { AdjustWalletBody, PayWithWalletBody, PayWithWalletResult, Wallet, WalletTransaction } from "../types/wallet.types";
 
 const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res) => friendly(res, WALLET_ERROR_MESSAGES));
@@ -15,6 +16,7 @@ export const walletApi = {
 };
 
 export const adminWalletApi = {
+	reconcile: (body: ReconcileBody) => withMessages(API.post<ReconcileResult>("/wallet/admin/reconcile", body)),
 	get: (userId: string) => withMessages(API.get<Wallet>(`/wallet/admin/${userId}`)),
 	transactions: (userId: string, params: { page?: number; limit?: number }) =>
 		withMessages(API.get<WalletTransaction[]>(`/wallet/admin/${userId}/transactions`, { params })),

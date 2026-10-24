@@ -74,6 +74,7 @@ export const addDeviceSchema = z.object({
 });
 
 const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
+export const WSN_ID_PATTERN = /^[A-Za-z][A-Za-z0-9-]{2,19}$/;
 const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}$/;
 
 export const adminCreateAccountSchema = z
@@ -88,8 +89,13 @@ export const adminCreateAccountSchema = z
 		macAddress: z.string().trim(),
 		staticIp: z.string().trim(),
 		maxDevices: z.string().trim(),
+		wsnId: z.string().trim(),
+		routerPassword: z.string(),
 	})
 	.superRefine((v, ctx) => {
+		if (v.wsnId && !WSN_ID_PATTERN.test(v.wsnId)) {
+			ctx.addIssue({ code: "custom", path: ["wsnId"], message: "Use 3 to 20 characters. Start with a letter. Only letters, numbers and dashes" });
+		}
 		if (v.serviceType === "hotspot") {
 			if (v.maxDevices && !(Number.isInteger(Number(v.maxDevices)) && Number(v.maxDevices) >= 1)) {
 				ctx.addIssue({ code: "custom", path: ["maxDevices"], message: "Enter a whole number, 1 or more" });
@@ -97,6 +103,9 @@ export const adminCreateAccountSchema = z
 			return;
 		}
 
+		if (v.routerPassword && (v.routerPassword.length < 6 || v.routerPassword.length > 64 || /\s/.test(v.routerPassword))) {
+			ctx.addIssue({ code: "custom", path: ["routerPassword"], message: "Use 6 to 64 characters with no spaces" });
+		}
 		if (!v.routerId) ctx.addIssue({ code: "custom", path: ["routerId"], message: "Choose a router" });
 		if (v.accessMethod === "ipoe" && !MAC_PATTERN.test(v.macAddress)) {
 			ctx.addIssue({ code: "custom", path: ["macAddress"], message: "Enter the customer router's MAC like AA:BB:CC:DD:EE:FF" });

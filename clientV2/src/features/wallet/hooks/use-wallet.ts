@@ -3,6 +3,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { unwrap } from "@/lib/api/unwrap";
 import { adminWalletApi, walletApi } from "../services/wallet.api";
+import type { ReconcileBody } from "../types/reconcile.types";
 import type { AdjustWalletBody, PayWithWalletBody } from "../types/wallet.types";
 
 const PAGE_SIZE = 10;
@@ -81,6 +82,17 @@ export function useAdjustWallet(userId: string) {
 		onSettled: () => {
 			queryClient.invalidateQueries({ queryKey: [...WALLET_KEY, "admin", userId] });
 			queryClient.invalidateQueries({ queryKey: ["audit"] });
+		},
+	});
+}
+
+export function useReconcileWallets() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (body: ReconcileBody) => adminWalletApi.reconcile(body),
+		onSuccess: (res, body) => {
+			if (res.success && body.apply) queryClient.invalidateQueries({ queryKey: WALLET_KEY });
 		},
 	});
 }

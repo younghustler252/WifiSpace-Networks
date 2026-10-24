@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Receipt, Search, WifiOff } from "lucide-react";
+import { Plus, Receipt, Search, SearchCheck, WifiOff } from "lucide-react";
 import { FILTER_ALL as ALL, FilterSelect } from "@/components/shared/filter-select";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
@@ -17,6 +17,7 @@ import type { AdminPayment } from "../types/payments.types";
 import { AdminPaymentsTable, type PaymentAction } from "./admin-payments-table";
 import { PaymentDetailsDialog, UpdateStatusDialog, ReversePaymentDialog } from "./payment-dialogs";
 import { RecordPaymentDialog } from "./record-payment-dialog";
+import { ReconcileDialog } from "@/features/wallet/components/reconcile-dialog";
 
 
 export function PaymentsAdmin() {
@@ -24,6 +25,7 @@ export function PaymentsAdmin() {
 	const [status, setStatus] = useState(ALL);
 	const [page, setPage] = useState(1);
 	const [recording, setRecording] = useState(false);
+	const [reconciling, setReconciling] = useState(false);
 	const [dialog, setDialog] = useState<{ action: PaymentAction; payment: AdminPayment } | null>(null);
 	const debouncedSearch = useDebouncedValue(search, 350);
 
@@ -96,10 +98,16 @@ export function PaymentsAdmin() {
 				title="Payments"
 				description="Every payment across WifiSpace, including cash and bank transfers."
 				actions={
-					<Button onClick={() => setRecording(true)}>
-						<Plus />
-						Record payment
-					</Button>
+					<div className="flex flex-wrap gap-2">
+						<Button variant="outline" className="bg-surface-2" onClick={() => setReconciling(true)}>
+							<SearchCheck />
+							Missing top-ups
+						</Button>
+						<Button onClick={() => setRecording(true)}>
+							<Plus />
+							Record payment
+						</Button>
+					</div>
 				}
 			/>
 
@@ -120,6 +128,7 @@ export function PaymentsAdmin() {
 			{renderBody()}
 
 			{recording && <RecordPaymentDialog onClose={() => setRecording(false)} />}
+			{reconciling && <ReconcileDialog onClose={() => setReconciling(false)} />}
 			{dialog?.action === "details" && <PaymentDetailsDialog payment={dialog.payment} onClose={close} />}
 			{dialog?.action === "status" && <UpdateStatusDialog payment={dialog.payment} onClose={close} />}
 			{dialog?.action === "reverse" && <ReversePaymentDialog payment={dialog.payment} onClose={close} />}{dialog?.action === "reverse" && <ReversePaymentDialog payment={dialog.payment} onClose={close} />}
