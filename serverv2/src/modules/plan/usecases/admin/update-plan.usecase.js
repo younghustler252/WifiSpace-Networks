@@ -3,7 +3,8 @@ import { PLAN_ERROR_CODES } from "../../domain/plan.enum.js";
 import { Plan } from "../../domain/plan.entity.js";
 
 export class UpdatePlan {
-	constructor({ planRepository, auditService }) {
+	constructor({ planRepository, hotspotProfileGuard, auditService }) {
+		this.hotspotProfileGuard = hotspotProfileGuard;
 		this.planRepository = planRepository;
 		this.auditService = auditService;
 	}
@@ -22,6 +23,8 @@ export class UpdatePlan {
 
 		// Re-validate the merged result through the entity, so a partial update can never leave the plan in an invalid state.
 		const merged = new Plan({ ...existingPlan, ...data, id: existingPlan.id });
+
+		await this.hotspotProfileGuard.assertPlanProfile(merged);
 
 		const updated = await this.planRepository.update(planId, merged);
 

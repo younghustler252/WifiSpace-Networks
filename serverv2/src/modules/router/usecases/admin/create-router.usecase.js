@@ -4,7 +4,8 @@ import { ROUTER_ERROR_CODES } from "../../domain/router.enum.js";
 import { Router } from "../../domain/router.entity.js";
 
 export class CreateRouter {
-	constructor({ routerRepository, syncRouterInfo, auditService }) {
+	constructor({ routerRepository, syncRouterInfo, networkConfigDispatcher, auditService }) {
+		this.networkConfigDispatcher = networkConfigDispatcher;
 		this.routerRepository = routerRepository;
 		this.syncRouterInfo = syncRouterInfo;
 		this.auditService = auditService;
@@ -25,6 +26,8 @@ export class CreateRouter {
 				console.error(`[CreateRouter] Initial sync failed for ${created.host}:`, err.message)
 			);
 		}
+
+		await this.networkConfigDispatcher.enqueueRouter(created.id);
 
 		if (this.auditService) {
 			await this.auditService.log({

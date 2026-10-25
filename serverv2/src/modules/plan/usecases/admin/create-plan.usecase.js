@@ -3,7 +3,8 @@ import { PLAN_ERROR_CODES } from "../../domain/plan.enum.js";
 import { Plan } from "../../domain/plan.entity.js";
 
 export class CreatePlan {
-	constructor({ planRepository, auditService }) {
+	constructor({ planRepository, hotspotProfileGuard, auditService }) {
+		this.hotspotProfileGuard = hotspotProfileGuard;
 		this.planRepository = planRepository;
 		this.auditService = auditService;
 	}
@@ -15,6 +16,8 @@ export class CreatePlan {
 		}
 
 		const plan = new Plan(data); // throws ValidationError via entity.validate() if malformed
+
+		await this.hotspotProfileGuard.assertPlanProfile(plan);
 
 		const created = await this.planRepository.create(plan);
 

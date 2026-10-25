@@ -11,6 +11,7 @@ import notificationRouter from "../modules/notifications/routes/notification.rou
 import dashboardRouter from "../modules/dashboard/routes/dashboard.routes.js";
 import routerRouter from "../modules/router/routes/router.routes.js";
 import usageRouter from "../modules/usage/routes/usage.routes.js";
+import networkConfigRouter from "../modules/network-config/routes/network-config.routes.js";
 import walletRouter from "../modules/wallet/routes/wallet.routes.js";
 import ticketRouter from "../modules/ticket/routes/ticket.routes.js";
 
@@ -30,5 +31,6 @@ router.use("/audit", auditRouter)
 router.use("/usage", usageRouter)
 router.use("/tickets", ticketRouter)
 router.use("/wallet", walletRouter)
+router.use("/network-config", networkConfigRouter)
 
 export default router;
