@@ -178,14 +178,14 @@ export function StatusTab() {
 		);
 	}
 
-	if (status.data.routers.length === 0) {
+	if (status.data.length === 0) {
 		return <p className="py-10 text-center text-sm text-muted-foreground">No routers to sync yet.</p>;
 	}
 
 	return (
 		<div className="space-y-4">
 			<p className="text-[12px] text-muted-foreground">Changes are pushed to your routers in the background, and everything is re-checked every 6 hours.</p>
-			{status.data.routers.map((router) => (
+			{status.data.map((router) => (
 				<RouterCard key={router.id} router={router} />
 			))}
 		</div>
