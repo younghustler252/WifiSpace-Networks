@@ -34,6 +34,7 @@ export const PLAN_ERROR_CODES = {
 	PLAN_NAME_CONFLICT: "PLAN_NAME_CONFLICT",
 	CANNOT_DELETE_ACTIVE_PLAN: "CANNOT_DELETE_ACTIVE_PLAN",
 	INVALID_ACCOUNT_TYPE_FOR_SERVICE: "INVALID_ACCOUNT_TYPE_FOR_SERVICE",
+	HOTSPOT_PROFILE_UNKNOWN: "HOTSPOT_PROFILE_UNKNOWN",
 } as const;
 
 export const PLAN_ERROR_MESSAGES: Record<string, string> = {
@@ -41,4 +42,5 @@ export const PLAN_ERROR_MESSAGES: Record<string, string> = {
 	[PLAN_ERROR_CODES.PLAN_NAME_CONFLICT]: "A plan with that name already exists. Choose a different name.",
 	[PLAN_ERROR_CODES.CANNOT_DELETE_ACTIVE_PLAN]: "Deactivate this plan before deleting it.",
 	[PLAN_ERROR_CODES.INVALID_ACCOUNT_TYPE_FOR_SERVICE]: "That customer type isn't available for this service. Business plans are for home internet only.",
+	[PLAN_ERROR_CODES.HOTSPOT_PROFILE_UNKNOWN]: "That speed profile isn't managed in Network config. Pick one from the list or create it first.",
 };

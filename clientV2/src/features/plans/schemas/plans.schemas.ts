@@ -18,6 +18,7 @@ export const planFormSchema = z
 		devicesAllowed: z.string().refine((v) => isInt(v, 1), "Enter a whole number, 1 or more"),
 		gracePeriodDays: z.string().refine((v) => v.trim() === "" || isInt(v, 0), "Enter a whole number, 0 or more"),
 		mikrotikProfile: z.string().trim().min(1, "Enter the router profile name"),
+		ipoeProfile: z.string().trim(),
 		features: z.string(),
 		discountType: z.string(),
 		discountValue: z.string(),

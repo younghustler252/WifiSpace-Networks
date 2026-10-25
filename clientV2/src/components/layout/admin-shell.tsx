@@ -7,6 +7,7 @@ import {
 	LayoutDashboard,
 	Megaphone,
 	Network,
+	RadioTower,
 	Router as RouterIcon,
 	ScrollText,
 	Tag,
@@ -40,6 +41,7 @@ const GROUPS: { label: string; items: AdminNavItem[] }[] = [
 		label: "System",
 		items: [
 			{ href: "/admin/routers", label: "Routers", icon: RouterIcon },
+			{ href: "/admin/network", label: "Network config", shortLabel: "Network", icon: RadioTower },
 			{ href: "/admin/notifications", label: "Broadcasts", icon: Megaphone },
 			{ href: "/admin/audit", label: "Audit log", icon: ScrollText },
 		],

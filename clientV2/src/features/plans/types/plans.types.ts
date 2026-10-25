@@ -18,6 +18,7 @@ export interface Plan {
 	devicesAllowed: number;
 	features: string[];
 	mikrotikProfile?: string;
+	ipoeProfile?: string | null;
 	gracePeriodDays?: number;
 	discountType?: string | null;
 	discountValue?: number | null;
@@ -37,6 +38,7 @@ export interface PlanFields {
 	devicesAllowed: number;
 	features: string[];
 	mikrotikProfile: string;
+	ipoeProfile?: string | null;
 	gracePeriodDays?: number;
 	discountType?: string;
 	discountValue?: number;

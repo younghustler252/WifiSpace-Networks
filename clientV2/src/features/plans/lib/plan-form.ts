@@ -23,6 +23,7 @@ export function toFormValues(plan?: Plan): PlanFormValues {
 		devicesAllowed: String(plan?.devicesAllowed ?? 1),
 		gracePeriodDays: plan?.gracePeriodDays !== undefined ? String(plan.gracePeriodDays) : "",
 		mikrotikProfile: plan?.mikrotikProfile ?? "",
+		ipoeProfile: plan?.ipoeProfile ?? "",
 		features: (plan?.features ?? []).join("\n"),
 		discountType: plan?.discountType ?? NO_DISCOUNT,
 		discountValue: plan?.discountValue != null ? String(plan.discountValue) : "",
@@ -48,6 +49,8 @@ export function toPlanFields(values: PlanFormValues, previous?: Plan): PlanField
 			.filter(Boolean),
 		mikrotikProfile: values.mikrotikProfile.trim(),
 	};
+
+	if (isPppoe) fields.ipoeProfile = values.ipoeProfile.trim() || null;
 
 	if (isPppoe && values.accountType !== NO_ACCOUNT_TYPE) fields.accountType = values.accountType;
 

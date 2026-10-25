@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { company } from "@/config/company";
 import { ProfilePicker } from "@/features/routers/components/profile-picker";
+import { ManagedProfileSelect, useManagedProfiles } from "./managed-profile-select";
 import { humanize } from "@/lib/format";
 import { DISCOUNT_TYPE_OPTIONS, DURATION_UNIT_OPTIONS, NO_DISCOUNT, PLAN_SERVICE_OPTIONS } from "../constants";
 import { useAdminPlanActions } from "../hooks/use-plans";
@@ -44,6 +45,7 @@ export function PlanFormDialog({ plan, onClose }: { plan?: Plan; onClose: () => 
 	const unlimitedData = watch("unlimitedData");
 	const discountType = watch("discountType");
 	const isPppoe = serviceType === "pppoe";
+	const managed = useManagedProfiles();
 
 	const unitOptions: { value: string; label: string }[] = [...DURATION_UNIT_OPTIONS];
 	const currentUnit = toFormValues(plan).durationUnit;
@@ -180,13 +182,47 @@ export function PlanFormDialog({ plan, onClose }: { plan?: Plan; onClose: () => 
 
 					<section className="space-y-4">
 						<SectionTitle>Router</SectionTitle>
-						<Controller
-							control={control}
-							name="mikrotikProfile"
-							render={({ field }) => (
-								<ProfilePicker value={field.value} onChange={field.onChange} serviceType={serviceType} error={errors.mikrotikProfile?.message} />
-							)}
-						/>
+						{!isPppoe && managed.hasAny ? (
+							<Controller
+								control={control}
+								name="mikrotikProfile"
+								render={({ field }) => (
+									<ManagedProfileSelect
+										id="plan-hotspot-profile"
+										label="Speed profile"
+										value={field.value}
+										onChange={field.onChange}
+										allowDefault
+										hint="Set in Network config. Customers already online keep their old speed until they reconnect."
+										error={errors.mikrotikProfile?.message}
+									/>
+								)}
+							/>
+						) : (
+							<Controller
+								control={control}
+								name="mikrotikProfile"
+								render={({ field }) => (
+									<ProfilePicker value={field.value} onChange={field.onChange} serviceType={serviceType} error={errors.mikrotikProfile?.message} />
+								)}
+							/>
+						)}
+						{isPppoe && managed.hasAny && (
+							<Controller
+								control={control}
+								name="ipoeProfile"
+								render={({ field }) => (
+									<ManagedProfileSelect
+										id="plan-ipoe-profile"
+										label="Speed profile (IPoE)"
+										value={field.value}
+										onChange={field.onChange}
+										optional
+										error={errors.ipoeProfile?.message}
+									/>
+								)}
+							/>
+						)}
 					</section>
 
 					<section className="space-y-4">
