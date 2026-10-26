@@ -24,14 +24,28 @@ import { toastWithProvisioning } from "../lib/provisioning";
 const isHotspot = (detail: AdminSubscriptionDetail) =>
 	detail.account?.serviceType === "hotspot" || detail.subscription.planSnapshot.serviceType === "hotspot";
 
+type RouterRef = Partial<NetworkRouter> & { routerId?: string; _id?: string };
+
+function resolveRouters(refs: RouterRef[], all: NetworkRouter[]): NetworkRouter[] {
+	return refs.map((ref) => {
+		const id = ref.id ?? ref.routerId ?? ref._id;
+		const match = all.find((r) => (id && r.id === id) || (ref.code && r.code === ref.code) || (ref.routerUid && r.routerUid === ref.routerUid));
+		return { ...ref, ...match, id: match?.id ?? id ?? "", name: match?.name ?? ref.name ?? "", code: match?.code ?? ref.code ?? "" } as NetworkRouter;
+	});
+}
+
+function problemFor(router: NetworkRouter) {
+	return router.status ? describeRouterProblem(router) : null;
+}
+
 function RouterRow({ router }: { router: NetworkRouter }) {
 	return (
 		<li className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
 			<div className="min-w-0">
-				<p className="truncate text-[13px] font-medium">{router.name}</p>
+				<p className="truncate text-[13px] font-medium">{router.name || router.code || "Unknown router"}</p>
 				<p className="truncate text-[11px] text-muted-foreground">{[router.code, router.location].filter(Boolean).join(" · ")}</p>
 			</div>
-			<StatusBadge status={router.status ?? "offline"} label={routerStatusLabel(router)} />
+			{router.status ? <StatusBadge status={router.status} label={routerStatusLabel(router)} /> : <StatusBadge tone="neutral" label="Status unknown" />}
 		</li>
 	);
 }
@@ -39,22 +53,22 @@ function RouterRow({ router }: { router: NetworkRouter }) {
 function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; onClose: () => void }) {
 	const { resync } = useAdminSubscriptionActions();
 	const hotspot = isHotspot(detail);
-	const known = detail.routers ?? [];
-	const needsFallback = hotspot && known.length === 0;
-	const allRouters = useRouters({ limit: 100 }, needsFallback);
-	const [routerId, setRouterId] = useState(known.length === 1 ? known[0].id : "");
+	const allRouters = useRouters({ limit: 100 }, hotspot);
+	const everyRouter = allRouters.data?.items ?? [];
+	const known = resolveRouters(detail.routers ?? [], everyRouter).filter((r) => r.id);
+	const needsFallback = hotspot;
+	const [routerId, setRouterId] = useState("");
 
-	const options: NetworkRouter[] =
-		known.length > 0
-			? known
-			: (allRouters.data?.items ?? []).filter((r) => r.isEnabled !== false && (r.supportedServices ?? []).includes("hotspot"));
+	const options: NetworkRouter[] = everyRouter.filter((r) => r.isEnabled !== false && (r.supportedServices ?? []).includes("hotspot"));
+	const usedIds = new Set(known.map((r) => r.id));
+	const ordered = [...options.filter((r) => usedIds.has(r.id)), ...options.filter((r) => !usedIds.has(r.id))];
 
 	const target = hotspot ? options.find((r) => r.id === routerId) : detail.router;
-	const issue = target ? describeRouterProblem(target) : null;
+	const issue = target ? problemFor(target) : null;
 
 	function renderPicker() {
 		if (needsFallback && allRouters.isLoading) return <Skeleton className="h-11 rounded-lg" />;
-		if (options.length === 0) return <p className="text-sm text-muted-foreground">No router is available to provision on.</p>;
+		if (ordered.length === 0) return <p className="text-sm text-muted-foreground">No router is available to provision on.</p>;
 
 		return (
 			<Select value={routerId || undefined} onValueChange={setRouterId}>
@@ -62,11 +76,12 @@ function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; on
 					<SelectValue placeholder="Choose a router" />
 				</SelectTrigger>
 				<SelectContent>
-					{options.map((router) => (
+					{ordered.map((router) => (
 						<SelectItem key={router.id} value={router.id}>
 							{router.name}
 							{router.location ? ` · ${router.location}` : ""}
-							{router.status === "online" ? "" : ` · ${router.status ?? "offline"}`}
+							{usedIds.has(router.id) ? " · used before" : ""}
+							{router.status && router.status !== "online" ? ` · ${router.status}` : ""}
 						</SelectItem>
 					))}
 				</SelectContent>
@@ -105,7 +120,9 @@ function ResyncDialog({ detail, onClose }: { detail: AdminSubscriptionDetail; on
 }
 
 export function ProvisioningCard({ detail }: { detail: AdminSubscriptionDetail }) {
-	const { subscription: s, router, routers } = detail;
+	const { subscription: s, router, routers: rawRouters } = detail;
+	const allRouters = useRouters({ limit: 100 }, isHotspot(detail));
+	const routers = resolveRouters(rawRouters ?? [], allRouters.data?.items ?? []);
 	const [open, setOpen] = useState(false);
 	const hotspot = isHotspot(detail);
 	const failed = s.mikrotikStatus === "failed";
@@ -120,16 +137,16 @@ export function ProvisioningCard({ detail }: { detail: AdminSubscriptionDetail }
 	return (
 		<SectionCard title="Provisioning" description={hotspot ? "Hotspot plans can be used across locations." : "Fixed installation."}>
 			<div className="space-y-4">
-				{(failed || s.mikrotikError) && <Notice tone="danger" title="Provisioning problem" text={s.mikrotikError ?? "The last sync failed."} />}
+				{(failed || (s.mikrotikError && s.mikrotikStatus !== "synced")) && <Notice tone="danger" title="Provisioning problem" text={s.mikrotikError ?? "The last sync failed."} />}
 				{(() => {
 					const flagged = locations
-						.map((r) => ({ router: r, problem: describeRouterProblem(r) }))
+						.map((r) => ({ router: r, problem: problemFor(r) }))
 						.find((x) => x.problem);
 
 					return flagged?.problem ? (
 						<Notice
 							tone={flagged.problem.tone}
-							title={`${flagged.router.name}: ${flagged.problem.title}`}
+							title={`${flagged.router.name || flagged.router.code || "Router"}: ${flagged.problem.title}`}
 							text={flagged.problem.text}
 						/>
 					) : null;
