@@ -2,66 +2,46 @@ import { NodemailerService } from "./nodemailer.service.js";
 import { BrevoService } from "./brevo.service.js";
 import otpTemplate from "../templates/otp.templates.js";
 import notificationTemplate from "../templates/notification.templates.js";
+import passwordChangedTemplate from "../templates/password-changed.templates.js";
 
 export class MailService {
 	constructor() {
-		// Use Brevo in production, Nodemailer in dev
 		this.client =
 			process.env.NODE_ENV === "production"
 				? new BrevoService()
 				: new NodemailerService();
 	}
 
-	/**
-	 * Send OTP email
-	 * @param {Object} params
-	 * @param {string} params.to
-	 * @param {string} params.name
-	 * @param {string|number} params.otp
-	 * @param {number} params.expiresIn
-	 */
+	async deliver({ to, subject, html, text }) {
+		if (!to || (Array.isArray(to) && to.length === 0)) {
+			throw new Error("Email recipient is missing");
+		}
+		return this.client.send({ to, subject, html, text });
+	}
+
 	async sendOTP({ to, name, otp, expiresIn = 10 }) {
-		const html = otpTemplate({ name, otp, expiresIn });
-
-		await this.client.send({
-			to,
-			subject: "Verify Your Account",
-			html,
-		});
+		const mail = otpTemplate({ name, otp, expiresIn, purpose: "verify" });
+		return this.deliver({ to, ...mail });
 	}
 
-	/**
-	 * Send password reset OTP email
-	 * @param {Object} params
-	 * @param {string} params.to
-	 * @param {string} params.name
-	 * @param {string|number} params.otp
-	 * @param {number} params.expiresIn
-	 */
 	async sendPasswordResetOTP({ to, name, otp, expiresIn = 10 }) {
-		const html = otpTemplate({ name, otp, expiresIn });
-
-		await this.client.send({
-			to,
-			subject: "Reset Your Password",
-			html,
-		});
+		const mail = otpTemplate({ name, otp, expiresIn, purpose: "reset" });
+		return this.deliver({ to, ...mail });
 	}
 
-	/**
-	 * Send general notification email
-	 * @param {Object} params
-	 * @param {string} params.to
-	 * @param {string} params.name
-	 * @param {string} params.subject
-	 * @param {string} params.message
-	 */
-	async sendNotification({ to, name, subject, title, message }) {
-		const html = notificationTemplate({ name, title: title ?? subject, message });
-		return await this.client.send({
-			to,
-			subject: subject ?? title,
-			html
+	async sendPasswordChangedNotice({ to, name }) {
+		const mail = passwordChangedTemplate({ name });
+		return this.deliver({ to, ...mail });
+	}
+
+	async sendNotification({ to, name, subject, title, message, action = null }) {
+		const mail = notificationTemplate({
+			name,
+			title: String(title ?? "").trim() || String(subject ?? "").trim(),
+			message,
+			action
 		});
+		const customSubject = String(subject ?? "").trim() || String(title ?? "").trim();
+		return this.deliver({ to, ...mail, subject: customSubject || mail.subject });
 	}
 }

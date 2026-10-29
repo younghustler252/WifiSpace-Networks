@@ -1,4 +1,3 @@
-// infrastructure/notifications/providers/email.channel.js
 import { NotificationChannelInterface } from "../channel.interface.js";
 
 export class EmailChannel extends NotificationChannelInterface {
@@ -6,9 +5,16 @@ export class EmailChannel extends NotificationChannelInterface {
 		super();
 		this.mailService = mailService;
 	}
-	// EmailChannel.send
-	async send({ to, name, subject, message }) {
-		const result = await this.mailService.sendNotification({ to, name, subject, message });
+
+	async send({ to, name, subject, title, message, metadata }) {
+		const result = await this.mailService.sendNotification({
+			to,
+			name,
+			title: title ?? subject ?? metadata?.title,
+			subject: subject ?? title ?? metadata?.title,
+			message: message ?? metadata?.message,
+			action: metadata?.action ?? null
+		});
 		return { providerMessageId: result?.messageId ?? null, raw: result };
 	}
 }

@@ -39,7 +39,9 @@ export class RejectAccount {
 				to: account.user.email,
 				name: account.user.firstName,
 				subject: "Your account request was not approved",
-				message: note || "Please contact support for more information."
+				message: note
+					? `We reviewed your account request and could not approve it.\n\nReason: ${note}\n\nYou are welcome to submit a new request or contact our support team for help.`
+					: "We reviewed your account request and could not approve it.\n\nPlease contact our support team to find out more and to submit a new request."
 			}).catch((err) => console.error("[RejectAccount] Notification email failed:", err.message));
 		}
 

@@ -1,53 +1,45 @@
-// mail/templates/otp.template.js
 import mailLayout from "../layout.js";
+import { brand } from "../brand.js";
+import { escapeHtml, greeting, greetingText, htmlToText } from "../html.js";
 
-export default function otpTemplate({ name, otp, expiresIn = 10, verificationLink = null }) {
-    const content = `
-        <div style="text-align:center;">
-            <h2 style="color:#111827; font-size:24px; margin-bottom:10px;">Verify Your Account</h2>
-            <p style="color:#6b7280; font-size:16px; margin-bottom:30px;">
-                Hi ${name}, enter the OTP below to verify your account.
-            </p>
+const PURPOSES = {
+	verify: {
+		subject: "Verify your email address",
+		title: "Verify your email address",
+		intro: `Thanks for joining {brand}. Use the code below to verify your email address.`,
+		ignore: "If you did not create an account, you can safely ignore this email."
+	},
+	reset: {
+		subject: "Reset your password",
+		title: "Reset your password",
+		intro: "We received a request to reset your password. Use the code below to continue.",
+		ignore: "If you did not request a password reset, you can safely ignore this email. Your password will stay the same."
+	}
+};
 
-            <!-- OTP Code Box -->
-            <div style="
-                display:inline-block;
-                padding:20px 40px;
-                background:#f3f4f6;
-                border-radius:12px;
-                margin-bottom:30px;
-                font-size:32px;
-                letter-spacing:6px;
-                color:#1d4ed8;
-                font-weight:bold;
-            ">
-                ${otp}
-            </div>
+export default function otpTemplate({ name, otp, expiresIn = 10, purpose = "verify" }) {
+	const copy = PURPOSES[purpose] ?? PURPOSES.verify;
+	const intro = copy.intro.replace("{brand}", brand.name);
+	const code = escapeHtml(String(otp ?? "").trim());
+	const minutes = Number(expiresIn) || 10;
+	const unit = minutes === 1 ? "minute" : "minutes";
 
-            <p style="color:#6b7280; font-size:14px; margin-bottom:10px;">
-                This code will expire in <strong>${expiresIn} minutes</strong>.
-            </p>
+	const content = `
+		<p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;color:#374151;">${greeting(name)}</p>
+		<p style="margin:0 0 24px 0;font-size:16px;line-height:1.6;color:#374151;">${escapeHtml(intro)}</p>
+		<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
+			<tr>
+				<td align="center" style="padding:22px 16px;background:#f3f4f6;border:1px dashed #d1d5db;border-radius:12px;">
+					<span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:bold;letter-spacing:10px;color:${brand.accent};">${code}</span>
+				</td>
+			</tr>
+		</table>
+		<p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#374151;">This code expires in <strong>${minutes} ${unit}</strong>. Never share it with anyone. ${escapeHtml(brand.name)} will never ask you for it.</p>
+		<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#6b7280;">${escapeHtml(copy.ignore)}</p>
+	`;
 
-            <p style="color:#6b7280; font-size:14px;">
-                If you did not request this, you can safely ignore this email.
-            </p>
+	const html = mailLayout({ content, title: copy.title, preheader: `Your code is ${String(otp ?? "").trim()}. It expires in ${minutes} ${unit}.` });
+	const text = `${copy.title}\n\n${greetingText(name)}\n\n${intro}\n\nYour code: ${String(otp ?? "").trim()}\n\nThis code expires in ${minutes} ${unit}. Never share it with anyone.\n\n${copy.ignore}\n\nThe ${brand.name} Team`;
 
-            ${
-                verificationLink
-                    ? `<a href="${verificationLink}" style="
-                        display:inline-block;
-                        margin-top:20px;
-                        padding:12px 24px;
-                        background:#1d4ed8;
-                        color:#ffffff;
-                        text-decoration:none;
-                        border-radius:8px;
-                        font-weight:bold;
-                    ">Verify Account</a>`
-                    : ""
-            }
-        </div>
-    `;
-
-    return mailLayout({ content, title: "Verify Your Account" });
+	return { subject: copy.subject, title: copy.title, html, text: text || htmlToText(html) };
 }

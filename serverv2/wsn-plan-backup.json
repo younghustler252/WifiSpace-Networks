@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "database": "test",
+  "createdAt": "2026-10-26T19:01:00.660Z",
+  "rows": [
+    {
+      "id": "6a40bda831efef69a75fd970",
+      "name": "SmartHomeStarter",
+      "field": "ipoeProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a40bda831efef69a75fd971",
+      "name": "UnlimitedJolly",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-40M"
+    },
+    {
+      "id": "6a40bda831efef69a75fd972",
+      "name": "SmartLinkPlus",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-60M"
+    },
+    {
+      "id": "6a40bda831efef69a75fd973",
+      "name": "SmartLinkPremium",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-70M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd974",
+      "name": "SmartLinkPro",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-100M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd975",
+      "name": "SmartHomeFlex",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-50M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd976",
+      "name": "DayHotspot",
+      "field": "mikrotikProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd977",
+      "name": "UnlimitedLite",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-30M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd978",
+      "name": "UnlimitedPremium",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-90M"
+    },
+    {
+      "id": "6a40bda931efef69a75fd979",
+      "name": "SmartLinkProPlus",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-110M"
+    },
+    {
+      "id": "6a40bdaa31efef69a75fd97a",
+      "name": "SmartLinkPlatinum",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-120M"
+    },
+    {
+      "id": "6a40bdaa31efef69a75fd97b",
+      "name": "SmartLinkPlatinumPlus",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-130M"
+    },
+    {
+      "id": "6a40bdaa31efef69a75fd97c",
+      "name": "UnlimitedPlusPro",
+      "field": "ipoeProfile",
+      "from": null,
+      "to": "WSN-80M"
+    },
+    {
+      "id": "6a4178cc99442ebf49b00051",
+      "name": "UnlimitedSmartGo",
+      "field": "mikrotikProfile",
+      "from": "2Mbps-userprofile",
+      "to": "WSN-2M"
+    },
+    {
+      "id": "6a7632ec6532eeb3d747280c",
+      "name": "2DaysUnlimited",
+      "field": "mikrotikProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a7633f66532eeb3d747280d",
+      "name": "WeeklyUnlimited",
+      "field": "mikrotikProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a7636916532eeb3d747280f",
+      "name": "2WeeksUnlimited",
+      "field": "mikrotikProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a7f4f55134fa7269406efb8",
+      "name": "1MonthUnlimited",
+      "field": "mikrotikProfile",
+      "from": "10Mbps-userprofile",
+      "to": "WSN-10M"
+    },
+    {
+      "id": "6a7f5026134fa7269406efb9",
+      "name": "MonthUnlimitedR1",
+      "field": "mikrotikProfile",
+      "from": "5Mbps-userprofile",
+      "to": "WSN-5M"
+    },
+    {
+      "id": "6a7f50c1134fa7269406efbb",
+      "name": "UnlimitedMonthlyR2",
+      "field": "mikrotikProfile",
+      "from": "15Mbps-userprofile",
+      "to": "WSN-15M"
+    }
+  ]
+}

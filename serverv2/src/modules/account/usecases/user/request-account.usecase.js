@@ -35,12 +35,12 @@ export class RequestAccount {
 			});
 		}
 
-		if (createdAccount.serviceType === SERVICE_TYPES.PPPOE && createdAccount.isPendingApproval()) {
+		if (createdAccount.serviceType === SERVICE_TYPES.PPPOE && createdAccount.isPendingApproval() && process.env.SUPERADMIN_EMAIL) {
 			this.mailService?.sendNotification({
 				to: process.env.SUPERADMIN_EMAIL,
 				name: "Super Admin",
-				subject: "New PPPoE Account Approval Request",
-				message: `A new PPPoE account request requires approval.\n\nUser ID: ${createdAccount.userId}\nAccount Type: ${createdAccount.accountType}\nStatus: Pending Approval`
+				subject: "New PPPoE account request awaiting approval",
+				message: `A new PPPoE account request is waiting for your approval.\n\nUser ID: ${createdAccount.userId}\nAccount type: ${createdAccount.accountType}\nStatus: Pending approval\n\nPlease review it in the admin dashboard.`
 			}).catch((err) => console.error("[RequestAccount] Notification email failed:", err.message));
 		}
 
