@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema(
 		resetPasswordOTPLockedUntil: { type: Number, select: false },
 		lastResetPasswordOtpSentAt: { type: Number },
 
+		pendingEmail: { type: String, lowercase: true, trim: true },
+		emailChangeOTP: { type: String, select: false },
+		emailChangeOTPExpiresAt: { type: Number, select: false },
+		emailChangeAttempts: { type: Number, default: 0, select: false },
+		lastEmailChangeOtpSentAt: { type: Number },
+
 		googleId: { type: String, select: false },
 
 		theme: { type: String, enum: THEME_LIST, default: "system" }
@@ -69,6 +75,7 @@ userSchema.set("toJSON", {
 	transform: (doc, ret) => {
 		delete ret.password;
 		delete ret.verificationOTP;
+		delete ret.emailChangeOTP;
 		delete ret.googleId;
 		delete ret.failedLoginAttempts;
 		delete ret.lockUntil;

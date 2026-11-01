@@ -47,6 +47,12 @@ export const changeWsnIdSchema = z.object({
 	force: z.boolean().optional()
 });
 
+export const changeAccessMethodSchema = z.object({
+	accessMethod: z.enum(["ppp", "ipoe"]),
+	macAddress: z.string().optional(),
+	routerPassword: z.string().min(6).max(64).optional()
+});
+
 export const setRouterPasswordSchema = z.object({
 	password: z.string().min(6).max(64).optional()
 });

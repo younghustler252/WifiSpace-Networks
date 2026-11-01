@@ -1,6 +1,26 @@
 import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import type { NetworkRouter } from "@/features/routers/types/routers.types";
 
+export type AutoRenewMethod = "wallet" | "card" | "wallet_then_card";
+
+export interface AutoRenewBody {
+	enabled: boolean;
+	method?: AutoRenewMethod;
+	cardId?: string | null;
+}
+
+export interface AutoRenewResult {
+	subscriptionId: string;
+	autoRenewEnabled: boolean;
+	method: AutoRenewMethod | null;
+	cardId: string | null;
+	nextRenewalDate: string | null;
+	renewalPrice: number;
+	walletBalance: number;
+	walletShortfall: number;
+	lastError: string | null;
+}
+
 export interface SubscriptionEvent {
 	type: string;
 	date: string;
@@ -44,6 +64,11 @@ export interface Subscription {
 	bonusDays: number;
 	renewalStrategy: string;
 	autoRenewEnabled: boolean;
+	autoRenewMethod?: AutoRenewMethod | null;
+	autoRenewCardId?: string | null;
+	autoRenewAttempts?: number;
+	lastAutoRenewAttemptAt?: string | null;
+	lastAutoRenewError?: string | null;
 	mikrotikStatus?: string;
 	createdAt: string | null;
 	expiredAt?: string | null;

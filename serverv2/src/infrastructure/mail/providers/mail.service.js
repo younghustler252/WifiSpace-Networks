@@ -29,6 +29,11 @@ export class MailService {
 		return this.deliver({ to, ...mail });
 	}
 
+	async sendEmailChangeOTP({ to, name, otp, expiresIn = 10 }) {
+		const mail = otpTemplate({ name, otp, expiresIn, purpose: "email_change" });
+		return this.deliver({ to, ...mail });
+	}
+
 	async sendPasswordChangedNotice({ to, name }) {
 		const mail = passwordChangedTemplate({ name });
 		return this.deliver({ to, ...mail });

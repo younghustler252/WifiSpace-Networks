@@ -21,7 +21,7 @@ export class VerifyPayment {
 		const result = await provider.verifyTransaction(reference);
 
 		if (result.status === "successful") {
-			const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
+			const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
 			return { status: "successful", payment: processed.payment, subscription: processed.subscription };
 		}
 

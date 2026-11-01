@@ -4,8 +4,9 @@ export class AdminController {
 	constructor({
 		getAccountById, getAllAccounts, createAccount, approveAccount, rejectAccount,
 		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount,
-		changeWsnId, getRouterCredentials, setRouterPassword
+		changeWsnId, getRouterCredentials, setRouterPassword, changeAccessMethod
 	}) {
+		this.changeAccessMethodUseCase = changeAccessMethod;
 		this.changeWsnIdUseCase = changeWsnId;
 		this.getRouterCredentialsUseCase = getRouterCredentials;
 		this.setRouterPasswordUseCase = setRouterPassword;
@@ -67,6 +68,15 @@ export class AdminController {
 	setRouterPassword = async (req, res) => {
 		const result = await this.setRouterPasswordUseCase.execute({ actorId: req.user.id, accountId: req.params.id, password: req.body.password, ip: req.ip });
 		return successResponse({ res, data: result, message: result.generated ? "Router password generated" : "Router password updated" });
+	};
+
+	changeAccessMethod = async (req, res) => {
+		const result = await this.changeAccessMethodUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
+		return successResponse({
+			res,
+			data: { account: result.account.toJSON(), routerCredentials: result.routerCredentials, provisioning: result.provisioning },
+			message: "Access method changed"
+		});
 	};
 
 	approveAccount = async (req, res) => {

@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	subscribeSchema, adminCreateSubscriptionSchema, suspendSubscriptionSchema,
-	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, customerChangePlanSchema, resyncSubscriptionSchema
+	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, customerChangePlanSchema, resyncSubscriptionSchema, setAutoRenewSchema
 } from "../validators/subscription.validators.js";
 
 const router = Router();
@@ -20,6 +20,7 @@ router.use(authenticate);
 router.post("/", validate(subscribeSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.subscribe));
 router.get("/me", asyncHandler(subscriptionController.getMySubscriptions));
 router.get("/upgrade-options", asyncHandler(subscriptionController.getUpgradeOptions));
+router.put("/:id/auto-renew", validate(setAutoRenewSchema), asyncHandler(subscriptionController.setAutoRenew));
 router.post("/change-plan", validate(customerChangePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.changePlan));
 
 const adminRouter = Router();
@@ -28,6 +29,7 @@ adminRouter.use(requireStaff);
 adminRouter.get("/", asyncHandler(adminController.getAllSubscriptions));
 adminRouter.post("/", validate(adminCreateSubscriptionSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.createSubscription));
 adminRouter.get("/:id", asyncHandler(adminController.getSubscriptionById));
+adminRouter.put("/:id/auto-renew", validate(setAutoRenewSchema), asyncHandler(adminController.setAutoRenew));
 adminRouter.patch("/:id/renew", idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.renewSubscription));
 adminRouter.patch("/:id/change-plan", validate(changePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.changePlan));
 adminRouter.patch("/:id/suspend", validate(suspendSubscriptionSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.suspendSubscription));

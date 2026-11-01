@@ -8,4 +8,21 @@ export const USER_ERROR_CODES = {
 	CANNOT_DELETE_SELF: "CANNOT_DELETE_SELF",
 	CANNOT_BAN_SELF: "CANNOT_BAN_SELF",
 	IMPERSONATION_NOT_ALLOWED: "IMPERSONATION_NOT_ALLOWED",
+	EMAIL_UNCHANGED: "EMAIL_UNCHANGED",
+	RESEND_COOLDOWN_ACTIVE: "RESEND_COOLDOWN_ACTIVE",
+	OTP_INVALID: "OTP_INVALID",
+	OTP_EXPIRED: "OTP_EXPIRED",
+	OTP_LOCKED: "OTP_LOCKED",
+	EMAIL_CHANGE_NOT_REQUESTED: "EMAIL_CHANGE_NOT_REQUESTED",
 } as const;
+
+export const USER_ERROR_MESSAGES: Record<string, string> = {
+	[USER_ERROR_CODES.EMAIL_ALREADY_IN_USE]: "Another account already uses that email address.",
+	[USER_ERROR_CODES.EMAIL_UNCHANGED]: "That's already the current email address.",
+	[USER_ERROR_CODES.INVALID_OLD_PASSWORD]: "Your current password is incorrect.",
+	[USER_ERROR_CODES.RESEND_COOLDOWN_ACTIVE]: "Please wait a minute before asking for another code.",
+	[USER_ERROR_CODES.OTP_INVALID]: "That code isn't right. Check it and try again.",
+	[USER_ERROR_CODES.OTP_EXPIRED]: "That code has expired. Ask for a new one.",
+	[USER_ERROR_CODES.OTP_LOCKED]: "Too many wrong codes. Start again to get a new one.",
+	[USER_ERROR_CODES.EMAIL_CHANGE_NOT_REQUESTED]: "There's no email change waiting. Start again.",
+};

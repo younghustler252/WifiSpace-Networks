@@ -17,7 +17,7 @@ export const brand = {
 		return env.MAIL_SUPPORT_PHONE || "+234 813 773 09929";
 	},
 	get address() {
-		return env.MAIL_COMPANY_ADDRESS || "No 7b Tijani street, iyana ipaja, lagos ";
+		return env.MAIL_COMPANY_ADDRESS || "No 7b Tijani street,s iyana ipaja, lagos ";
 	},
 	get accent() {
 		return env.MAIL_ACCENT_COLOR || "#2563eb";

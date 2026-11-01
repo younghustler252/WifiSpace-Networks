@@ -45,6 +45,19 @@ export const adminUpdateUserSchema = z.object({
 	status: z.string().optional()
 });
 
+export const adminChangeEmailSchema = z.object({
+	email: z.string().trim().toLowerCase().email()
+});
+
+export const requestEmailChangeSchema = z.object({
+	newEmail: z.string().trim().toLowerCase().email(),
+	password: z.string().min(1)
+});
+
+export const confirmEmailChangeSchema = z.object({
+	otp: z.union([z.string(), z.number()]).transform((value) => String(value).trim()).pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code"))
+});
+
 export const adminSetPasswordSchema = z.object({
 	newPassword: z.string().min(8)
 });

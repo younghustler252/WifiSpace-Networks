@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useWallet, useWalletTransactions } from "../hooks/use-wallet";
 import { formatWalletAmount } from "../lib/money";
+import { SavedCardsCard } from "@/features/payments/components/saved-cards-card";
 import { FundWalletCard } from "./fund-wallet-card";
 import { WalletTransactionList } from "./wallet-transactions";
 
@@ -60,7 +61,10 @@ export function WalletView() {
 			</div>
 
 			<div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
-				<FundWalletCard wallet={wallet.data} />
+				<div className="space-y-4">
+					<FundWalletCard wallet={wallet.data} />
+					<SavedCardsCard />
+				</div>
 
 				<SectionCard title="Activity" description={meta ? `${meta.total} transaction${meta.total === 1 ? "" : "s"}` : undefined} className={transactions.isPlaceholderData ? "opacity-60 transition-opacity" : undefined}>
 					{transactions.isLoading && <Skeleton className="h-40 rounded-xl" />}

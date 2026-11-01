@@ -39,6 +39,34 @@ export class PaystackProvider extends PaymentGatewayInterface {
 		}
 	}
 
+	async chargeAuthorization({ email, amount, authorizationCode, reference, metadata = {} }) {
+		try {
+			const response = await this.client.post("/transaction/charge_authorization", {
+				email, amount: Math.round(amount * 100), authorization_code: authorizationCode, reference, metadata
+			});
+			const data = response.data?.data ?? {};
+			return {
+				reference: data.reference ?? reference,
+				status: this.mapStatus(data.status),
+				providerStatus: data.status ?? null,
+				amountKobo: data.amount ?? null,
+				channel: data.channel ?? "card",
+				authorization: data.authorization ?? null,
+				customerEmail: data.customer?.email ?? email,
+				message: data.gateway_response ?? response.data?.message ?? null
+			};
+		} catch (err) {
+			if (err.response?.status >= 400 && err.response?.status < 500) {
+				return {
+					reference, status: PAYMENT_STATUSES.FAILED, providerStatus: "failed", amountKobo: null,
+					channel: "card", authorization: null, customerEmail: email,
+					message: err.response?.data?.message ?? "The card was declined"
+				};
+			}
+			this._handleAxiosError(err, "PAYSTACK_CHARGE_ERROR", "Failed to charge the saved card");
+		}
+	}
+
 	async createVirtualAccount({ email, firstName, lastName, phone }) {
 	try {
 		if (!phone || !/^\+?\d{10,15}$/.test(phone)) {
@@ -142,7 +170,7 @@ export class PaystackProvider extends PaymentGatewayInterface {
 		else if (event === "charge.failed") status = PAYMENT_STATUSES.FAILED;
 		else return null;
 
-		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
+		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null, customerEmail: data.customer?.email ?? null };
 	}
 
 	isDedicatedTransfer(transaction) {

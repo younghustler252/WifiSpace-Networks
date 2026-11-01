@@ -9,7 +9,9 @@ import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { useState } from "react";
 import { useProfile } from "../hooks/use-users";
+import { ChangeEmailDialog } from "./change-email-dialog";
 import { AvatarUploader } from "./avatar-uploader";
 import { PasswordForm } from "./password-form";
 import { ProfileForm } from "./profile-form";
@@ -18,6 +20,7 @@ import { ActivityCard } from "@/features/audit/components/activity-card";
 
 export function ProfileView() {
 	const { data: profile, isLoading, isError, refetch } = useProfile();
+	const [changingEmail, setChangingEmail] = useState(false);
 
 	if (isLoading) {
 		return (
@@ -42,7 +45,17 @@ export function ProfileView() {
 	}
 
 	const accountRows = [
-		{ label: "Email", value: profile.email },
+		{
+			label: "Email",
+			value: (
+				<span className="flex flex-wrap items-center justify-end gap-2">
+					<span className="break-all">{profile.email}</span>
+					<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => setChangingEmail(true)}>
+						Change
+					</Button>
+				</span>
+			),
+		},
 		{ label: "Verified", value: <StatusBadge status={profile.isVerified ? "approved" : "pending"} label={profile.isVerified ? "Verified" : "Not verified"} /> },
 		{ label: "Status", value: <StatusBadge status={profile.status} /> },
 		{ label: "Member since", value: formatDate(profile.createdAt) },
@@ -78,6 +91,7 @@ export function ProfileView() {
 
 				<ActivityCard />
 			</div>
+			{changingEmail && <ChangeEmailDialog currentEmail={profile.email} onClose={() => setChangingEmail(false)} />}
 		</div>
 	);
 }

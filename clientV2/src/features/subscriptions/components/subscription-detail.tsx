@@ -21,6 +21,7 @@ import { SUBSCRIPTION_ERROR_CODES } from "../constants";
 import { useAdminSubscription } from "../hooks/use-subscriptions";
 import { endedEarly, effectiveEnd, getDisplayStatus, getSubscriptionPhase, type SubscriptionAction } from "../lib/subscription-phase";
 import type { AdminSubscriptionDetail } from "../types/subscriptions.types";
+import { AutoRenewCard } from "./auto-renew-card";
 import { ProvisioningCard } from "./provisioning-card";
 import { SubscriptionActionsMenu } from "./subscription-actions-menu";
 import { SubscriptionActionDialog } from "./subscription-dialogs";
@@ -229,6 +230,7 @@ export function SubscriptionDetail({ id }: { id: string }) {
 				<div className="space-y-4">
 					<CustomerCard detail={data} />
 					<LinkedAccountCard detail={data} />
+					<AutoRenewCard subscription={subscription} admin />
 					<ProvisioningCard detail={data} />
 				</div>
 			</div>

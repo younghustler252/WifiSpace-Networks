@@ -19,6 +19,10 @@ import type { Subscription } from "../types/subscriptions.types";
 import { Field } from "@/components/shared/field";
 import { PAYMENT_CHANNEL_OPTIONS } from "@/features/payments/constants";
 import { useRecordPayment } from "@/features/payments/hooks/use-payments";
+import { WALLET_ERROR_CODES } from "@/features/wallet/constants";
+import { useAdminWallet } from "@/features/wallet/hooks/use-wallet";
+import { formatWalletAmount } from "@/features/wallet/lib/money";
+import type { InsufficientBalanceDetails } from "@/features/wallet/types/wallet.types";
 import { toastWithProvisioning } from "../lib/provisioning";
 import { SubscriptionUsageDialog } from "@/features/usage/components/subscription-usage-dialog";
 import { settleFailure } from "@/lib/api/failure";
@@ -126,10 +130,18 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 	const [startDate, setStartDate] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const idempotencyKey = useIdempotencyKey(`${subscription.id}|${channel}|${cycles}|${note}|${startDate}`);
+	const isWallet = channel === "wallet";
+	const wallet = useAdminWallet(subscription.userId ?? "", isWallet);
+	const balance = wallet.data?.balance ?? null;
+	const count = isPppoe ? Math.max(1, Number(cycles) || 1) : 1;
+	const total = plan.price * count;
+	const short = isWallet && balance !== null && total > balance ? total - balance : 0;
+	const [shortfall, setShortfall] = useState<number | null>(null);
 
 	return (
 		<ConfirmDialog
 			open
+			confirmDisabled={short > 0}
 			onOpenChange={(open) => !open && onClose()}
 			title="Renew subscription"
 			description={`Records a payment of ${formatCurrency(plan.price)} per ${formatDuration(plan.durationValue, plan.durationUnit)} for ${plan.name}. Use this when the customer has paid you in cash or by transfer. To give free time instead, use Extend.`}
@@ -141,7 +153,7 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 					return false;
 				}
 
-				const start = startDateToIso(startDate);
+				const start = isWallet ? { iso: undefined, error: undefined } : startDateToIso(startDate);
 				if (start.error) {
 					setError(start.error);
 					return false;
@@ -157,7 +169,14 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 					idempotencyKey,
 				});
 
-				if (!res.success) return settleFailure(res, "The renewal");
+				if (!res.success) {
+					if (res.code === WALLET_ERROR_CODES.INSUFFICIENT_BALANCE) {
+						const details = res.details as InsufficientBalanceDetails | null | undefined;
+						setShortfall(details?.shortfall ?? 0);
+						return false;
+					}
+					return settleFailure(res, "The renewal");
+				}
 				toastWithProvisioning("Subscription renewed", res.data);
 			}}
 		>
@@ -168,30 +187,41 @@ function RenewDialog({ subscription, onClose }: DialogProps) {
 					text="An active subscription gets the new period after its current expiry. One that has ended starts from now. If you see an error, don't click again. Open the subscription and check its payments first."
 				/>
 
-				<StartDateField
-					id="renew-start-date"
-					value={startDate}
-					onChange={(value) => {
-						setStartDate(value);
-						setError(null);
-					}}
-					hint="Optional. Only accepted when this is the customer's first recorded payment. Leave empty for a normal renewal."
-				/>
+				{!isWallet && (
+					<StartDateField
+						id="renew-start-date"
+						value={startDate}
+						onChange={(value) => {
+							setStartDate(value);
+							setError(null);
+						}}
+						hint="Optional. Only accepted when this is the customer's first recorded payment. Leave empty for a normal renewal."
+					/>
+				)}
 
 				<Field label="Payment method" htmlFor="renew-channel">
-					<Select value={channel} onValueChange={setChannel}>
+					<Select value={channel} onValueChange={(value) => { setChannel(value); setShortfall(null); if (value === "wallet") setStartDate(""); }}>
 						<SelectTrigger id="renew-channel" className="w-full">
 							<SelectValue />
 						</SelectTrigger>
 						<SelectContent>
 							{PAYMENT_CHANNEL_OPTIONS.map((option) => (
 								<SelectItem key={option.value} value={option.value}>
-									{option.label}
+									{option.value === "wallet" && balance !== null ? `Wallet · ${formatWalletAmount(balance)}` : option.label}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
 				</Field>
+
+				{isWallet && (short > 0 || shortfall !== null) && (
+					<div className="space-y-3">
+						<Notice tone="warning" title={`Wallet is short by ${formatWalletAmount(shortfall || short)}`} text="Ask the customer to top up, or take the payment another way." />
+						<Button type="button" variant="outline" className="w-full bg-surface-2" onClick={() => { setChannel("cash"); setShortfall(null); }}>
+							Record as cash instead
+						</Button>
+					</div>
+				)}
 
 				{isPppoe && (
 					<Field label="Billing cycles" htmlFor="renew-cycles" error={error ?? undefined} hint="How many periods the customer paid for.">

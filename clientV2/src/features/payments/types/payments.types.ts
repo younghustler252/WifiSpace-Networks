@@ -64,6 +64,33 @@ export interface AdminPaymentListParams {
 	subscriptionId?: string;
 }
 
+export interface SavedCard {
+	id: string;
+	last4: string;
+	brand: string;
+	bank: string | null;
+	cardType: string | null;
+	expMonth: string;
+	expYear: string;
+	isDefault: boolean;
+	expired: boolean;
+	lastUsedAt: string | null;
+	createdAt: string;
+}
+
+export interface PaySavedCardBody {
+	accountId: string;
+	planId: string;
+	cycles?: number;
+	cardId?: string;
+}
+
+export interface PaySavedCardResult {
+	payment: { id: string; status: string; gatewayReference: string };
+	card: { id: string; last4: string; brand: string };
+	provisioning: unknown;
+}
+
 export interface RecordPaymentBody {
 	accountId: string;
 	planId: string;

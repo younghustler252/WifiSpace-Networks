@@ -5,7 +5,7 @@ import type { Plan } from "@/features/plans/types/plans.types";
 import { unwrap } from "@/lib/api/unwrap";
 import type { ApiResponse } from "@/types/api-response";
 import { adminSubscriptionsApi, subscriptionsApi } from "../services/subscriptions.api";
-import type { AdminCreateSubscriptionBody, AdminSubscriptionDetail, AdminSubscriptionListParams } from "../types/subscriptions.types";
+import type { AdminCreateSubscriptionBody, AutoRenewBody, AdminSubscriptionDetail, AdminSubscriptionListParams } from "../types/subscriptions.types";
 
 export const ADMIN_SUBSCRIPTIONS_KEY = ["subscriptions", "admin"] as const;
 const ADMIN_PAGE_SIZE = 12;
@@ -14,6 +14,18 @@ export function useSubscriptions() {
 	return useQuery({
 		queryKey: ["subscriptions", "me"],
 		queryFn: async () => unwrap(await subscriptionsApi.listMine()).data,
+	});
+}
+
+export function useAutoRenew(admin: boolean) {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (v: { id: string; body: AutoRenewBody }) =>
+			admin ? adminSubscriptionsApi.setAutoRenew(v.id, v.body) : subscriptionsApi.setAutoRenew(v.id, v.body),
+		onSuccess: (res) => {
+			if (res.success) queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+		},
 	});
 }
 

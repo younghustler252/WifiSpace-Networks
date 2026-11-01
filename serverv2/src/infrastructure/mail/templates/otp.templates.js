@@ -9,6 +9,12 @@ const PURPOSES = {
 		intro: `Thanks for joining {brand}. Use the code below to verify your email address.`,
 		ignore: "If you did not create an account, you can safely ignore this email."
 	},
+	email_change: {
+		subject: "Confirm your new email address",
+		title: "Confirm your new email address",
+		intro: "We received a request to use this email address for your {brand} account. Use the code below to confirm the change.",
+		ignore: "If you did not request this change, you can safely ignore this email. Your account will keep its current email address."
+	},
 	reset: {
 		subject: "Reset your password",
 		title: "Reset your password",

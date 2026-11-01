@@ -7,7 +7,7 @@ import { ComposeNotificationDialog } from "@/features/notifications/components/c
 import { useAdminUserActions, useImpersonation } from "../hooks/use-users";
 import type { UserProfile } from "../types/users.types";
 import type { UserAction } from "./user-actions-menu";
-import { BanUserDialog, DeleteUserDialog, PasswordDialog, RoleDialog } from "./user-dialogs";
+import { BanUserDialog, DeleteUserDialog, EmailDialog, PasswordDialog, RoleDialog } from "./user-dialogs";
 import { UserFormDialog } from "./user-form-dialog";
 
 type DialogAction = Exclude<UserAction, "unban" | "impersonate">;
@@ -38,6 +38,7 @@ export function useUserActionHost() {
 	const element = dialog && (
 		<>
 			{dialog.type === "edit" && <UserFormDialog user={dialog.user} onClose={close} />}
+			{dialog.type === "email" && <EmailDialog user={dialog.user} onClose={close} />}
 			{dialog.type === "ban" && <BanUserDialog user={dialog.user} onClose={close} />}
 			{dialog.type === "role" && <RoleDialog user={dialog.user} onClose={close} />}
 			{dialog.type === "password" && <PasswordDialog user={dialog.user} onClose={close} />}

@@ -10,11 +10,14 @@ import type {
 	AdminSubscriptionDetailRaw,
 	AdminSubscriptionListParams,
 	Subscription,
+	AutoRenewBody,
+	AutoRenewResult,
 } from "../types/subscriptions.types";
 
 const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res) => friendly(res, SUBSCRIPTION_ERROR_MESSAGES));
 
 export const subscriptionsApi = {
+	setAutoRenew: (id: string, body: AutoRenewBody) => withMessages(API.put<AutoRenewResult>(`/subscriptions/${id}/auto-renew`, body)),
 	listMine: () => withMessages(API.get<Subscription[]>("/subscriptions/me")),
 	upgradeOptions: async (accountId: string): Promise<ApiResponse<Plan[]>> =>
 		friendly(await API.get<Plan[]>("/subscriptions/upgrade-options", { params: { accountId } }), SUBSCRIPTION_ERROR_MESSAGES),
@@ -24,6 +27,7 @@ const ADMIN = "/subscriptions/admin";
 
 export const adminSubscriptionsApi = {
 	list: (params: AdminSubscriptionListParams) => withMessages(API.get<Subscription[]>(ADMIN, { params })),
+	setAutoRenew: (id: string, body: AutoRenewBody) => withMessages(API.put<AutoRenewResult>(`${ADMIN}/${id}/auto-renew`, body)),
 	get: (id: string) => withMessages(API.get<AdminSubscriptionDetailRaw>(`${ADMIN}/${id}`)),
 	create: (body: AdminCreateSubscriptionBody, key?: string) =>
 		withMessages(API.post<Subscription>(ADMIN, body, withIdempotency(key))),

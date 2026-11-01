@@ -18,6 +18,7 @@ export class NetworkService {
 	disconnectDevice(subscription, metadata = {}) { return this._route("disconnectDevice", subscription, metadata); }
 	remove(subscription, metadata = {}) { return this._route("remove", subscription, metadata); }
 	syncPassword(subscription, metadata = {}) { return this._route("syncPassword", subscription, metadata); }
+	switchAccessMethod(subscription, metadata = {}) { return this._route("switchAccessMethod", subscription, metadata); }
 	retryProvision(subscription, metadata = {}) { return this.activate(subscription, metadata); }
 
 	async _route(action, subscription, metadata) {
@@ -38,7 +39,7 @@ export class NetworkService {
 
 	async _enqueue(action, subscription, metadata) {
 		try {
-			if (["activate", "resume"].includes(action)) {
+			if (["activate", "resume"].includes(action) || (action === "switchAccessMethod" && metadata.provisionNew)) {
 				await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "pending", mikrotikError: null });
 			}
 			const job = await provisioningQueue.add(action, { action, subscriptionId: subscription.id, metadata }, JOB_OPTIONS);

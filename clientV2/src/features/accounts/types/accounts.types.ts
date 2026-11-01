@@ -96,6 +96,20 @@ export interface RouterCredentials {
 
 export type AdminAccountCreated = AdminAccount & { routerCredentials?: RouterCredentials | null };
 
+export type AccessMethod = "ppp" | "ipoe";
+
+export interface ChangeAccessMethodBody {
+	accessMethod: AccessMethod;
+	routerPassword?: string;
+	macAddress?: string;
+}
+
+export interface ChangeAccessMethodResult {
+	account: AdminAccount;
+	routerCredentials: RouterCredentials | null;
+	provisioning: { status: "pending" | "not_needed" | (string & {}); jobId?: string };
+}
+
 export interface ChangeWsnIdBody {
 	wsnId: string;
 	force?: boolean;

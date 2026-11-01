@@ -98,6 +98,27 @@ export class MikrotikManager {
 		return service.removeUser(router, account.wsnId);
 	}
 
+	async switchAccessMethod(subscription, metadata = {}) {
+		const { account, router } = await this.loadContext(subscription, metadata);
+		const fromAccessMethod = metadata.fromAccessMethod;
+		if (!fromAccessMethod) throw new Error("fromAccessMethod is required");
+
+		const previousService = this.getService({ ...account, accessMethod: fromAccessMethod });
+
+		if (await previousService.userExists(router, account.wsnId)) {
+			if (fromAccessMethod === "ipoe") {
+				const mac = metadata.previousMacAddress ?? account.macAddress;
+				if (mac && previousService.removeMacBinding) await previousService.removeMacBinding(router, mac);
+			}
+			if (fromAccessMethod === "ppp") await previousService.disconnectUser(router, account.wsnId).catch(() => {});
+			await previousService.removeUser(router, account.wsnId);
+		}
+
+		if (!metadata.provisionNew) return { success: true, removedOnly: true };
+
+		return this.provision(subscription, metadata);
+	}
+
 	async changePassword(subscription, password, metadata = {}) {
 		const { account, router } = await this.loadContext(subscription, metadata);
 		return this.getService(account).changePassword(router, account.wsnId, password);

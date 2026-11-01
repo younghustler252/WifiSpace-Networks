@@ -41,7 +41,7 @@ export class HandleWebhook {
 
 		if (event.status === "successful") {
 			const result = await this.processSuccessfulPayment.execute({
-				payment, gatewayData: { channel: event.channel, authorization: event.authorization }
+				payment, gatewayData: { channel: event.channel, authorization: event.authorization, customerEmail: event.customerEmail }
 			});
 			return { handled: true, ...result };
 		}

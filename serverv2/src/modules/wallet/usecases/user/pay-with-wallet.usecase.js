@@ -20,10 +20,10 @@ export class PayWithWallet {
 		this.auditService = auditService;
 	}
 
-	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, ip = null }) {
+	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, actorId = null, note = null, autoRenew = false, ip = null }) {
 		const account = await this.accountRepository.findById(accountId);
 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
-		if (account.userId !== userId) throw new ValidationError("You do not have access to this account");
+		if (!actorId && account.userId !== userId) throw new ValidationError("You do not have access to this account");
 
 		const plan = await this.planRepository.findByIdOrNull(planId);
 		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
@@ -64,7 +64,11 @@ export class PayWithWallet {
 			gatewayReference: reference,
 			status: PAYMENT_STATUSES.INITIATED,
 			idempotencyKey: crypto.randomBytes(16).toString("hex"),
-			metadata: { planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata }
+			metadata: {
+				planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata,
+				...(actorId ? { recordedByAdmin: actorId, note } : {}),
+				...(autoRenew ? { autoRenew: true } : {})
+			}
 		}));
 
 		try {
@@ -74,7 +78,7 @@ export class PayWithWallet {
 				amountKobo: totalKobo,
 				source: WALLET_TX_SOURCES.PAYMENT,
 				reference: `pay:${payment.id}`,
-				description: `${plan.name} x${cycles}`,
+				description: autoRenew ? `Auto-renewal: ${plan.name} x${cycles}` : `${plan.name} x${cycles}`,
 				metadata: { paymentId: payment.id, accountId, planId }
 			});
 		} catch (error) {
@@ -107,7 +111,7 @@ export class PayWithWallet {
 		}
 
 		await this.auditService?.log({
-			actorId: userId, action: "PAYMENT_WALLET", entity: "Payment", entityId: payment.id,
+			actorId: actorId ?? userId, action: actorId ? "PAYMENT_WALLET_BY_ADMIN" : autoRenew ? "PAYMENT_WALLET_AUTO_RENEW" : "PAYMENT_WALLET", entity: "Payment", entityId: payment.id,
 			newValue: { accountId, planId, total }, ip
 		});
 

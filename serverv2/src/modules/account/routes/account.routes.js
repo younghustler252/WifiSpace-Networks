@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff, requireSuperAdmin, requireOwnerOrStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	requestAccountSchema, adminCreateAccountSchema, rejectAccountSchema,
-	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema
+	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema, changeAccessMethodSchema
 } from "../validators/account.validators.js";
 
 const router = Router();
@@ -34,6 +34,7 @@ adminRouter.post("/ipoe/adopt", requireSuperAdmin, validate(adoptIpoeAccountSche
 adminRouter.patch("/:id/wsn-id", validate(changeWsnIdSchema), asyncHandler(adminController.changeWsnId));
 adminRouter.get("/:id/router-credentials", asyncHandler(adminController.getRouterCredentials));
 adminRouter.put("/:id/router-password", validate(setRouterPasswordSchema), asyncHandler(adminController.setRouterPassword));
+adminRouter.patch("/:id/access-method", validate(changeAccessMethodSchema), asyncHandler(adminController.changeAccessMethod));
 adminRouter.post("/:id/ipoe/sync", asyncHandler(adminController.syncIpoeToRouter));
 adminRouter.patch("/:id/approve", asyncHandler(adminController.approveAccount));
 adminRouter.patch("/:id/reject", validate(rejectAccountSchema), asyncHandler(adminController.rejectAccount));

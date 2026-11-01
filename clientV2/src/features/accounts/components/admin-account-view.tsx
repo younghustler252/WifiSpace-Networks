@@ -24,6 +24,7 @@ import { useAdminAccount } from "../hooks/use-accounts";
 import { approvalOf, getAccountTitle } from "../lib/account-meta";
 import type { AdminAccount } from "../types/accounts.types";
 import { AccountActionsMenu, type AccountAction } from "./account-actions-menu";
+import { ChangeAccessMethodDialog } from "./access-method-dialog";
 import { ChangeWsnIdDialog, RouterCredentialsCard } from "./account-credentials";
 import { AccountActionDialog } from "./account-dialogs";
 import { AccountDetailsCard, InstallCard, OwnerCard } from "./account-side-cards";
@@ -134,6 +135,7 @@ export function AdminAccountView({ id }: { id: string }) {
 	const { data, isLoading, isError, error, refetch } = useAdminAccount(id);
 	const [action, setAction] = useState<AccountAction | null>(null);
 	const [changingId, setChangingId] = useState(false);
+	const [changingAccess, setChangingAccess] = useState(false);
 
 	if (isLoading) {
 		return (
@@ -186,6 +188,11 @@ export function AdminAccountView({ id }: { id: string }) {
 							<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => setChangingId(true)}>
 								Change ID
 							</Button>
+							{!isHotspot && (
+								<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => setChangingAccess(true)}>
+									Access method
+								</Button>
+							)}
 							<StatusBadge status={account.status} />
 							{approval !== "approved" && <StatusBadge status={approval} />}
 							<AccountActionsMenu account={account} onAction={setAction} />
@@ -221,6 +228,7 @@ export function AdminAccountView({ id }: { id: string }) {
 				</div>
 			</div>
 
+			{changingAccess && <ChangeAccessMethodDialog account={account} onClose={() => setChangingAccess(false)} />}
 			{changingId && <ChangeWsnIdDialog account={account} onClose={() => setChangingId(false)} />}
 			{action && <AccountActionDialog action={action} account={account} onClose={() => setAction(null)} />}
 		</div>

@@ -7,7 +7,8 @@ import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
 import { Payment } from "../../domain/payment.entity.js";
 
 export class RecordPayment {
-	constructor({ paymentRepository, planRepository, accountRepository, subscriptionRepository, processSuccessfulPayment, auditService }) {
+	constructor({ paymentRepository, planRepository, accountRepository, subscriptionRepository, processSuccessfulPayment, payWithWallet, auditService }) {
+		this.payWithWallet = payWithWallet;
 		this.paymentRepository = paymentRepository;
 		this.planRepository = planRepository;
 		this.accountRepository = accountRepository;
@@ -23,6 +24,19 @@ export class RecordPayment {
 		const plan = await this.planRepository.findByIdOrNull(planId);
 		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
 		if (plan.serviceType !== account.serviceType) throw new ValidationError("Plan does not match account service type");
+
+		if (paymentChannel === "wallet") {
+			if (startDate) throw new ValidationError("A start date cannot be combined with a wallet payment");
+			const walletResult = await this.payWithWallet.execute({
+				userId: account.userId, accountId, planId, cycles, actorId, note, ip
+			});
+			return {
+				payment: walletResult.payment,
+				subscription: walletResult.outcome?.subscription ?? null,
+				provisioning: walletResult.outcome?.provisioning ?? null,
+				balance: walletResult.balance
+			};
+		}
 
 		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
 		if (startDate) {

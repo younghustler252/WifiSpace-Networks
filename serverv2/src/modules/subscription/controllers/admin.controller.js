@@ -5,8 +5,9 @@ export class AdminController {
 	constructor({
 		adminCreateSubscription, getAllSubscriptions, getSubscriptionById,
 		adminSuspendSubscription, adminResumeSubscription, cancelSubscription, extendSubscription,
-		forceExpireSubscription, resyncSubscription
+		forceExpireSubscription, resyncSubscription, setAutoRenew
 	}) {
+		this.setAutoRenewUseCase = setAutoRenew;
 		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
 		this.getAllSubscriptionsUseCase = getAllSubscriptions;
 		this.getSubscriptionByIdUseCase = getSubscriptionById;
@@ -17,6 +18,13 @@ export class AdminController {
 		this.forceExpireSubscriptionUseCase = forceExpireSubscription;
 		this.resyncSubscriptionUseCase = resyncSubscription;
 	}
+
+	setAutoRenew = async (req, res) => {
+		const result = await this.setAutoRenewUseCase.execute({
+			actorId: req.user.id, subscriptionId: req.params.id, ...req.body, ip: req.ip
+		});
+		return successResponse({ res, data: result, message: result.autoRenewEnabled ? "Auto-renew turned on" : "Auto-renew turned off" });
+	};
 
 	createSubscription = async (req, res) => {
 		const subscription = await this.adminCreateSubscriptionUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });

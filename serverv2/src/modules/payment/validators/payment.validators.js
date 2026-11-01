@@ -9,7 +9,13 @@ export const initiatePaymentSchema = z.object({
 	callbackUrl: z.string().url().optional()
 });
 
-// add to payment.validators.js
+export const savedCardPaymentSchema = z.object({
+	accountId: z.string().min(1),
+	planId: z.string().min(1),
+	cycles: z.number().int().min(1).optional(),
+	cardId: z.string().min(1).optional()
+});
+
 export const recordPaymentSchema = z.object({
 	accountId: z.string().min(1),
 	planId: z.string().min(1),

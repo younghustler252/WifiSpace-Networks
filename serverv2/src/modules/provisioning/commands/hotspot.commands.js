@@ -176,6 +176,13 @@ export class HotspotCommands {
 		};
 	}
 
+	static removeMacBinding(id) {
+		return {
+			command: "/ip/hotspot/ip-binding/remove",
+			params: [`=.id=${id}`]
+		};
+	}
+
 	static setUserMac({
 		id,
 		macAddress

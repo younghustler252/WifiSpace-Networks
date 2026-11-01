@@ -44,7 +44,7 @@ export class GetHotspotConnectionStatus {
 			const result = await provider.verifyTransaction(payment.gatewayReference);
 
 			if (result.status === PAYMENT_STATUSES.SUCCESSFUL) {
-				const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
+				const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
 				return processed.payment ?? payment;
 			}
 		} catch (error) {

@@ -13,7 +13,7 @@ import {
 import { useAuthStore } from "@/stores/auth.store";
 import type { UserProfile } from "../types/users.types";
 
-export type UserAction = "edit" | "add-account" | "notify" | "password" | "role" | "ban" | "unban" | "delete" | "impersonate";
+export type UserAction = "edit" | "email" | "add-account" | "notify" | "password" | "role" | "ban" | "unban" | "delete" | "impersonate";
 
 interface UserActionsMenuProps {
 	user: UserProfile;
@@ -36,6 +36,9 @@ export function UserActionsMenu({ user, isSelf, onAction }: UserActionsMenuProps
 			<DropdownMenuContent align="end" className="w-52">
 				<DropdownMenuItem disabled={locked} onSelect={() => onAction("edit")}>
 					Edit details
+				</DropdownMenuItem>
+				<DropdownMenuItem disabled={locked} onSelect={() => onAction("email")}>
+					Change email
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={() => onAction("add-account")}>Add account…</DropdownMenuItem>
 				<DropdownMenuItem onSelect={() => onAction("notify")}>Send notification…</DropdownMenuItem>

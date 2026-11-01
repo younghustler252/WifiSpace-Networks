@@ -16,6 +16,12 @@ import { getAccountTitle } from "@/features/accounts/lib/account-meta";
 import type { AdminAccount } from "@/features/accounts/types/accounts.types";
 import { PlanCard } from "@/features/plans/components/plan-card";
 import { usePlans } from "@/features/plans/hooks/use-plans";
+import { Notice } from "@/components/shared/notice";
+import { getPlanPricing } from "@/features/plans/lib/pricing";
+import { WALLET_ERROR_CODES } from "@/features/wallet/constants";
+import { useAdminWallet } from "@/features/wallet/hooks/use-wallet";
+import { formatWalletAmount } from "@/features/wallet/lib/money";
+import type { InsufficientBalanceDetails } from "@/features/wallet/types/wallet.types";
 import { PAYMENT_CHANNEL_OPTIONS } from "../constants";
 import { useRecordPayment } from "../hooks/use-payments";
 import { settleFailure } from "@/lib/api/failure";
@@ -35,6 +41,13 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}|${cycles}|${channel}|${note}|${startDate}`);
 	const plans = usePlans(account?.serviceType);
 	const isPppoe = account?.serviceType === "pppoe";
+	const isWallet = channel === "wallet";
+	const wallet = useAdminWallet(account?.userId ?? "", !!account);
+	const balance = wallet.data?.balance ?? null;
+	const selectedPlan = plans.data?.find((p) => p.id === planId);
+	const price = selectedPlan ? getPlanPricing(selectedPlan).final * (isPppoe ? Math.max(1, Number(cycles) || 1) : 1) : null;
+	const short = isWallet && balance !== null && price !== null && price > balance ? price - balance : 0;
+	const [shortfall, setShortfall] = useState<number | null>(null);
 
 	function pickAccount(next: AdminAccount | null) {
 		setAccount(next);
@@ -53,7 +66,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			return;
 		}
 
-		const start = startDateToIso(startDate);
+		const start = isWallet ? { iso: undefined, error: undefined } : startDateToIso(startDate);
 		if (start.error) {
 			setError(start.error);
 			return;
@@ -70,6 +83,12 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 		});
 
 		if (!res.success) {
+			if (res.code === WALLET_ERROR_CODES.INSUFFICIENT_BALANCE) {
+				const details = res.details as InsufficientBalanceDetails | null | undefined;
+				setShortfall(details?.shortfall ?? 0);
+				setError(null);
+				return;
+			}
 			if (settleFailure(res)) onClose();
 			return;
 		}
@@ -83,7 +102,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 			<DialogContent className="max-h-[90svh] overflow-y-auto">
 				<DialogHeader>
 					<DialogTitle>Record a payment</DialogTitle>
-					<DialogDescription>For cash or bank transfers collected outside the website. It activates the plan straight away.</DialogDescription>
+					<DialogDescription>For cash, bank, POS or a customer's wallet. It activates the plan straight away.</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-5">
@@ -125,14 +144,14 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 
 					<div className="grid gap-4 sm:grid-cols-2">
 						<Field label="Payment method" htmlFor="record-channel">
-							<Select value={channel} onValueChange={setChannel}>
+							<Select value={channel} onValueChange={(value) => { setChannel(value); setShortfall(null); setError(null); if (value === "wallet") setStartDate(""); }}>
 								<SelectTrigger id="record-channel" className="w-full">
 									<SelectValue />
 								</SelectTrigger>
 								<SelectContent>
 									{PAYMENT_CHANNEL_OPTIONS.map((option) => (
 										<SelectItem key={option.value} value={option.value}>
-											{option.label}
+											{option.value === "wallet" && account && balance !== null ? `Wallet · ${formatWalletAmount(balance)}` : option.label}
 										</SelectItem>
 									))}
 								</SelectContent>
@@ -145,7 +164,18 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 						)}
 					</div>
 
-					<StartDateField
+					{isWallet && (short > 0 || shortfall !== null) && (
+						<div className="space-y-3">
+							<Notice tone="warning" title={`Wallet is short by ${formatWalletAmount(shortfall || short)}`} text="Ask the customer to top up, or take the payment another way." />
+							<Button variant="outline" className="w-full bg-surface-2" onClick={() => { setChannel("cash"); setShortfall(null); }}>
+								Record as cash instead
+							</Button>
+						</div>
+					)}
+
+					{isWallet && account && wallet.isError && <p className="text-[12px] text-muted-foreground">We couldn&apos;t read this customer&apos;s wallet balance.</p>}
+
+					{!isWallet && <StartDateField
 						id="record-start-date"
 						value={startDate}
 						onChange={(value) => {
@@ -153,7 +183,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 							setError(null);
 						}}
 						hint="Only works for this customer's first payment. Set a past date if they paid earlier and nobody recorded it."
-					/>
+					/>}
 
 					<Field label="Note (optional)" htmlFor="record-note">
 						<Textarea id="record-note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Receipt number, who collected it…" />
@@ -165,7 +195,7 @@ export function RecordPaymentDialog({ account: preset, onClose }: { account?: Ad
 						</p>
 					)}
 
-					<Button size="lg" className="w-full" disabled={record.isPending} onClick={submit}>
+					<Button size="lg" className="w-full" disabled={record.isPending || short > 0} onClick={submit}>
 						{record.isPending && <Loader2 className="animate-spin" />}
 						Record payment
 					</Button>

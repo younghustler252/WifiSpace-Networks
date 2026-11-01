@@ -19,6 +19,8 @@ import { ForceExpireSubscription } from "./usecases/admin/force-expire-subscript
 import { ExpireSubscriptions } from "./usecases/system/expire-subscriptions.usecase.js";
 
 import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.usecase.js";
+import { AutoRenewSubscriptions } from "./usecases/system/auto-renew-subscriptions.usecase.js";
+import { SetAutoRenew } from "./usecases/user/set-auto-renew.usecase.js";
 
 import { SubscriptionController } from "./controllers/subscription.controller.js";
 import { AdminController } from "./controllers/admin.controller.js";
@@ -44,6 +46,8 @@ export function registerSubscription(container) {
 
 		expireSubscriptions: asClass(ExpireSubscriptions).scoped(),
 		sendSubscriptionReminder: asClass(SendSubscriptionReminder).scoped(),
+		autoRenewSubscriptions: asClass(AutoRenewSubscriptions).scoped(),
+		setAutoRenew: asClass(SetAutoRenew).scoped(),
 
 		subscriptionController: asClass(SubscriptionController).scoped(),
 		subscriptionAdminController: asClass(AdminController).scoped()

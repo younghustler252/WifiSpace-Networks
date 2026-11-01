@@ -55,9 +55,10 @@ export function usePayWithWallet() {
 	});
 }
 
-export function useAdminWallet(userId: string) {
+export function useAdminWallet(userId: string, enabled = true) {
 	return useQuery({
 		queryKey: [...WALLET_KEY, "admin", userId],
+		enabled: enabled && !!userId,
 		queryFn: async () => unwrap(await adminWalletApi.get(userId)).data,
 		staleTime: 15_000,
 	});

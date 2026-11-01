@@ -6,7 +6,7 @@ import { usePollWindow } from "@/hooks/use-poll-window";
 import { unwrap } from "@/lib/api/unwrap";
 import { adminPaymentsApi, paymentsApi } from "../services/payments.api";
 import { RecordPaymentBody } from "../types/payments.types";
-import type { AdminPaymentListParams, InitPaymentBody, UpdatePaymentStatusBody } from "../types/payments.types";
+import type { AdminPaymentListParams, InitPaymentBody, PaySavedCardBody, UpdatePaymentStatusBody } from "../types/payments.types";
 
 const VERIFY_POLL_MS = 2500;
 const VERIFY_MAX_WAIT_MS = 30_000;
@@ -18,6 +18,44 @@ const ADMIN_PAGE_SIZE = 12;
 export function useStartPayment() {
 	return useMutation({
 		mutationFn: ({ idempotencyKey, ...body }: InitPaymentBody & { idempotencyKey?: string }) => paymentsApi.init(body, idempotencyKey),
+	});
+}
+
+export const CARDS_KEY = ["payments", "cards"] as const;
+
+export function useSavedCards(enabled = true) {
+	return useQuery({
+		queryKey: CARDS_KEY,
+		enabled,
+		queryFn: async () => unwrap(await paymentsApi.cards()).data,
+		staleTime: 30_000,
+	});
+}
+
+export function useCardActions() {
+	const queryClient = useQueryClient();
+	const refresh = (res: { success: boolean }) => {
+		if (!res.success) return;
+		queryClient.invalidateQueries({ queryKey: CARDS_KEY });
+		queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+	};
+
+	return {
+		setDefault: useMutation({ mutationFn: paymentsApi.setDefaultCard, onSuccess: refresh }),
+		remove: useMutation({ mutationFn: paymentsApi.removeCard, onSuccess: refresh }),
+	};
+}
+
+export function usePayWithSavedCard() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: ({ idempotencyKey, ...body }: PaySavedCardBody & { idempotencyKey?: string }) => paymentsApi.paySavedCard(body, idempotencyKey),
+		onSettled: () => {
+			queryClient.invalidateQueries({ queryKey: ["subscriptions"] });
+			queryClient.invalidateQueries({ queryKey: ["payments"] });
+			queryClient.invalidateQueries({ queryKey: ["usage"] });
+		},
 	});
 }
 

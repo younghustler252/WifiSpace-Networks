@@ -4,6 +4,7 @@ const FIELDS = [
 	"accountId", "userId", "planId", "status", "planSnapshot", "cycles", "totalAmount",
 	"startsAt", "expiresAt", "graceEndsAt", "activatedAt", "expiredAt", "currentPeriodStart", "currentPeriodEnd",
 	"renewalStrategy", "autoRenewEnabled", "nextRenewalDate", "lastRenewedAt",
+	"autoRenewMethod", "autoRenewAttempts", "lastAutoRenewAttemptAt", "lastAutoRenewError", "autoRenewFailureNotifiedAt",
 	"lastPaymentDate", "lastPaymentAmount", "suspendedAt", "totalSuspendedDuration", "suspensionReason",
 	"canceledAt", "cancellationReason", "bonusDays", "manualAdjustmentDays",
 	"mikrotikStatus", "mikrotikLastSyncAt", "mikrotikError", "remindersSent", "events"
@@ -17,13 +18,14 @@ export class SubscriptionMapper {
 		data.accountId = raw.accountId?.toString();
 		data.userId = raw.userId?.toString();
 		data.planId = raw.planId?.toString();
+		data.autoRenewCardId = raw.autoRenewCardId?.toString() ?? null;
 		data.createdAt = raw.createdAt;
 		data.updatedAt = raw.updatedAt;
 		return new Subscription(data);
 	}
 
 	static toPersistence(sub) {
-		const data = { lastPaymentId: sub.lastPaymentId };
+		const data = { lastPaymentId: sub.lastPaymentId, autoRenewCardId: sub.autoRenewCardId ?? null };
 		for (const f of FIELDS) data[f] = sub[f];
 		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
 	}

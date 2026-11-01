@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
 import { container } from "../../../container/index.js";
 import { validate } from "../../../infrastructure/middleware/validate.middleware.js";
 import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
-import { initiatePaymentSchema, recordPaymentSchema, updatePaymentStatusSchema } from "../validators/payment.validators.js";
+import { initiatePaymentSchema, recordPaymentSchema, updatePaymentStatusSchema, savedCardPaymentSchema } from "../validators/payment.validators.js";
 
 const router = Router();
 
@@ -18,6 +18,10 @@ router.post("/webhooks/paystack", asyncHandler(webhookController.paystack));
 router.use(authenticate);
 
 router.post("/", validate(initiatePaymentSchema), asyncHandler(paymentController.initiatePayment));
+router.post("/saved-card", validate(savedCardPaymentSchema), asyncHandler(paymentController.payWithSavedCard));
+router.get("/cards", asyncHandler(paymentController.getMyCards));
+router.patch("/cards/:id/default", asyncHandler(paymentController.setDefaultCard));
+router.delete("/cards/:id", asyncHandler(paymentController.removeCard));
 router.get("/verify/:reference", asyncHandler(paymentController.verifyPayment));
 router.get("/me", asyncHandler(paymentController.getMyPayments));
 

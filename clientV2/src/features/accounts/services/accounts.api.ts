@@ -1,7 +1,8 @@
 import { API } from "@/lib/api/api-client";
 import { friendly } from "@/lib/api/friendly";
 import { ROUTER_ERROR_MESSAGES } from "@/features/routers/constants";
-import type { Account, AdminAccount, AdminAccountCreated, ChangeWsnIdBody, ChangeWsnIdResult, RouterCredentialsView, RouterPasswordResult, AdminAccountListParams, RequestAccountBody, UpdateAccountBody, UpdateAccountResult } from "../types/accounts.types";
+import { ACCOUNT_ERROR_MESSAGES } from "../constants";
+import type { Account, AdminAccount, AdminAccountCreated, ChangeAccessMethodBody, ChangeAccessMethodResult, ChangeWsnIdBody, ChangeWsnIdResult, RouterCredentialsView, RouterPasswordResult, AdminAccountListParams, RequestAccountBody, UpdateAccountBody, UpdateAccountResult } from "../types/accounts.types";
 import { AdminCreateAccountBody, AdminAccountDetailResponse } from "../types/accounts.types";
 
 export const accountsApi = {
@@ -19,6 +20,8 @@ const ADMIN = "/accounts/admin";
 export const adminAccountsApi = {
 
 	create: (body: AdminCreateAccountBody) => API.post<AdminAccountCreated>(ADMIN, body),
+	changeAccessMethod: async (id: string, body: ChangeAccessMethodBody) =>
+		friendly(await API.patch<ChangeAccessMethodResult>(`${ADMIN}/${id}/access-method`, body), ACCOUNT_ERROR_MESSAGES),
 	changeWsnId: (id: string, body: ChangeWsnIdBody) => API.patch<ChangeWsnIdResult>(`${ADMIN}/${id}/wsn-id`, body),
 	routerCredentials: (id: string) => API.get<RouterCredentialsView>(`${ADMIN}/${id}/router-credentials`),
 	setRouterPassword: (id: string, password?: string) => API.put<RouterPasswordResult>(`${ADMIN}/${id}/router-password`, password ? { password } : {}),

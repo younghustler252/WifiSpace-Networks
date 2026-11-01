@@ -2,6 +2,21 @@ import type { AuthUser } from "@/features/auth/types/auth.types";
 import { Role } from "@/types/roles";
 export type ThemePreference = "light" | "dark" | "system";
 
+export interface EmailChangeRequestBody {
+	newEmail: string;
+	password: string;
+}
+
+export interface EmailChangeRequested {
+	pendingEmail: string;
+	expiresAt: string;
+	resendAfter: string;
+}
+
+export interface ConfirmEmailChangeBody {
+	otp: string;
+}
+
 export interface UserProfile extends AuthUser {
 	status: string;
 	nin?: string | null;

@@ -7,7 +7,8 @@ import { NOTIFICATION_TYPES } from "../../../notifications/domain/notification.e
 const CHANNEL_MAP = { card: "card", bank: "bank_transfer", bank_transfer: "bank_transfer", eft: "bank_transfer", ussd: "ussd", qr: "qr", mobile_money: "mobile_money" };
 
 export class ProcessSuccessfulPayment {
-	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, createNotification }) {
+	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, createNotification, savedCardRepository }) {
+		this.savedCardRepository = savedCardRepository;
 		this.paymentRepository = paymentRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.planRepository = planRepository;
@@ -37,7 +38,13 @@ export class ProcessSuccessfulPayment {
 
 	async _apply(payment, gatewayData) {
 		payment.markSuccessful();
-		payment.metadata = { ...payment.metadata, ...gatewayData };
+		const { authorization, customerEmail, ...rest } = gatewayData;
+		payment.metadata = { ...payment.metadata, ...rest };
+
+		if (authorization?.reusable && customerEmail) {
+			await this.savedCardRepository?.upsertFromAuthorization(payment.userId, authorization, customerEmail)
+				.catch((error) => console.error("[ProcessSuccessfulPayment] Saving card failed:", error.message));
+		}
 		payment.paymentChannel = CHANNEL_MAP[gatewayData.channel] ?? payment.paymentChannel;
 
 		const plan = await this.planRepository.findByIdOrNull(payment.planId);
@@ -70,8 +77,10 @@ export class ProcessSuccessfulPayment {
 		});
 
 		this.createNotification?.execute({
-			actorId: null, type: NOTIFICATION_TYPES.PAYMENT_RECEIVED, title: "Payment received",
-			message: `Your payment of ${payment.currency} ${payment.totalAmount} was successful.`,
+			actorId: null, type: NOTIFICATION_TYPES.PAYMENT_RECEIVED, title: payment.metadata?.autoRenew ? "Your plan was renewed" : "Payment received",
+			message: payment.metadata?.autoRenew
+				? `Your ${plan.name} plan was renewed automatically for ${payment.currency} ${payment.totalAmount}. It now runs until ${new Date(subscription.expiresAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}.`
+				: `Your payment of ${payment.currency} ${payment.totalAmount} was successful.`,
 			userIds: [payment.userId], accountId: payment.accountId, entityType: "Payment", entityId: payment.id
 		}).catch((error) => console.error("[ProcessSuccessfulPayment] Notification failed:", error.message));
 

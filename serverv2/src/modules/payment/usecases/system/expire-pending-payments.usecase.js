@@ -19,7 +19,7 @@ export class ExpirePendingPayments {
 				const result = await provider.verifyTransaction(payment.gatewayReference);
 
 				if (result.status === "successful") {
-					await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
+					await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
 					reconciled++;
 					continue;
 				}

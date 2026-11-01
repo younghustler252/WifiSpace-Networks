@@ -11,6 +11,7 @@ export class Subscription {
 		startsAt = null, expiresAt = null, graceEndsAt = null, activatedAt = null, expiredAt = null,
 		currentPeriodStart = null, currentPeriodEnd = null,
 		renewalStrategy = RENEWAL_STRATEGIES.MANUAL, autoRenewEnabled = false, nextRenewalDate = null, lastRenewedAt = null,
+		autoRenewMethod = "wallet", autoRenewCardId = null, autoRenewAttempts = 0, lastAutoRenewAttemptAt = null, lastAutoRenewError = null, autoRenewFailureNotifiedAt = null,
 		lastPaymentId = null, lastPaymentDate = null, lastPaymentAmount = null,
 		suspendedAt = null, totalSuspendedDuration = 0, suspensionReason = null,
 		canceledAt = null, cancellationReason = null,
@@ -33,6 +34,7 @@ export class Subscription {
 			cycles, totalAmount,
 			startsAt, expiresAt, graceEndsAt, activatedAt, expiredAt, currentPeriodStart, currentPeriodEnd,
 			renewalStrategy, autoRenewEnabled, nextRenewalDate, lastRenewedAt,
+			autoRenewMethod, autoRenewCardId, autoRenewAttempts, lastAutoRenewAttemptAt, lastAutoRenewError, autoRenewFailureNotifiedAt,
 			lastPaymentId, lastPaymentDate, lastPaymentAmount,
 			suspendedAt, totalSuspendedDuration, suspensionReason,
 			canceledAt, cancellationReason, bonusDays, manualAdjustmentDays,
@@ -134,6 +136,7 @@ export class Subscription {
 		this.currentPeriodEnd = this.expiresAt;
 		this.graceEndsAt = this._graceEndFor(this.expiresAt);
 		this.lastRenewedAt = now;
+		this.resetAutoRenewState();
 
 		this.cycles += cycles;
 
@@ -151,6 +154,37 @@ export class Subscription {
 			addedCycles: cycles,
 			bonusDays
 		});
+	}
+
+	enableAutoRenew({ method = "wallet", cardId = null } = {}) {
+		if (this.status !== SUBSCRIPTION_STATUSES.ACTIVE) {
+			throw new ValidationError("Auto-renew can only be turned on for an active subscription", "SUBSCRIPTION_NOT_ACTIVE");
+		}
+		this.autoRenewEnabled = true;
+		this.renewalStrategy = RENEWAL_STRATEGIES.AUTO_RENEW;
+		this.autoRenewMethod = method;
+		this.autoRenewCardId = method === "wallet" ? null : cardId;
+		this.nextRenewalDate = this.expiresAt;
+		this.autoRenewAttempts = 0;
+		this.lastAutoRenewError = null;
+		this.autoRenewFailureNotifiedAt = null;
+		this.lastAutoRenewAttemptAt = null;
+	}
+
+	disableAutoRenew() {
+		this.autoRenewEnabled = false;
+		this.renewalStrategy = RENEWAL_STRATEGIES.MANUAL;
+		this.autoRenewCardId = null;
+		this.nextRenewalDate = null;
+		this.resetAutoRenewState();
+	}
+
+	resetAutoRenewState() {
+		this.autoRenewAttempts = 0;
+		this.lastAutoRenewError = null;
+		this.autoRenewFailureNotifiedAt = null;
+		this.lastAutoRenewAttemptAt = null;
+		if (this.autoRenewEnabled) this.nextRenewalDate = this.expiresAt;
 	}
 
 	schedulePlanChange(planId, planSnapshot) {

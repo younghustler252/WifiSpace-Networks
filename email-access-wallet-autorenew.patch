@@ -1,0 +1,2059 @@
+diff --git a/serverv2/src/infrastructure/jobs/index.js b/serverv2/src/infrastructure/jobs/index.js
+index 04b1a2f..b010600 100644
+--- a/serverv2/src/infrastructure/jobs/index.js
++++ b/serverv2/src/infrastructure/jobs/index.js
+@@ -6,6 +6,7 @@ import { registerSubscriptionReminderJob } from "./queues/subscription-reminder.
+ import { registerUsageSyncJob } from "./queues/usage-sync-queue.js";
+ import { registerNetworkConfigJob } from "./queues/network-config.queue.js";
+ import { registerWalletReconcileJob } from "./queues/wallet-reconcile.queue.js";
++import { registerAutoRenewJob } from "./queues/auto-renew.queue.js";
+ import { registerNotificationDispatchJob } from "./queues/notification-dispatch.queues.js";
+ 
+ import { createRouterSyncWorker } from "./workers/router-sync.worker.js";
+@@ -17,6 +18,7 @@ import { createUsageSyncWorker } from "./workers/usage-sync.worker.js";
+ import { createNotificationDispatchWorker } from "./workers/notification-dispatch.worker.js";
+ import { createNetworkConfigWorker } from "./workers/network-config.worker.js";
+ import { createWalletReconcileWorker } from "./workers/wallet-reconcile.worker.js";
++import { createAutoRenewWorker } from "./workers/auto-renew.worker.js";
+ import { createProvisioningWorker } from "./workers/provision.worker.js";
+ 
+ export async function startJobs() {
+@@ -28,6 +30,7 @@ export async function startJobs() {
+     await registerUsageSyncJob();
+     await registerNotificationDispatchJob();
+     await registerWalletReconcileJob();
++    await registerAutoRenewJob();
+     await registerNetworkConfigJob();
+ 
+     createRouterSyncWorker();
+@@ -38,6 +41,7 @@ export async function startJobs() {
+     createUsageSyncWorker();
+     createNotificationDispatchWorker();
+     createWalletReconcileWorker();
++    createAutoRenewWorker();
+     createNetworkConfigWorker();
+     createProvisioningWorker();
+ 
+diff --git a/serverv2/src/infrastructure/jobs/queues/auto-renew.queue.js b/serverv2/src/infrastructure/jobs/queues/auto-renew.queue.js
+new file mode 100644
+index 0000000..02dc654
+--- /dev/null
++++ b/serverv2/src/infrastructure/jobs/queues/auto-renew.queue.js
+@@ -0,0 +1,23 @@
++import { Queue } from "bullmq";
++import { connection } from "../connection.js";
++
++export const autoRenewQueue = new Queue("auto-renew", { connection });
++
++export async function registerAutoRenewJob() {
++	await autoRenewQueue.upsertJobScheduler(
++		"auto-renew-scheduler",
++		{ pattern: "*/10 * * * *" },
++		{
++			name: "auto-renew-subscriptions",
++			data: {},
++			opts: {
++				attempts: 2,
++				backoff: { type: "exponential", delay: 30000 },
++				removeOnComplete: 20,
++				removeOnFail: 50
++			}
++		}
++	);
++
++	console.log("✅ Auto-renew scheduler registered");
++}
+diff --git a/serverv2/src/infrastructure/jobs/workers/auto-renew.worker.js b/serverv2/src/infrastructure/jobs/workers/auto-renew.worker.js
+new file mode 100644
+index 0000000..e06d952
+--- /dev/null
++++ b/serverv2/src/infrastructure/jobs/workers/auto-renew.worker.js
+@@ -0,0 +1,20 @@
++import { Worker } from "bullmq";
++import { connection } from "../connection.js";
++import { container } from "../../../container/index.js";
++import { attachWorkerLifecycleLogging } from "../worker-events.js";
++
++export function createAutoRenewWorker() {
++	const worker = new Worker(
++		"auto-renew",
++		async () => {
++			const result = await container.resolve("autoRenewSubscriptions").execute();
++			if (result.renewed || result.failed) {
++				console.log(`[auto-renew] checked ${result.checked}, renewed ${result.renewed}, failed ${result.failed}, skipped ${result.skipped}`);
++			}
++		},
++		{ connection, concurrency: 1 }
++	);
++
++	attachWorkerLifecycleLogging(worker, "auto-renew", { notifyOnFailure: true });
++	return worker;
++}
+diff --git a/serverv2/src/infrastructure/mail/providers/mail.service.js b/serverv2/src/infrastructure/mail/providers/mail.service.js
+index 4d84f36..36e3eec 100644
+--- a/serverv2/src/infrastructure/mail/providers/mail.service.js
++++ b/serverv2/src/infrastructure/mail/providers/mail.service.js
+@@ -29,6 +29,11 @@ export class MailService {
+ 		return this.deliver({ to, ...mail });
+ 	}
+ 
++	async sendEmailChangeOTP({ to, name, otp, expiresIn = 10 }) {
++		const mail = otpTemplate({ name, otp, expiresIn, purpose: "email_change" });
++		return this.deliver({ to, ...mail });
++	}
++
+ 	async sendPasswordChangedNotice({ to, name }) {
+ 		const mail = passwordChangedTemplate({ name });
+ 		return this.deliver({ to, ...mail });
+diff --git a/serverv2/src/infrastructure/mail/templates/otp.templates.js b/serverv2/src/infrastructure/mail/templates/otp.templates.js
+index ff04c4d..a204a69 100644
+--- a/serverv2/src/infrastructure/mail/templates/otp.templates.js
++++ b/serverv2/src/infrastructure/mail/templates/otp.templates.js
+@@ -9,6 +9,12 @@ const PURPOSES = {
+ 		intro: `Thanks for joining {brand}. Use the code below to verify your email address.`,
+ 		ignore: "If you did not create an account, you can safely ignore this email."
+ 	},
++	email_change: {
++		subject: "Confirm your new email address",
++		title: "Confirm your new email address",
++		intro: "We received a request to use this email address for your {brand} account. Use the code below to confirm the change.",
++		ignore: "If you did not request this change, you can safely ignore this email. Your account will keep its current email address."
++	},
+ 	reset: {
+ 		subject: "Reset your password",
+ 		title: "Reset your password",
+diff --git a/serverv2/src/infrastructure/payments/providers/paystack.provider.js b/serverv2/src/infrastructure/payments/providers/paystack.provider.js
+index b184ab9..2ed38f5 100644
+--- a/serverv2/src/infrastructure/payments/providers/paystack.provider.js
++++ b/serverv2/src/infrastructure/payments/providers/paystack.provider.js
+@@ -39,6 +39,34 @@ export class PaystackProvider extends PaymentGatewayInterface {
+ 		}
+ 	}
+ 
++	async chargeAuthorization({ email, amount, authorizationCode, reference, metadata = {} }) {
++		try {
++			const response = await this.client.post("/transaction/charge_authorization", {
++				email, amount: Math.round(amount * 100), authorization_code: authorizationCode, reference, metadata
++			});
++			const data = response.data?.data ?? {};
++			return {
++				reference: data.reference ?? reference,
++				status: this.mapStatus(data.status),
++				providerStatus: data.status ?? null,
++				amountKobo: data.amount ?? null,
++				channel: data.channel ?? "card",
++				authorization: data.authorization ?? null,
++				customerEmail: data.customer?.email ?? email,
++				message: data.gateway_response ?? response.data?.message ?? null
++			};
++		} catch (err) {
++			if (err.response?.status >= 400 && err.response?.status < 500) {
++				return {
++					reference, status: PAYMENT_STATUSES.FAILED, providerStatus: "failed", amountKobo: null,
++					channel: "card", authorization: null, customerEmail: email,
++					message: err.response?.data?.message ?? "The card was declined"
++				};
++			}
++			this._handleAxiosError(err, "PAYSTACK_CHARGE_ERROR", "Failed to charge the saved card");
++		}
++	}
++
+ 	async createVirtualAccount({ email, firstName, lastName, phone }) {
+ 	try {
+ 		if (!phone || !/^\+?\d{10,15}$/.test(phone)) {
+@@ -142,7 +170,7 @@ export class PaystackProvider extends PaymentGatewayInterface {
+ 		else if (event === "charge.failed") status = PAYMENT_STATUSES.FAILED;
+ 		else return null;
+ 
+-		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null };
++		return { kind: "payment", reference: data.reference, status, amountKobo: data.amount, channel: data.channel || null, authorization: data.authorization || null, customerEmail: data.customer?.email ?? null };
+ 	}
+ 
+ 	isDedicatedTransfer(transaction) {
+diff --git a/serverv2/src/modules/account/account.container.js b/serverv2/src/modules/account/account.container.js
+index d22ce42..6e77a2d 100644
+--- a/serverv2/src/modules/account/account.container.js
++++ b/serverv2/src/modules/account/account.container.js
+@@ -24,6 +24,7 @@ import { AdoptExistingIpoeAccount } from "./usecases/admin/adop-existing-ipoe-ac
+ import { ChangeWsnId } from "./usecases/admin/change-wsn-id.usecase.js";
+ import { GetRouterCredentials } from "./usecases/admin/get-router-credentials.usecase.js";
+ import { SetRouterPassword } from "./usecases/admin/set-router-password.usecase.js";
++import { ChangeAccessMethod } from "./usecases/admin/change-access-method.usecase.js";
+ import { ReconcileIpoeAccounts } from "./usecases/admin/reconcile-ipoe-account.usecase.js";
+ 
+ import { AccountController } from "./controllers/account.controller.js";
+@@ -53,6 +54,7 @@ export function registerAccount(container) {
+ 		syncIpoeToRouter: asClass(SyncIpoeToRouter).scoped(),
+ 		adoptIpoeAccount: asClass(AdoptExistingIpoeAccount).scoped(),
+ 		changeWsnId: asClass(ChangeWsnId).scoped(),
++		changeAccessMethod: asClass(ChangeAccessMethod).scoped(),
+ 		getRouterCredentials: asClass(GetRouterCredentials).scoped(),
+ 		setRouterPassword: asClass(SetRouterPassword).scoped(),
+ 		reconcileIpoeAccounts: asClass(ReconcileIpoeAccounts).scoped(),
+diff --git a/serverv2/src/modules/account/controllers/admin.controller.js b/serverv2/src/modules/account/controllers/admin.controller.js
+index 0387aec..c8ddc7c 100644
+--- a/serverv2/src/modules/account/controllers/admin.controller.js
++++ b/serverv2/src/modules/account/controllers/admin.controller.js
+@@ -4,8 +4,9 @@ export class AdminController {
+ 	constructor({
+ 		getAccountById, getAllAccounts, createAccount, approveAccount, rejectAccount,
+ 		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount,
+-		changeWsnId, getRouterCredentials, setRouterPassword
++		changeWsnId, getRouterCredentials, setRouterPassword, changeAccessMethod
+ 	}) {
++		this.changeAccessMethodUseCase = changeAccessMethod;
+ 		this.changeWsnIdUseCase = changeWsnId;
+ 		this.getRouterCredentialsUseCase = getRouterCredentials;
+ 		this.setRouterPasswordUseCase = setRouterPassword;
+@@ -69,6 +70,15 @@ export class AdminController {
+ 		return successResponse({ res, data: result, message: result.generated ? "Router password generated" : "Router password updated" });
+ 	};
+ 
++	changeAccessMethod = async (req, res) => {
++		const result = await this.changeAccessMethodUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
++		return successResponse({
++			res,
++			data: { account: result.account.toJSON(), routerCredentials: result.routerCredentials, provisioning: result.provisioning },
++			message: "Access method changed"
++		});
++	};
++
+ 	approveAccount = async (req, res) => {
+ 		const account = await this.approveAccountUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
+ 		return successResponse({ res, data: account.toJSON(), message: "Account approved successfully" });
+diff --git a/serverv2/src/modules/account/routes/account.routes.js b/serverv2/src/modules/account/routes/account.routes.js
+index 6d10ac3..9e2c77b 100644
+--- a/serverv2/src/modules/account/routes/account.routes.js
++++ b/serverv2/src/modules/account/routes/account.routes.js
+@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
+ import { requireStaff, requireSuperAdmin, requireOwnerOrStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
+ import {
+ 	requestAccountSchema, adminCreateAccountSchema, rejectAccountSchema,
+-	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema
++	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema, changeAccessMethodSchema
+ } from "../validators/account.validators.js";
+ 
+ const router = Router();
+@@ -34,6 +34,7 @@ adminRouter.post("/ipoe/adopt", requireSuperAdmin, validate(adoptIpoeAccountSche
+ adminRouter.patch("/:id/wsn-id", validate(changeWsnIdSchema), asyncHandler(adminController.changeWsnId));
+ adminRouter.get("/:id/router-credentials", asyncHandler(adminController.getRouterCredentials));
+ adminRouter.put("/:id/router-password", validate(setRouterPasswordSchema), asyncHandler(adminController.setRouterPassword));
++adminRouter.patch("/:id/access-method", validate(changeAccessMethodSchema), asyncHandler(adminController.changeAccessMethod));
+ adminRouter.post("/:id/ipoe/sync", asyncHandler(adminController.syncIpoeToRouter));
+ adminRouter.patch("/:id/approve", asyncHandler(adminController.approveAccount));
+ adminRouter.patch("/:id/reject", validate(rejectAccountSchema), asyncHandler(adminController.rejectAccount));
+diff --git a/serverv2/src/modules/account/usecases/admin/change-access-method.usecase.js b/serverv2/src/modules/account/usecases/admin/change-access-method.usecase.js
+new file mode 100644
+index 0000000..ff4522f
+--- /dev/null
++++ b/serverv2/src/modules/account/usecases/admin/change-access-method.usecase.js
+@@ -0,0 +1,83 @@
++import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
++import { ACCOUNT_ERROR_CODES, PPPOE_ACCESS_METHODS, SERVICE_TYPES } from "../../domain/account.enum.js";
++import { normalizeRouterPassword } from "../../domain/wsn-id.js";
++
++const MAC_PATTERN = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
++
++export class ChangeAccessMethod {
++	constructor({ accountRepository, subscriptionRepository, networkService, auditService }) {
++		this.accountRepository = accountRepository;
++		this.subscriptionRepository = subscriptionRepository;
++		this.networkService = networkService;
++		this.auditService = auditService;
++	}
++
++	async execute({ actorId, accountId, accessMethod, macAddress = null, routerPassword = null, ip = null }) {
++		const account = await this.accountRepository.findById(accountId);
++		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
++
++		if (account.serviceType !== SERVICE_TYPES.PPPOE) {
++			throw new ValidationError("Only home (PPPoE) accounts can change their access method", "ACCESS_METHOD_NOT_SUPPORTED");
++		}
++		if (!account.routerId) {
++			throw new ValidationError("Assign a router to this account before changing its access method", "ACCOUNT_HAS_NO_ROUTER");
++		}
++		if (account.accessMethod === accessMethod) {
++			throw new ValidationError(`This account already uses ${accessMethod === PPPOE_ACCESS_METHODS.IPOE ? "IPoE" : "PPP"}`, "ACCESS_METHOD_UNCHANGED");
++		}
++
++		const subscription = (await this.subscriptionRepository.findByAccountId(account.id))[0] ?? null;
++		const live = subscription?.isActive() ? subscription : null;
++		const updates = { accessMethod };
++		let credentials = null;
++
++		if (accessMethod === PPPOE_ACCESS_METHODS.IPOE) {
++			const mac = String(macAddress ?? account.macAddress ?? "").trim().toUpperCase().replace(/-/g, ":");
++			if (!MAC_PATTERN.test(mac)) {
++				throw new ValidationError("A valid MAC address is required for IPoE", "MAC_ADDRESS_INVALID");
++			}
++			if (live && !live.planSnapshot?.ipoeProfile) {
++				throw new ValidationError(`The plan "${live.planSnapshot?.name}" has no IPoE profile. Set one on the plan first.`, "IPOE_PROFILE_MISSING");
++			}
++			updates.macAddress = mac;
++			if (live) updates.routerProfile = live.planSnapshot.ipoeProfile;
++		} else {
++			if (live && !live.planSnapshot?.mikrotikProfile) {
++				throw new ValidationError(`The plan "${live.planSnapshot?.name}" has no PPP profile.`, "PPP_PROFILE_MISSING");
++			}
++			if (routerPassword) {
++				await this.accountRepository.setRouterPassword(account.id, normalizeRouterPassword(routerPassword));
++			}
++			credentials = await this.accountRepository.ensureRouterCredentials(account.id);
++			if (live) updates.routerProfile = live.planSnapshot.mikrotikProfile;
++		}
++
++		const previous = { accessMethod: account.accessMethod, macAddress: account.macAddress };
++		await this.accountRepository.update(account.id, updates);
++
++		let provisioning = { status: "not_needed" };
++		if (subscription) {
++			const queued = await this.networkService.switchAccessMethod(subscription, {
++				fromAccessMethod: previous.accessMethod,
++				previousMacAddress: previous.macAddress,
++				provisionNew: Boolean(live)
++			});
++			provisioning = queued.provisioning ?? { status: queued.success ? "pending" : "failed" };
++		}
++
++		await this.auditService?.log({
++			actorId, action: "ACCOUNT_ACCESS_METHOD_CHANGED", entity: "Account", entityId: account.id,
++			oldValue: previous, newValue: { accessMethod, macAddress: updates.macAddress ?? null, provisioning: provisioning.status }, ip
++		});
++
++		const fresh = await this.accountRepository.findById(account.id);
++
++		return {
++			account: fresh,
++			routerCredentials: accessMethod === PPPOE_ACCESS_METHODS.PPP
++				? { username: account.wsnId, password: credentials?.routerPassword ?? null, generated: !routerPassword }
++				: null,
++			provisioning
++		};
++	}
++}
+diff --git a/serverv2/src/modules/account/validators/account.validators.js b/serverv2/src/modules/account/validators/account.validators.js
+index ed276ef..a4d2e2e 100644
+--- a/serverv2/src/modules/account/validators/account.validators.js
++++ b/serverv2/src/modules/account/validators/account.validators.js
+@@ -47,6 +47,12 @@ export const changeWsnIdSchema = z.object({
+ 	force: z.boolean().optional()
+ });
+ 
++export const changeAccessMethodSchema = z.object({
++	accessMethod: z.enum(["ppp", "ipoe"]),
++	macAddress: z.string().optional(),
++	routerPassword: z.string().min(6).max(64).optional()
++});
++
+ export const setRouterPasswordSchema = z.object({
+ 	password: z.string().min(6).max(64).optional()
+ });
+diff --git a/serverv2/src/modules/hotspot/usecases/user/get-hotspot-connection-status.usecase.js b/serverv2/src/modules/hotspot/usecases/user/get-hotspot-connection-status.usecase.js
+index a023899..5e18954 100644
+--- a/serverv2/src/modules/hotspot/usecases/user/get-hotspot-connection-status.usecase.js
++++ b/serverv2/src/modules/hotspot/usecases/user/get-hotspot-connection-status.usecase.js
+@@ -44,7 +44,7 @@ export class GetHotspotConnectionStatus {
+ 			const result = await provider.verifyTransaction(payment.gatewayReference);
+ 
+ 			if (result.status === PAYMENT_STATUSES.SUCCESSFUL) {
+-				const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
++				const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
+ 				return processed.payment ?? payment;
+ 			}
+ 		} catch (error) {
+diff --git a/serverv2/src/modules/payment/controllers/admin.controller.js b/serverv2/src/modules/payment/controllers/admin.controller.js
+index fb66a9d..1ab1a29 100644
+--- a/serverv2/src/modules/payment/controllers/admin.controller.js
++++ b/serverv2/src/modules/payment/controllers/admin.controller.js
+@@ -24,7 +24,12 @@ getPaymentById = async (req, res) => {
+ 		const result = await this.recordPaymentUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
+ 		return successResponse({
+ 			res,
+-			data: { payment: result.payment.toJSON(), subscription: result.subscription?.toJSON() ?? null },
++			data: {
++				payment: result.payment.toJSON(),
++				subscription: result.subscription?.toJSON() ?? null,
++				provisioning: result.provisioning ?? null,
++				balance: result.balance ?? null
++			},
+ 			message: "Payment recorded successfully",
+ 			statusCode: 201
+ 		});
+diff --git a/serverv2/src/modules/payment/controllers/payment.controller.js b/serverv2/src/modules/payment/controllers/payment.controller.js
+index e792f0a..856376c 100644
+--- a/serverv2/src/modules/payment/controllers/payment.controller.js
++++ b/serverv2/src/modules/payment/controllers/payment.controller.js
+@@ -1,7 +1,11 @@
+ import { successResponse, paginatedResponse } from "../../../shared/utils/api-response.js";
+ 
+ export class PaymentController {
+-	constructor({ initiatePayment, verifyPayment, getMyPayments }) {
++	constructor({ initiatePayment, verifyPayment, getMyPayments, chargeSavedCard, getMySavedCards, removeSavedCard, setDefaultSavedCard }) {
++		this.chargeSavedCardUseCase = chargeSavedCard;
++		this.getMySavedCardsUseCase = getMySavedCards;
++		this.removeSavedCardUseCase = removeSavedCard;
++		this.setDefaultSavedCardUseCase = setDefaultSavedCard;
+ 		this.initiatePaymentUseCase = initiatePayment;
+ 		this.verifyPaymentUseCase = verifyPayment;
+ 		this.getMyPaymentsUseCase = getMyPayments;
+@@ -12,6 +16,31 @@ export class PaymentController {
+ 		return successResponse({ res, data: { payment: result.payment.toJSON(), authorizationUrl: result.authorizationUrl, reference: result.reference }, message: "Payment initiated", statusCode: 201 });
+ 	};
+ 
++	payWithSavedCard = async (req, res) => {
++		const result = await this.chargeSavedCardUseCase.execute({ userId: req.user.id, ...req.body });
++		return successResponse({
++			res,
++			data: { payment: result.payment.toJSON(), card: result.card, provisioning: result.outcome?.provisioning ?? null },
++			message: "Payment successful",
++			statusCode: 201
++		});
++	};
++
++	getMyCards = async (req, res) => {
++		const cards = await this.getMySavedCardsUseCase.execute({ userId: req.user.id });
++		return successResponse({ res, data: cards, message: "Saved cards fetched successfully" });
++	};
++
++	setDefaultCard = async (req, res) => {
++		const card = await this.setDefaultSavedCardUseCase.execute({ userId: req.user.id, cardId: req.params.id });
++		return successResponse({ res, data: card, message: "Default card updated" });
++	};
++
++	removeCard = async (req, res) => {
++		const result = await this.removeSavedCardUseCase.execute({ userId: req.user.id, cardId: req.params.id, ip: req.ip });
++		return successResponse({ res, data: result, message: "Card removed" });
++	};
++
+ 	verifyPayment = async (req, res) => {
+ 		const result = await this.verifyPaymentUseCase.execute({ userId: req.user.id, reference: req.params.reference });
+ 		return successResponse({ res, data: { status: result.status, payment: result.payment.toJSON() }, message: "Payment status checked" });
+diff --git a/serverv2/src/modules/payment/database/saved-card.model.js b/serverv2/src/modules/payment/database/saved-card.model.js
+new file mode 100644
+index 0000000..976ede0
+--- /dev/null
++++ b/serverv2/src/modules/payment/database/saved-card.model.js
+@@ -0,0 +1,23 @@
++import mongoose from "mongoose";
++
++const savedCardSchema = new mongoose.Schema(
++	{
++		userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
++		authorizationCode: { type: String, required: true, select: false },
++		signature: { type: String, required: true },
++		email: { type: String, required: true },
++		last4: { type: String, required: true },
++		brand: { type: String, default: null },
++		bank: { type: String, default: null },
++		cardType: { type: String, default: null },
++		expMonth: { type: String, default: null },
++		expYear: { type: String, default: null },
++		isDefault: { type: Boolean, default: false },
++		lastUsedAt: { type: Date, default: null }
++	},
++	{ timestamps: true }
++);
++
++savedCardSchema.index({ userId: 1, signature: 1 }, { unique: true });
++
++export default mongoose.model("SavedCard", savedCardSchema);
+diff --git a/serverv2/src/modules/payment/payment.container.js b/serverv2/src/modules/payment/payment.container.js
+index dae185f..cd412c9 100644
+--- a/serverv2/src/modules/payment/payment.container.js
++++ b/serverv2/src/modules/payment/payment.container.js
+@@ -1,9 +1,12 @@
+ import { asClass } from "awilix";
+ import { PaymentRepositoryMongo } from "./repositories/payment.repository.mongo.js";
++import { SavedCardRepositoryMongo } from "./repositories/saved-card.repository.mongo.js";
+ 
+ import { InitiatePayment } from "./usecases/user/initiate-payment.usecase.js";
+ import { VerifyPayment } from "./usecases/user/verify-payment.usecase.js";
+ import { GetMyPayments } from "./usecases/user/get-my-payments.usecase.js";
++import { ChargeSavedCard } from "./usecases/user/charge-saved-card.usecase.js";
++import { GetMySavedCards, RemoveSavedCard, SetDefaultSavedCard } from "./usecases/user/saved-cards.usecases.js";
+ 
+ import { ProcessSuccessfulPayment } from "./usecases/system/process-successful-payment.usecase.js";
+ import { HandleWebhook } from "./usecases/system/handle-webhook.usecase.js";
+@@ -21,10 +24,15 @@ import { AdminController } from "./controllers/admin.controller.js";
+ export function registerPayment(container) {
+ 	container.register({
+ 		paymentRepository: asClass(PaymentRepositoryMongo).singleton(),
++		savedCardRepository: asClass(SavedCardRepositoryMongo).singleton(),
+ 
+ 		initiatePayment: asClass(InitiatePayment).scoped(),
+ 		verifyPayment: asClass(VerifyPayment).scoped(),
+ 		getMyPayments: asClass(GetMyPayments).scoped(),
++		chargeSavedCard: asClass(ChargeSavedCard).scoped(),
++		getMySavedCards: asClass(GetMySavedCards).scoped(),
++		removeSavedCard: asClass(RemoveSavedCard).scoped(),
++		setDefaultSavedCard: asClass(SetDefaultSavedCard).scoped(),
+ 
+ 		processSuccessfulPayment: asClass(ProcessSuccessfulPayment).scoped(),
+ 		handleWebhook: asClass(HandleWebhook).scoped(),
+diff --git a/serverv2/src/modules/payment/repositories/saved-card.repository.mongo.js b/serverv2/src/modules/payment/repositories/saved-card.repository.mongo.js
+new file mode 100644
+index 0000000..48bc3c3
+--- /dev/null
++++ b/serverv2/src/modules/payment/repositories/saved-card.repository.mongo.js
+@@ -0,0 +1,96 @@
++import SavedCardModel from "../database/saved-card.model.js";
++
++const present = (doc) => doc && ({
++	id: String(doc._id),
++	userId: String(doc.userId),
++	last4: doc.last4,
++	brand: doc.brand,
++	bank: doc.bank,
++	cardType: doc.cardType,
++	expMonth: doc.expMonth,
++	expYear: doc.expYear,
++	isDefault: doc.isDefault,
++	expired: isExpired(doc),
++	lastUsedAt: doc.lastUsedAt,
++	createdAt: doc.createdAt
++});
++
++function isExpired(doc) {
++	const month = Number(doc.expMonth);
++	const year = Number(doc.expYear);
++	if (!month || !year) return false;
++	const end = new Date(year, month, 1);
++	return end <= new Date();
++}
++
++export class SavedCardRepositoryMongo {
++	constructor() {
++		this.model = SavedCardModel;
++	}
++
++	async upsertFromAuthorization(userId, authorization, email) {
++		if (!authorization?.reusable || !authorization.authorization_code || !authorization.signature || !authorization.last4) return null;
++		if (authorization.channel && authorization.channel !== "card") return null;
++
++		const hasDefault = await this.model.exists({ userId, isDefault: true });
++
++		const doc = await this.model.findOneAndUpdate(
++			{ userId, signature: authorization.signature },
++			{
++				$set: {
++					authorizationCode: authorization.authorization_code,
++					email: String(email).toLowerCase(),
++					last4: authorization.last4,
++					brand: authorization.brand ?? null,
++					bank: authorization.bank ?? null,
++					cardType: authorization.card_type ?? null,
++					expMonth: authorization.exp_month ?? null,
++					expYear: authorization.exp_year ?? null
++				},
++				$setOnInsert: { isDefault: !hasDefault }
++			},
++			{ upsert: true, new: true }
++		).lean();
++
++		return present(doc);
++	}
++
++	async listByUser(userId) {
++		const docs = await this.model.find({ userId }).sort({ isDefault: -1, createdAt: -1 }).lean();
++		return docs.map(present);
++	}
++
++	async findForCharge(id, userId) {
++		const doc = await this.model.findOne({ _id: id, userId }).select("+authorizationCode").lean();
++		if (!doc) return null;
++		return { ...present(doc), authorizationCode: doc.authorizationCode, email: doc.email };
++	}
++
++	async findDefaultForCharge(userId) {
++		const doc = await this.model.findOne({ userId }).sort({ isDefault: -1, createdAt: -1 }).select("+authorizationCode").lean();
++		if (!doc) return null;
++		return { ...present(doc), authorizationCode: doc.authorizationCode, email: doc.email };
++	}
++
++	async setDefault(id, userId) {
++		const target = await this.model.findOne({ _id: id, userId }).lean();
++		if (!target) return null;
++		await this.model.updateMany({ userId }, { $set: { isDefault: false } });
++		await this.model.updateOne({ _id: id }, { $set: { isDefault: true } });
++		return present({ ...target, isDefault: true });
++	}
++
++	async remove(id, userId) {
++		const doc = await this.model.findOneAndDelete({ _id: id, userId }).lean();
++		if (!doc) return null;
++		if (doc.isDefault) {
++			const next = await this.model.findOne({ userId }).sort({ createdAt: -1 });
++			if (next) await this.model.updateOne({ _id: next._id }, { $set: { isDefault: true } });
++		}
++		return present(doc);
++	}
++
++	async touch(id) {
++		await this.model.updateOne({ _id: id }, { $set: { lastUsedAt: new Date() } });
++	}
++}
+diff --git a/serverv2/src/modules/payment/routes/payment.routes.js b/serverv2/src/modules/payment/routes/payment.routes.js
+index c954465..fae1d71 100644
+--- a/serverv2/src/modules/payment/routes/payment.routes.js
++++ b/serverv2/src/modules/payment/routes/payment.routes.js
+@@ -3,7 +3,7 @@ import asyncHandler from "express-async-handler";
+ import { container } from "../../../container/index.js";
+ import { validate } from "../../../infrastructure/middleware/validate.middleware.js";
+ import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
+-import { initiatePaymentSchema, recordPaymentSchema, updatePaymentStatusSchema } from "../validators/payment.validators.js";
++import { initiatePaymentSchema, recordPaymentSchema, updatePaymentStatusSchema, savedCardPaymentSchema } from "../validators/payment.validators.js";
+ 
+ const router = Router();
+ 
+@@ -18,6 +18,10 @@ router.post("/webhooks/paystack", asyncHandler(webhookController.paystack));
+ router.use(authenticate);
+ 
+ router.post("/", validate(initiatePaymentSchema), asyncHandler(paymentController.initiatePayment));
++router.post("/saved-card", validate(savedCardPaymentSchema), asyncHandler(paymentController.payWithSavedCard));
++router.get("/cards", asyncHandler(paymentController.getMyCards));
++router.patch("/cards/:id/default", asyncHandler(paymentController.setDefaultCard));
++router.delete("/cards/:id", asyncHandler(paymentController.removeCard));
+ router.get("/verify/:reference", asyncHandler(paymentController.verifyPayment));
+ router.get("/me", asyncHandler(paymentController.getMyPayments));
+ 
+diff --git a/serverv2/src/modules/payment/usecases/admin/record-payment.usecase.js b/serverv2/src/modules/payment/usecases/admin/record-payment.usecase.js
+index 40cbf5a..76d6273 100644
+--- a/serverv2/src/modules/payment/usecases/admin/record-payment.usecase.js
++++ b/serverv2/src/modules/payment/usecases/admin/record-payment.usecase.js
+@@ -7,7 +7,8 @@ import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
+ import { Payment } from "../../domain/payment.entity.js";
+ 
+ export class RecordPayment {
+-	constructor({ paymentRepository, planRepository, accountRepository, subscriptionRepository, processSuccessfulPayment, auditService }) {
++	constructor({ paymentRepository, planRepository, accountRepository, subscriptionRepository, processSuccessfulPayment, payWithWallet, auditService }) {
++		this.payWithWallet = payWithWallet;
+ 		this.paymentRepository = paymentRepository;
+ 		this.planRepository = planRepository;
+ 		this.accountRepository = accountRepository;
+@@ -24,6 +25,19 @@ export class RecordPayment {
+ 		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
+ 		if (plan.serviceType !== account.serviceType) throw new ValidationError("Plan does not match account service type");
+ 
++		if (paymentChannel === "wallet") {
++			if (startDate) throw new ValidationError("A start date cannot be combined with a wallet payment");
++			const walletResult = await this.payWithWallet.execute({
++				userId: account.userId, accountId, planId, cycles, actorId, note, ip
++			});
++			return {
++				payment: walletResult.payment,
++				subscription: walletResult.outcome?.subscription ?? null,
++				provisioning: walletResult.outcome?.provisioning ?? null,
++				balance: walletResult.balance
++			};
++		}
++
+ 		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
+ 		if (startDate) {
+ 			if (existingSub) throw new ValidationError("A start date can only be set when recording the first payment for an account");
+diff --git a/serverv2/src/modules/payment/usecases/system/expire-pending-payments.usecase.js b/serverv2/src/modules/payment/usecases/system/expire-pending-payments.usecase.js
+index cd22dc7..890c158 100644
+--- a/serverv2/src/modules/payment/usecases/system/expire-pending-payments.usecase.js
++++ b/serverv2/src/modules/payment/usecases/system/expire-pending-payments.usecase.js
+@@ -19,7 +19,7 @@ export class ExpirePendingPayments {
+ 				const result = await provider.verifyTransaction(payment.gatewayReference);
+ 
+ 				if (result.status === "successful") {
+-					await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
++					await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
+ 					reconciled++;
+ 					continue;
+ 				}
+diff --git a/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js b/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
+index a6f2891..c7c0fdb 100644
+--- a/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
++++ b/serverv2/src/modules/payment/usecases/system/handle-webhook.usecase.js
+@@ -41,7 +41,7 @@ export class HandleWebhook {
+ 
+ 		if (event.status === "successful") {
+ 			const result = await this.processSuccessfulPayment.execute({
+-				payment, gatewayData: { channel: event.channel, authorization: event.authorization }
++				payment, gatewayData: { channel: event.channel, authorization: event.authorization, customerEmail: event.customerEmail }
+ 			});
+ 			return { handled: true, ...result };
+ 		}
+diff --git a/serverv2/src/modules/payment/usecases/system/process-successful-payment.usecase.js b/serverv2/src/modules/payment/usecases/system/process-successful-payment.usecase.js
+index 0ed3536..4d3764f 100644
+--- a/serverv2/src/modules/payment/usecases/system/process-successful-payment.usecase.js
++++ b/serverv2/src/modules/payment/usecases/system/process-successful-payment.usecase.js
+@@ -7,7 +7,8 @@ import { NOTIFICATION_TYPES } from "../../../notifications/domain/notification.e
+ const CHANNEL_MAP = { card: "card", bank: "bank_transfer", bank_transfer: "bank_transfer", eft: "bank_transfer", ussd: "ussd", qr: "qr", mobile_money: "mobile_money" };
+ 
+ export class ProcessSuccessfulPayment {
+-	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, createNotification }) {
++	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, networkService, confirmHotspot, auditService, createNotification, savedCardRepository }) {
++		this.savedCardRepository = savedCardRepository;
+ 		this.paymentRepository = paymentRepository;
+ 		this.subscriptionRepository = subscriptionRepository;
+ 		this.planRepository = planRepository;
+@@ -37,7 +38,13 @@ export class ProcessSuccessfulPayment {
+ 
+ 	async _apply(payment, gatewayData) {
+ 		payment.markSuccessful();
+-		payment.metadata = { ...payment.metadata, ...gatewayData };
++		const { authorization, customerEmail, ...rest } = gatewayData;
++		payment.metadata = { ...payment.metadata, ...rest };
++
++		if (authorization?.reusable && customerEmail) {
++			await this.savedCardRepository?.upsertFromAuthorization(payment.userId, authorization, customerEmail)
++				.catch((error) => console.error("[ProcessSuccessfulPayment] Saving card failed:", error.message));
++		}
+ 		payment.paymentChannel = CHANNEL_MAP[gatewayData.channel] ?? payment.paymentChannel;
+ 
+ 		const plan = await this.planRepository.findByIdOrNull(payment.planId);
+@@ -70,8 +77,10 @@ export class ProcessSuccessfulPayment {
+ 		});
+ 
+ 		this.createNotification?.execute({
+-			actorId: null, type: NOTIFICATION_TYPES.PAYMENT_RECEIVED, title: "Payment received",
+-			message: `Your payment of ${payment.currency} ${payment.totalAmount} was successful.`,
++			actorId: null, type: NOTIFICATION_TYPES.PAYMENT_RECEIVED, title: payment.metadata?.autoRenew ? "Your plan was renewed" : "Payment received",
++			message: payment.metadata?.autoRenew
++				? `Your ${plan.name} plan was renewed automatically for ${payment.currency} ${payment.totalAmount}. It now runs until ${new Date(subscription.expiresAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}.`
++				: `Your payment of ${payment.currency} ${payment.totalAmount} was successful.`,
+ 			userIds: [payment.userId], accountId: payment.accountId, entityType: "Payment", entityId: payment.id
+ 		}).catch((error) => console.error("[ProcessSuccessfulPayment] Notification failed:", error.message));
+ 
+diff --git a/serverv2/src/modules/payment/usecases/user/charge-saved-card.usecase.js b/serverv2/src/modules/payment/usecases/user/charge-saved-card.usecase.js
+new file mode 100644
+index 0000000..0df5b8e
+--- /dev/null
++++ b/serverv2/src/modules/payment/usecases/user/charge-saved-card.usecase.js
+@@ -0,0 +1,113 @@
++import crypto from "crypto";
++import { NotFoundError, ValidationError, ConflictError } from "../../../../shared/errors/domain.errors.js";
++import { Payment } from "../../domain/payment.entity.js";
++import { resolveActionType } from "../../domain/resolve-action-type.js";
++import { PAYMENT_STATUSES, PAYMENT_GATEWAYS, PAYMENT_CHANNELS } from "../../domain/payment.enum.js";
++import { SUBSCRIPTION_ERROR_CODES } from "../../../subscription/domain/subscription.enum.js";
++import { PLAN_ERROR_CODES } from "../../../plan/domain/plan.enum.js";
++import { ACCOUNT_ERROR_CODES } from "../../../account/domain/account.enum.js";
++
++const PENDING_CHARGE_WINDOW_MS = 60 * 60 * 1000;
++
++export class ChargeSavedCard {
++	constructor({ paymentRepository, subscriptionRepository, planRepository, accountRepository, savedCardRepository, paymentGatewayRegistry, processSuccessfulPayment, auditService }) {
++		this.paymentRepository = paymentRepository;
++		this.subscriptionRepository = subscriptionRepository;
++		this.planRepository = planRepository;
++		this.accountRepository = accountRepository;
++		this.savedCardRepository = savedCardRepository;
++		this.paymentGatewayRegistry = paymentGatewayRegistry;
++		this.processSuccessfulPayment = processSuccessfulPayment;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId, accountId, planId, cycles = 1, cardId = null, autoRenew = false }) {
++		const account = await this.accountRepository.findById(accountId);
++		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
++		if (account.userId !== userId) throw new ValidationError("You do not have access to this account");
++
++		const plan = await this.planRepository.findByIdOrNull(planId);
++		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
++		if (!plan.isActive()) throw new ValidationError("This plan is not currently available", SUBSCRIPTION_ERROR_CODES.PLAN_NOT_ACTIVE);
++
++		const card = cardId
++			? await this.savedCardRepository.findForCharge(cardId, userId)
++			: await this.savedCardRepository.findDefaultForCharge(userId);
++		if (!card) throw new ValidationError("No saved card is available. Pay once with your card to save it.", "NO_SAVED_CARD");
++		if (card.expired) throw new ValidationError(`The card ending ${card.last4} has expired`, "CARD_EXPIRED");
++
++		const existingSub = await this.subscriptionRepository.findCurrentByAccountId(accountId);
++		if (existingSub?.status === "pending") {
++			throw new ConflictError("A subscription checkout is already pending for this account", SUBSCRIPTION_ERROR_CODES.ACCOUNT_ALREADY_HAS_ACTIVE_SUBSCRIPTION);
++		}
++
++		const inFlight = await this.paymentRepository.model.exists({
++			accountId, gateway: PAYMENT_GATEWAYS.PAYSTACK, status: PAYMENT_STATUSES.PENDING,
++			"metadata.savedCardCharge": true, createdAt: { $gte: new Date(Date.now() - PENDING_CHARGE_WINDOW_MS) }
++		});
++		if (inFlight) throw new ConflictError("A card charge for this account is still being confirmed", "CARD_CHARGE_PENDING");
++
++		const actionType = resolveActionType({ existingSub, plan });
++		const unitPrice = plan.getEffectivePrice();
++		const total = unitPrice * cycles;
++		if (total <= 0) throw new ValidationError("This plan has no price to charge");
++
++		const reference = `WSN-C-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
++
++		const payment = await this.paymentRepository.create(new Payment({
++			userId, accountId, planId, actionType,
++			amount: { total, base: plan.price * cycles, discount: (plan.price - unitPrice) * cycles },
++			cycles,
++			gateway: PAYMENT_GATEWAYS.PAYSTACK,
++			paymentChannel: PAYMENT_CHANNELS.CARD,
++			gatewayReference: reference,
++			status: PAYMENT_STATUSES.INITIATED,
++			idempotencyKey: crypto.randomBytes(16).toString("hex"),
++			metadata: { planName: plan.name, serviceType: plan.serviceType, savedCardCharge: true, cardLast4: card.last4, ...(autoRenew ? { autoRenew: true } : {}) }
++		}));
++
++		const provider = this.paymentGatewayRegistry.get(PAYMENT_GATEWAYS.PAYSTACK);
++		let result;
++		try {
++			result = await provider.chargeAuthorization({
++				email: card.email, amount: total, authorizationCode: card.authorizationCode, reference,
++				metadata: { paymentId: payment.id, accountId, planId, autoRenew }
++			});
++		} catch (error) {
++			payment.markFailed(error.message);
++			await this.paymentRepository.update(payment.id, payment);
++			throw error;
++		}
++
++		if (result.status === PAYMENT_STATUSES.PENDING) {
++			payment.status = PAYMENT_STATUSES.PENDING;
++			await this.paymentRepository.update(payment.id, payment);
++			throw new ValidationError("The card charge is still being confirmed. We will apply it as soon as the bank responds.", "CARD_CHARGE_PENDING");
++		}
++
++		if (result.status !== PAYMENT_STATUSES.SUCCESSFUL) {
++			payment.markFailed(result.message || "The card was declined");
++			await this.paymentRepository.update(payment.id, payment);
++			throw new ValidationError(result.message || "The card was declined", "CARD_CHARGE_FAILED");
++		}
++
++		if (result.amountKobo != null && result.amountKobo !== Math.round(total * 100)) {
++			payment.markFailed("Charged amount did not match");
++			await this.paymentRepository.update(payment.id, payment);
++			throw new ValidationError("The charged amount did not match the plan price", "CARD_AMOUNT_MISMATCH");
++		}
++
++		const outcome = await this.processSuccessfulPayment.execute({
++			payment, gatewayData: { channel: "card", authorization: result.authorization, customerEmail: result.customerEmail }
++		});
++
++		await this.savedCardRepository.touch(card.id);
++
++		await this.auditService?.log({
++			actorId: userId, action: autoRenew ? "PAYMENT_CARD_AUTO_RENEW" : "PAYMENT_SAVED_CARD", entity: "Payment", entityId: payment.id,
++			newValue: { accountId, planId, total, cardLast4: card.last4 }
++		});
++
++		return { payment: outcome.payment ?? payment, outcome, card: { id: card.id, last4: card.last4, brand: card.brand } };
++	}
++}
+diff --git a/serverv2/src/modules/payment/usecases/user/saved-cards.usecases.js b/serverv2/src/modules/payment/usecases/user/saved-cards.usecases.js
+new file mode 100644
+index 0000000..4d548c6
+--- /dev/null
++++ b/serverv2/src/modules/payment/usecases/user/saved-cards.usecases.js
+@@ -0,0 +1,51 @@
++import { NotFoundError } from "../../../../shared/errors/domain.errors.js";
++
++export class GetMySavedCards {
++	constructor({ savedCardRepository }) {
++		this.savedCardRepository = savedCardRepository;
++	}
++
++	execute({ userId }) {
++		return this.savedCardRepository.listByUser(userId);
++	}
++}
++
++export class RemoveSavedCard {
++	constructor({ savedCardRepository, subscriptionRepository, auditService }) {
++		this.savedCardRepository = savedCardRepository;
++		this.subscriptionRepository = subscriptionRepository;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId, cardId, ip = null }) {
++		const removed = await this.savedCardRepository.remove(cardId, userId);
++		if (!removed) throw new NotFoundError("Card not found", "CARD_NOT_FOUND");
++
++		const subscriptions = await this.subscriptionRepository.findByUserId(userId);
++		for (const subscription of subscriptions) {
++			if (subscription.autoRenewCardId !== cardId) continue;
++
++			if (subscription.autoRenewMethod === "card") subscription.disableAutoRenew();
++			else {
++				subscription.autoRenewMethod = "wallet";
++				subscription.autoRenewCardId = null;
++			}
++			await this.subscriptionRepository.update(subscription.id, subscription);
++		}
++
++		await this.auditService?.log({ actorId: userId, action: "SAVED_CARD_REMOVED", entity: "SavedCard", entityId: cardId, newValue: { last4: removed.last4 }, ip });
++		return { id: cardId };
++	}
++}
++
++export class SetDefaultSavedCard {
++	constructor({ savedCardRepository }) {
++		this.savedCardRepository = savedCardRepository;
++	}
++
++	async execute({ userId, cardId }) {
++		const card = await this.savedCardRepository.setDefault(cardId, userId);
++		if (!card) throw new NotFoundError("Card not found", "CARD_NOT_FOUND");
++		return card;
++	}
++}
+diff --git a/serverv2/src/modules/payment/usecases/user/verify-payment.usecase.js b/serverv2/src/modules/payment/usecases/user/verify-payment.usecase.js
+index 736f60f..22276dc 100644
+--- a/serverv2/src/modules/payment/usecases/user/verify-payment.usecase.js
++++ b/serverv2/src/modules/payment/usecases/user/verify-payment.usecase.js
+@@ -21,7 +21,7 @@ export class VerifyPayment {
+ 		const result = await provider.verifyTransaction(reference);
+ 
+ 		if (result.status === "successful") {
+-			const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel } });
++			const processed = await this.processSuccessfulPayment.execute({ payment, gatewayData: { channel: result.raw?.channel, authorization: result.raw?.authorization, customerEmail: result.raw?.customer?.email } });
+ 			return { status: "successful", payment: processed.payment, subscription: processed.subscription };
+ 		}
+ 
+diff --git a/serverv2/src/modules/payment/validators/payment.validators.js b/serverv2/src/modules/payment/validators/payment.validators.js
+index 18cfdc7..6475b8f 100644
+--- a/serverv2/src/modules/payment/validators/payment.validators.js
++++ b/serverv2/src/modules/payment/validators/payment.validators.js
+@@ -9,7 +9,13 @@ export const initiatePaymentSchema = z.object({
+ 	callbackUrl: z.string().url().optional()
+ });
+ 
+-// add to payment.validators.js
++export const savedCardPaymentSchema = z.object({
++	accountId: z.string().min(1),
++	planId: z.string().min(1),
++	cycles: z.number().int().min(1).optional(),
++	cardId: z.string().min(1).optional()
++});
++
+ export const recordPaymentSchema = z.object({
+ 	accountId: z.string().min(1),
+ 	planId: z.string().min(1),
+diff --git a/serverv2/src/modules/provisioning/commands/hotspot.commands.js b/serverv2/src/modules/provisioning/commands/hotspot.commands.js
+index 2ab68e8..b2fbfee 100644
+--- a/serverv2/src/modules/provisioning/commands/hotspot.commands.js
++++ b/serverv2/src/modules/provisioning/commands/hotspot.commands.js
+@@ -176,6 +176,13 @@ export class HotspotCommands {
+ 		};
+ 	}
+ 
++	static removeMacBinding(id) {
++		return {
++			command: "/ip/hotspot/ip-binding/remove",
++			params: [`=.id=${id}`]
++		};
++	}
++
+ 	static setUserMac({
+ 		id,
+ 		macAddress
+diff --git a/serverv2/src/modules/provisioning/mikrotik.manager.js b/serverv2/src/modules/provisioning/mikrotik.manager.js
+index b728c34..05edc7f 100644
+--- a/serverv2/src/modules/provisioning/mikrotik.manager.js
++++ b/serverv2/src/modules/provisioning/mikrotik.manager.js
+@@ -98,6 +98,27 @@ export class MikrotikManager {
+ 		return service.removeUser(router, account.wsnId);
+ 	}
+ 
++	async switchAccessMethod(subscription, metadata = {}) {
++		const { account, router } = await this.loadContext(subscription, metadata);
++		const fromAccessMethod = metadata.fromAccessMethod;
++		if (!fromAccessMethod) throw new Error("fromAccessMethod is required");
++
++		const previousService = this.getService({ ...account, accessMethod: fromAccessMethod });
++
++		if (await previousService.userExists(router, account.wsnId)) {
++			if (fromAccessMethod === "ipoe") {
++				const mac = metadata.previousMacAddress ?? account.macAddress;
++				if (mac && previousService.removeMacBinding) await previousService.removeMacBinding(router, mac);
++			}
++			if (fromAccessMethod === "ppp") await previousService.disconnectUser(router, account.wsnId).catch(() => {});
++			await previousService.removeUser(router, account.wsnId);
++		}
++
++		if (!metadata.provisionNew) return { success: true, removedOnly: true };
++
++		return this.provision(subscription, metadata);
++	}
++
+ 	async changePassword(subscription, password, metadata = {}) {
+ 		const { account, router } = await this.loadContext(subscription, metadata);
+ 		return this.getService(account).changePassword(router, account.wsnId, password);
+diff --git a/serverv2/src/modules/provisioning/services/hotspot.service.js b/serverv2/src/modules/provisioning/services/hotspot.service.js
+index 41068f6..18ed4ca 100644
+--- a/serverv2/src/modules/provisioning/services/hotspot.service.js
++++ b/serverv2/src/modules/provisioning/services/hotspot.service.js
+@@ -333,6 +333,15 @@ async getAllHosts(router) {
+ 		return hosts?.[0] ?? null;
+ 	}
+ 
++	async removeMacBinding(router, macAddress) {
++		const binding = await this.findMacBinding(router, macAddress);
++		if (!binding) return { success: true, removed: false };
++
++		const request = HotspotCommands.removeMacBinding(binding[".id"]);
++		await this.mikrotikClient.execute(router, request.command, request.params);
++		return { success: true, removed: true };
++	}
++
+ 	async findMacBinding(
+ 		router,
+ 		macAddress
+diff --git a/serverv2/src/modules/provisioning/services/network-executor.service.js b/serverv2/src/modules/provisioning/services/network-executor.service.js
+index 8bf41cd..9ea737b 100644
+--- a/serverv2/src/modules/provisioning/services/network-executor.service.js
++++ b/serverv2/src/modules/provisioning/services/network-executor.service.js
+@@ -31,6 +31,23 @@ export class NetworkExecutor {
+ 		}
+ 	}
+ 
++	switchAccessMethod(subscription, metadata = {}) {
++		if (metadata.provisionNew) {
++			return this._execute(subscription, () => this.mikrotikManager.switchAccessMethod(subscription, metadata));
++		}
++
++		return this._attempt(() => this.mikrotikManager.switchAccessMethod(subscription, metadata));
++	}
++
++	async _attempt(action) {
++		try {
++			const result = await action();
++			return { success: true, result };
++		} catch (error) {
++			return { success: false, error: error.message || "Unknown provisioning error" };
++		}
++	}
++
+ 	async syncPassword(subscription, metadata = {}) {
+ 		try {
+ 			const result = await this.mikrotikManager.syncPassword(subscription, metadata);
+diff --git a/serverv2/src/modules/provisioning/services/network.service.js b/serverv2/src/modules/provisioning/services/network.service.js
+index 971fde0..a83393e 100644
+--- a/serverv2/src/modules/provisioning/services/network.service.js
++++ b/serverv2/src/modules/provisioning/services/network.service.js
+@@ -18,6 +18,7 @@ export class NetworkService {
+ 	disconnectDevice(subscription, metadata = {}) { return this._route("disconnectDevice", subscription, metadata); }
+ 	remove(subscription, metadata = {}) { return this._route("remove", subscription, metadata); }
+ 	syncPassword(subscription, metadata = {}) { return this._route("syncPassword", subscription, metadata); }
++	switchAccessMethod(subscription, metadata = {}) { return this._route("switchAccessMethod", subscription, metadata); }
+ 	retryProvision(subscription, metadata = {}) { return this.activate(subscription, metadata); }
+ 
+ 	async _route(action, subscription, metadata) {
+@@ -38,7 +39,7 @@ export class NetworkService {
+ 
+ 	async _enqueue(action, subscription, metadata) {
+ 		try {
+-			if (["activate", "resume"].includes(action)) {
++			if (["activate", "resume"].includes(action) || (action === "switchAccessMethod" && metadata.provisionNew)) {
+ 				await this.subscriptionRepository.update(subscription.id, { mikrotikStatus: "pending", mikrotikError: null });
+ 			}
+ 			const job = await provisioningQueue.add(action, { action, subscriptionId: subscription.id, metadata }, JOB_OPTIONS);
+diff --git a/serverv2/src/modules/subscription/controllers/admin.controller.js b/serverv2/src/modules/subscription/controllers/admin.controller.js
+index 2575265..d765386 100644
+--- a/serverv2/src/modules/subscription/controllers/admin.controller.js
++++ b/serverv2/src/modules/subscription/controllers/admin.controller.js
+@@ -5,8 +5,9 @@ export class AdminController {
+ 	constructor({
+ 		adminCreateSubscription, getAllSubscriptions, getSubscriptionById,
+ 		adminSuspendSubscription, adminResumeSubscription, cancelSubscription, extendSubscription,
+-		forceExpireSubscription, resyncSubscription
++		forceExpireSubscription, resyncSubscription, setAutoRenew
+ 	}) {
++		this.setAutoRenewUseCase = setAutoRenew;
+ 		this.adminCreateSubscriptionUseCase = adminCreateSubscription;
+ 		this.getAllSubscriptionsUseCase = getAllSubscriptions;
+ 		this.getSubscriptionByIdUseCase = getSubscriptionById;
+@@ -18,6 +19,13 @@ export class AdminController {
+ 		this.resyncSubscriptionUseCase = resyncSubscription;
+ 	}
+ 
++	setAutoRenew = async (req, res) => {
++		const result = await this.setAutoRenewUseCase.execute({
++			actorId: req.user.id, subscriptionId: req.params.id, ...req.body, ip: req.ip
++		});
++		return successResponse({ res, data: result, message: result.autoRenewEnabled ? "Auto-renew turned on" : "Auto-renew turned off" });
++	};
++
+ 	createSubscription = async (req, res) => {
+ 		const subscription = await this.adminCreateSubscriptionUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
+ 		return successResponse({ res, data: subscription.toJSON(), message: "Subscription created successfully", statusCode: 201 });
+diff --git a/serverv2/src/modules/subscription/controllers/subscription.controller.js b/serverv2/src/modules/subscription/controllers/subscription.controller.js
+index 04c33db..7bdb2e2 100644
+--- a/serverv2/src/modules/subscription/controllers/subscription.controller.js
++++ b/serverv2/src/modules/subscription/controllers/subscription.controller.js
+@@ -1,7 +1,8 @@
+ import { successResponse } from "../../../shared/utils/api-response.js";
+ 
+ export class SubscriptionController {
+-	constructor({ subscribe, getMySubscriptions, getUpgradeOptions, initiatePlanChange }) {
++	constructor({ subscribe, getMySubscriptions, getUpgradeOptions, initiatePlanChange, setAutoRenew }) {
++		this.setAutoRenewUseCase = setAutoRenew;
+ 		this.initiatePlanChangeUseCase = initiatePlanChange;
+ 		this.subscribeUseCase = subscribe;
+ 		this.getMySubscriptionsUseCase = getMySubscriptions;
+@@ -28,6 +29,13 @@ export class SubscriptionController {
+ 		});
+ 	};
+ 
++	setAutoRenew = async (req, res) => {
++		const result = await this.setAutoRenewUseCase.execute({
++			actorId: req.user.id, userId: req.user.id, subscriptionId: req.params.id, ...req.body, ip: req.ip
++		});
++		return successResponse({ res, data: result, message: result.autoRenewEnabled ? "Auto-renew turned on" : "Auto-renew turned off" });
++	};
++
+ 	getUpgradeOptions = async (req, res) => {
+ 		const plans = await this.getUpgradeOptionsUseCase.execute({
+ 			userId: req.user.id,
+diff --git a/serverv2/src/modules/subscription/database/subscription.model.js b/serverv2/src/modules/subscription/database/subscription.model.js
+index 0c2b2cd..829b592 100644
+--- a/serverv2/src/modules/subscription/database/subscription.model.js
++++ b/serverv2/src/modules/subscription/database/subscription.model.js
+@@ -44,6 +44,12 @@ const subscriptionSchema = new mongoose.Schema(
+ 		renewalStrategy: { type: String, enum: RENEWAL_STRATEGY_LIST, default: "manual", index: true },
+ 		autoRenewEnabled: { type: Boolean, default: false, index: true },
+ 		nextRenewalDate: { type: Date, index: true },
++		autoRenewMethod: { type: String, enum: ["wallet", "card", "wallet_then_card"], default: "wallet" },
++		autoRenewCardId: { type: mongoose.Schema.Types.ObjectId, ref: "SavedCard", default: null },
++		autoRenewAttempts: { type: Number, default: 0 },
++		lastAutoRenewAttemptAt: { type: Date, default: null },
++		lastAutoRenewError: { type: String, default: null },
++		autoRenewFailureNotifiedAt: { type: Date, default: null },
+ 		lastRenewedAt: Date,
+ 
+ 		lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },
+diff --git a/serverv2/src/modules/subscription/domain/subscription.entity.js b/serverv2/src/modules/subscription/domain/subscription.entity.js
+index 4eea6a8..b36b7bb 100644
+--- a/serverv2/src/modules/subscription/domain/subscription.entity.js
++++ b/serverv2/src/modules/subscription/domain/subscription.entity.js
+@@ -11,6 +11,7 @@ export class Subscription {
+ 		startsAt = null, expiresAt = null, graceEndsAt = null, activatedAt = null, expiredAt = null,
+ 		currentPeriodStart = null, currentPeriodEnd = null,
+ 		renewalStrategy = RENEWAL_STRATEGIES.MANUAL, autoRenewEnabled = false, nextRenewalDate = null, lastRenewedAt = null,
++		autoRenewMethod = "wallet", autoRenewCardId = null, autoRenewAttempts = 0, lastAutoRenewAttemptAt = null, lastAutoRenewError = null, autoRenewFailureNotifiedAt = null,
+ 		lastPaymentId = null, lastPaymentDate = null, lastPaymentAmount = null,
+ 		suspendedAt = null, totalSuspendedDuration = 0, suspensionReason = null,
+ 		canceledAt = null, cancellationReason = null,
+@@ -33,6 +34,7 @@ export class Subscription {
+ 			cycles, totalAmount,
+ 			startsAt, expiresAt, graceEndsAt, activatedAt, expiredAt, currentPeriodStart, currentPeriodEnd,
+ 			renewalStrategy, autoRenewEnabled, nextRenewalDate, lastRenewedAt,
++			autoRenewMethod, autoRenewCardId, autoRenewAttempts, lastAutoRenewAttemptAt, lastAutoRenewError, autoRenewFailureNotifiedAt,
+ 			lastPaymentId, lastPaymentDate, lastPaymentAmount,
+ 			suspendedAt, totalSuspendedDuration, suspensionReason,
+ 			canceledAt, cancellationReason, bonusDays, manualAdjustmentDays,
+@@ -134,6 +136,7 @@ export class Subscription {
+ 		this.currentPeriodEnd = this.expiresAt;
+ 		this.graceEndsAt = this._graceEndFor(this.expiresAt);
+ 		this.lastRenewedAt = now;
++		this.resetAutoRenewState();
+ 
+ 		this.cycles += cycles;
+ 
+@@ -153,6 +156,37 @@ export class Subscription {
+ 		});
+ 	}
+ 
++	enableAutoRenew({ method = "wallet", cardId = null } = {}) {
++		if (this.status !== SUBSCRIPTION_STATUSES.ACTIVE) {
++			throw new ValidationError("Auto-renew can only be turned on for an active subscription", "SUBSCRIPTION_NOT_ACTIVE");
++		}
++		this.autoRenewEnabled = true;
++		this.renewalStrategy = RENEWAL_STRATEGIES.AUTO_RENEW;
++		this.autoRenewMethod = method;
++		this.autoRenewCardId = method === "wallet" ? null : cardId;
++		this.nextRenewalDate = this.expiresAt;
++		this.autoRenewAttempts = 0;
++		this.lastAutoRenewError = null;
++		this.autoRenewFailureNotifiedAt = null;
++		this.lastAutoRenewAttemptAt = null;
++	}
++
++	disableAutoRenew() {
++		this.autoRenewEnabled = false;
++		this.renewalStrategy = RENEWAL_STRATEGIES.MANUAL;
++		this.autoRenewCardId = null;
++		this.nextRenewalDate = null;
++		this.resetAutoRenewState();
++	}
++
++	resetAutoRenewState() {
++		this.autoRenewAttempts = 0;
++		this.lastAutoRenewError = null;
++		this.autoRenewFailureNotifiedAt = null;
++		this.lastAutoRenewAttemptAt = null;
++		if (this.autoRenewEnabled) this.nextRenewalDate = this.expiresAt;
++	}
++
+ 	schedulePlanChange(planId, planSnapshot) {
+ 		this.pendingPlanId = planId;
+ 		this.pendingPlanSnapshot = planSnapshot;
+diff --git a/serverv2/src/modules/subscription/mappers/subscription.mapper.js b/serverv2/src/modules/subscription/mappers/subscription.mapper.js
+index 5681180..29a6596 100644
+--- a/serverv2/src/modules/subscription/mappers/subscription.mapper.js
++++ b/serverv2/src/modules/subscription/mappers/subscription.mapper.js
+@@ -4,6 +4,7 @@ const FIELDS = [
+ 	"accountId", "userId", "planId", "status", "planSnapshot", "cycles", "totalAmount",
+ 	"startsAt", "expiresAt", "graceEndsAt", "activatedAt", "expiredAt", "currentPeriodStart", "currentPeriodEnd",
+ 	"renewalStrategy", "autoRenewEnabled", "nextRenewalDate", "lastRenewedAt",
++	"autoRenewMethod", "autoRenewAttempts", "lastAutoRenewAttemptAt", "lastAutoRenewError", "autoRenewFailureNotifiedAt",
+ 	"lastPaymentDate", "lastPaymentAmount", "suspendedAt", "totalSuspendedDuration", "suspensionReason",
+ 	"canceledAt", "cancellationReason", "bonusDays", "manualAdjustmentDays",
+ 	"mikrotikStatus", "mikrotikLastSyncAt", "mikrotikError", "remindersSent", "events"
+@@ -17,13 +18,14 @@ export class SubscriptionMapper {
+ 		data.accountId = raw.accountId?.toString();
+ 		data.userId = raw.userId?.toString();
+ 		data.planId = raw.planId?.toString();
++		data.autoRenewCardId = raw.autoRenewCardId?.toString() ?? null;
+ 		data.createdAt = raw.createdAt;
+ 		data.updatedAt = raw.updatedAt;
+ 		return new Subscription(data);
+ 	}
+ 
+ 	static toPersistence(sub) {
+-		const data = { lastPaymentId: sub.lastPaymentId };
++		const data = { lastPaymentId: sub.lastPaymentId, autoRenewCardId: sub.autoRenewCardId ?? null };
+ 		for (const f of FIELDS) data[f] = sub[f];
+ 		return Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
+ 	}
+diff --git a/serverv2/src/modules/subscription/repositories/subscription.repository.mongo.js b/serverv2/src/modules/subscription/repositories/subscription.repository.mongo.js
+index 0796876..ea04740 100644
+--- a/serverv2/src/modules/subscription/repositories/subscription.repository.mongo.js
++++ b/serverv2/src/modules/subscription/repositories/subscription.repository.mongo.js
+@@ -35,13 +35,27 @@ export class SubscriptionRepositoryMongo extends BaseRepository {
+ 		return this.mapArray(docs);
+ 	}
+ 
+-	async findDueForAutoRenewal(now = new Date()) {
+-		const docs = await this.model.find({
+-			autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE, nextRenewalDate: { $lte: now }
+-		}).lean();
++	async findDueForAutoRenewal({ now = new Date(), leadMs = 0, userId = null } = {}) {
++		const filter = {
++			autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE, expiresAt: { $lte: new Date(now.getTime() + leadMs) }
++		};
++		if (userId) filter.userId = userId;
++		const docs = await this.model.find(filter).lean();
+ 		return this.mapArray(docs);
+ 	}
+ 
++	async claimAutoRenewAttempt(id, { now = new Date(), throttleMs }) {
++		const doc = await this.model.findOneAndUpdate(
++			{
++				_id: id, autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE,
++				$or: [{ lastAutoRenewAttemptAt: null }, { lastAutoRenewAttemptAt: { $lte: new Date(now.getTime() - throttleMs) } }]
++			},
++			{ $set: { lastAutoRenewAttemptAt: now }, $inc: { autoRenewAttempts: 1 } },
++			{ new: true }
++		).lean();
++		return this.mapOne(doc);
++	}
++
+ 	async update(id, entityOrData) {
+ 		const persistence = SubscriptionMapper.toPersistence(entityOrData);
+ 		await this.model.findByIdAndUpdate(id, persistence, { new: true });
+diff --git a/serverv2/src/modules/subscription/routes/subscription.routes.js b/serverv2/src/modules/subscription/routes/subscription.routes.js
+index d64a947..308c02e 100644
+--- a/serverv2/src/modules/subscription/routes/subscription.routes.js
++++ b/serverv2/src/modules/subscription/routes/subscription.routes.js
+@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
+ import { requireStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
+ import {
+ 	subscribeSchema, adminCreateSubscriptionSchema, suspendSubscriptionSchema,
+-	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, customerChangePlanSchema, resyncSubscriptionSchema
++	cancelSubscriptionSchema, extendSubscriptionSchema, changePlanSchema, customerChangePlanSchema, resyncSubscriptionSchema, setAutoRenewSchema
+ } from "../validators/subscription.validators.js";
+ 
+ const router = Router();
+@@ -20,6 +20,7 @@ router.use(authenticate);
+ router.post("/", validate(subscribeSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.subscribe));
+ router.get("/me", asyncHandler(subscriptionController.getMySubscriptions));
+ router.get("/upgrade-options", asyncHandler(subscriptionController.getUpgradeOptions));
++router.put("/:id/auto-renew", validate(setAutoRenewSchema), asyncHandler(subscriptionController.setAutoRenew));
+ router.post("/change-plan", validate(customerChangePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(subscriptionController.changePlan));
+ 
+ const adminRouter = Router();
+@@ -28,6 +29,7 @@ adminRouter.use(requireStaff);
+ adminRouter.get("/", asyncHandler(adminController.getAllSubscriptions));
+ adminRouter.post("/", validate(adminCreateSubscriptionSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.createSubscription));
+ adminRouter.get("/:id", asyncHandler(adminController.getSubscriptionById));
++adminRouter.put("/:id/auto-renew", validate(setAutoRenewSchema), asyncHandler(adminController.setAutoRenew));
+ adminRouter.patch("/:id/renew", idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.renewSubscription));
+ adminRouter.patch("/:id/change-plan", validate(changePlanSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.changePlan));
+ adminRouter.patch("/:id/suspend", validate(suspendSubscriptionSchema), idempotent({ duplicateGuardSeconds: 10 }), asyncHandler(adminController.suspendSubscription));
+diff --git a/serverv2/src/modules/subscription/subscription.container.js b/serverv2/src/modules/subscription/subscription.container.js
+index 2adedc8..c17a2df 100644
+--- a/serverv2/src/modules/subscription/subscription.container.js
++++ b/serverv2/src/modules/subscription/subscription.container.js
+@@ -19,6 +19,8 @@ import { ForceExpireSubscription } from "./usecases/admin/force-expire-subscript
+ import { ExpireSubscriptions } from "./usecases/system/expire-subscriptions.usecase.js";
+ 
+ import { SendSubscriptionReminder } from "./usecases/system/send-subscription-reminder.usecase.js";
++import { AutoRenewSubscriptions } from "./usecases/system/auto-renew-subscriptions.usecase.js";
++import { SetAutoRenew } from "./usecases/user/set-auto-renew.usecase.js";
+ 
+ import { SubscriptionController } from "./controllers/subscription.controller.js";
+ import { AdminController } from "./controllers/admin.controller.js";
+@@ -44,6 +46,8 @@ export function registerSubscription(container) {
+ 
+ 		expireSubscriptions: asClass(ExpireSubscriptions).scoped(),
+ 		sendSubscriptionReminder: asClass(SendSubscriptionReminder).scoped(),
++		autoRenewSubscriptions: asClass(AutoRenewSubscriptions).scoped(),
++		setAutoRenew: asClass(SetAutoRenew).scoped(),
+ 
+ 		subscriptionController: asClass(SubscriptionController).scoped(),
+ 		subscriptionAdminController: asClass(AdminController).scoped()
+diff --git a/serverv2/src/modules/subscription/usecases/system/auto-renew-subscriptions.usecase.js b/serverv2/src/modules/subscription/usecases/system/auto-renew-subscriptions.usecase.js
+new file mode 100644
+index 0000000..e621b62
+--- /dev/null
++++ b/serverv2/src/modules/subscription/usecases/system/auto-renew-subscriptions.usecase.js
+@@ -0,0 +1,120 @@
++import { NOTIFICATION_TYPES } from "../../../notifications/domain/notification.enum.js";
++
++const LEAD_MS = Number(process.env.AUTO_RENEW_LEAD_MINUTES || 60) * 60 * 1000;
++const RETRY_MS = Number(process.env.AUTO_RENEW_RETRY_MINUTES || 20) * 60 * 1000;
++const NOTIFY_EVERY_MS = 24 * 60 * 60 * 1000;
++
++const METHODS = {
++	wallet: ["wallet"],
++	card: ["card"],
++	wallet_then_card: ["wallet", "card"]
++};
++
++const formatNaira = (value) => `₦${Number(value).toLocaleString("en-NG", { maximumFractionDigits: 2 })}`;
++
++export class AutoRenewSubscriptions {
++	constructor({ subscriptionRepository, planRepository, walletRepository, payWithWallet, chargeSavedCard, createNotification }) {
++		this.subscriptionRepository = subscriptionRepository;
++		this.planRepository = planRepository;
++		this.walletRepository = walletRepository;
++		this.payWithWallet = payWithWallet;
++		this.chargeSavedCard = chargeSavedCard;
++		this.createNotification = createNotification;
++	}
++
++	async execute({ userId = null, retryMs = RETRY_MS } = {}) {
++		const due = await this.subscriptionRepository.findDueForAutoRenewal({ now: new Date(), leadMs: LEAD_MS, userId });
++		const summary = { checked: due.length, renewed: 0, failed: 0, skipped: 0 };
++
++		for (const candidate of due) {
++			const claimed = await this.subscriptionRepository.claimAutoRenewAttempt(candidate.id, { now: new Date(), throttleMs: retryMs });
++			if (!claimed) {
++				summary.skipped++;
++				continue;
++			}
++
++			const outcome = await this._renew(claimed);
++			if (outcome.ok) summary.renewed++;
++			else summary.failed++;
++		}
++
++		return summary;
++	}
++
++	async _renew(subscription) {
++		const plan = await this.planRepository.findByIdOrNull(subscription.planId);
++		if (!plan || !plan.isActive()) {
++			await this._recordFailure(subscription, "This plan is no longer available for automatic renewal.", null);
++			return { ok: false };
++		}
++
++		const price = plan.getEffectivePrice();
++		const errors = [];
++
++		for (const method of METHODS[subscription.autoRenewMethod] ?? METHODS.wallet) {
++			try {
++				if (method === "wallet") {
++					await this.payWithWallet.execute({
++						userId: subscription.userId, accountId: subscription.accountId, planId: subscription.planId, cycles: 1, autoRenew: true
++					});
++				} else {
++					await this.chargeSavedCard.execute({
++						userId: subscription.userId, accountId: subscription.accountId, planId: subscription.planId, cycles: 1,
++						cardId: subscription.autoRenewCardId, autoRenew: true
++					});
++				}
++				return { ok: true, method };
++			} catch (error) {
++				errors.push({ method, code: error.code, message: error.message, details: error.details });
++			}
++		}
++
++		await this._recordFailure(subscription, this._describe(errors, price), { errors, price });
++		return { ok: false };
++	}
++
++	_describe(errors, price) {
++		const wallet = errors.find((e) => e.method === "wallet");
++		const card = errors.find((e) => e.method === "card");
++		const parts = [];
++
++		if (wallet?.code === "INSUFFICIENT_BALANCE") {
++			const shortfall = wallet.details?.shortfall;
++			parts.push(shortfall
++				? `your wallet balance is too low (${formatNaira(shortfall)} short of ${formatNaira(price)})`
++				: `your wallet balance is too low for ${formatNaira(price)}`);
++		} else if (wallet) {
++			parts.push(`the wallet payment failed (${wallet.message})`);
++		}
++
++		if (card) parts.push(`the saved card could not be charged (${card.message})`);
++
++		return `Automatic renewal could not complete: ${parts.join(" and ")}.`;
++	}
++
++	async _recordFailure(subscription, message, context) {
++		const fresh = await this.subscriptionRepository.findById(subscription.id);
++		if (!fresh) return;
++
++		fresh.lastAutoRenewError = message;
++		const now = new Date();
++		const shouldNotify = !fresh.autoRenewFailureNotifiedAt || now - new Date(fresh.autoRenewFailureNotifiedAt) >= NOTIFY_EVERY_MS;
++		if (shouldNotify) fresh.autoRenewFailureNotifiedAt = now;
++
++		await this.subscriptionRepository.update(fresh.id, fresh);
++
++		if (!shouldNotify) return;
++
++		const expires = fresh.expiresAt ? new Date(fresh.expiresAt).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" }) : "soon";
++		const topUp = context?.errors?.some((e) => e.code === "INSUFFICIENT_BALANCE") ? " Top up your wallet and we will renew it automatically." : "";
++
++		await this.createNotification.execute({
++			actorId: null,
++			type: NOTIFICATION_TYPES.PAYMENT_FAILED,
++			title: "We could not renew your plan automatically",
++			message: `${message}${topUp}\n\nYour ${fresh.planSnapshot.name} plan ends on ${expires}. Renew it manually to stay connected.`,
++			userIds: [fresh.userId],
++			accountId: fresh.accountId
++		}).catch((error) => console.error("[AutoRenew] Failure notice not sent:", error.message));
++	}
++}
+diff --git a/serverv2/src/modules/subscription/usecases/system/send-subscription-reminder.usecase.js b/serverv2/src/modules/subscription/usecases/system/send-subscription-reminder.usecase.js
+index a9d8001..8e87d15 100644
+--- a/serverv2/src/modules/subscription/usecases/system/send-subscription-reminder.usecase.js
++++ b/serverv2/src/modules/subscription/usecases/system/send-subscription-reminder.usecase.js
+@@ -1,15 +1,44 @@
+ // subscription/usecases/system/send-subscription-reminder.usecase.js
+ import { SUBSCRIPTION_STATUSES } from "../../domain/subscription.enum.js";
++import { toKobo } from "../../../../shared/utils/money.js";
+ 
+ const REMINDER_DAYS_BEFORE = [3, 1];
+ 
+ export class SendSubscriptionReminder {
+-	constructor({ subscriptionRepository, accountRepository, createNotification }) {
++	constructor({ subscriptionRepository, accountRepository, createNotification, planRepository, walletRepository }) {
++		this.planRepository = planRepository;
++		this.walletRepository = walletRepository;
+ 		this.subscriptionRepository = subscriptionRepository;
+ 		this.accountRepository = accountRepository;
+ 		this.createNotification = createNotification;
+ 	}
+ 
++	async _messageFor(subscription) {
++		const expires = new Date(subscription.expiresAt).toLocaleDateString("en-NG", { dateStyle: "medium" });
++		const manual = `Your subscription expires on ${expires}. Renew soon to avoid interruption.`;
++		if (!subscription.autoRenewEnabled) return manual;
++
++		const plan = await this.planRepository.findByIdOrNull(subscription.planId);
++		const price = plan?.getEffectivePrice() ?? subscription.planSnapshot.price;
++		const usesWallet = subscription.autoRenewMethod !== "card";
++		const usesCard = subscription.autoRenewMethod !== "wallet";
++
++		if (usesWallet) {
++			const wallet = await this.walletRepository.findByUserId(subscription.userId);
++			const balanceKobo = wallet?.balanceKobo ?? 0;
++			const shortfallKobo = toKobo(price) - balanceKobo;
++			if (shortfallKobo > 0 && !usesCard) {
++				return `Your plan renews automatically on ${expires}, but your wallet is ₦${(shortfallKobo / 100).toLocaleString("en-NG")} short of the ₦${Number(price).toLocaleString("en-NG")} renewal price. Top up your wallet before then to stay connected.`;
++			}
++			if (shortfallKobo > 0) {
++				return `Your plan renews automatically on ${expires}. Your wallet is ₦${(shortfallKobo / 100).toLocaleString("en-NG")} short, so we will charge your saved card instead.`;
++			}
++			return `Your plan renews automatically on ${expires}. ₦${Number(price).toLocaleString("en-NG")} will be taken from your wallet.`;
++		}
++
++		return `Your plan renews automatically on ${expires}. ₦${Number(price).toLocaleString("en-NG")} will be charged to your saved card.`;
++	}
++
+ 	async execute() {
+ 		let sentCount = 0;
+ 
+@@ -37,7 +66,7 @@ export class SendSubscriptionReminder {
+ 						actorId: null,
+ 						type: "subscription_expiring",
+ 						title: `Your ${subscription.planSnapshot.name} plan expires in ${daysBefore} day(s)`,
+-						message: `Your subscription expires on ${new Date(subscription.expiresAt).toLocaleDateString()}. Renew soon to avoid interruption.`,
++						message: await this._messageFor(subscription),
+ 						userIds: [subscription.userId],
+ 						accountId: account.id
+ 					});
+diff --git a/serverv2/src/modules/subscription/usecases/user/set-auto-renew.usecase.js b/serverv2/src/modules/subscription/usecases/user/set-auto-renew.usecase.js
+new file mode 100644
+index 0000000..f189281
+--- /dev/null
++++ b/serverv2/src/modules/subscription/usecases/user/set-auto-renew.usecase.js
+@@ -0,0 +1,72 @@
++import { NotFoundError, ValidationError } from "../../../../shared/errors/domain.errors.js";
++import { SUBSCRIPTION_ERROR_CODES } from "../../domain/subscription.enum.js";
++import { toKobo } from "../../../../shared/utils/money.js";
++
++export class SetAutoRenew {
++	constructor({ subscriptionRepository, planRepository, walletRepository, savedCardRepository, autoRenewSubscriptions, auditService }) {
++		this.subscriptionRepository = subscriptionRepository;
++		this.planRepository = planRepository;
++		this.walletRepository = walletRepository;
++		this.savedCardRepository = savedCardRepository;
++		this.autoRenewSubscriptions = autoRenewSubscriptions;
++		this.auditService = auditService;
++	}
++
++	async execute({ actorId, userId = null, subscriptionId, enabled, method = "wallet", cardId = null, ip = null }) {
++		const subscription = await this.subscriptionRepository.findById(subscriptionId);
++		if (!subscription || (userId && subscription.userId !== userId)) {
++			throw new NotFoundError("Subscription not found", SUBSCRIPTION_ERROR_CODES.SUBSCRIPTION_NOT_FOUND);
++		}
++
++		if (!enabled) {
++			subscription.disableAutoRenew();
++			await this.subscriptionRepository.update(subscription.id, subscription);
++			await this._audit(actorId, subscription, { enabled: false }, ip);
++			return this._view(subscription);
++		}
++
++		let resolvedCardId = null;
++		if (method !== "wallet") {
++			const card = cardId
++				? await this.savedCardRepository.findForCharge(cardId, subscription.userId)
++				: await this.savedCardRepository.findDefaultForCharge(subscription.userId);
++			if (!card) throw new ValidationError("No saved card is available. Pay once with your card to save it.", "NO_SAVED_CARD");
++			if (card.expired) throw new ValidationError(`The card ending ${card.last4} has expired`, "CARD_EXPIRED");
++			resolvedCardId = card.id;
++		}
++
++		subscription.enableAutoRenew({ method, cardId: resolvedCardId });
++		await this.subscriptionRepository.update(subscription.id, subscription);
++		await this._audit(actorId, subscription, { enabled: true, method, cardId: resolvedCardId }, ip);
++
++		this.autoRenewSubscriptions.execute({ userId: subscription.userId }).catch((error) => console.error("[SetAutoRenew] Immediate run failed:", error.message));
++
++		return this._view(subscription);
++	}
++
++	async _view(subscription) {
++		const plan = await this.planRepository.findByIdOrNull(subscription.planId);
++		const price = plan?.getEffectivePrice() ?? subscription.planSnapshot.price;
++		const wallet = await this.walletRepository.findByUserId(subscription.userId);
++		const balanceKobo = wallet?.balanceKobo ?? 0;
++		const shortfallKobo = Math.max(0, toKobo(price) - balanceKobo);
++
++		return {
++			subscriptionId: subscription.id,
++			autoRenewEnabled: subscription.autoRenewEnabled,
++			method: subscription.autoRenewEnabled ? subscription.autoRenewMethod : null,
++			cardId: subscription.autoRenewCardId,
++			nextRenewalDate: subscription.nextRenewalDate,
++			renewalPrice: price,
++			walletBalance: balanceKobo / 100,
++			walletShortfall: shortfallKobo / 100,
++			lastError: subscription.lastAutoRenewError
++		};
++	}
++
++	_audit(actorId, subscription, payload, ip) {
++		return this.auditService?.log({
++			actorId, action: "SUBSCRIPTION_AUTO_RENEW_CHANGED", entity: "Subscription", entityId: subscription.id, newValue: payload, ip
++		});
++	}
++}
+diff --git a/serverv2/src/modules/subscription/validators/subscription.validators.js b/serverv2/src/modules/subscription/validators/subscription.validators.js
+index 6bd6f68..869b15b 100644
+--- a/serverv2/src/modules/subscription/validators/subscription.validators.js
++++ b/serverv2/src/modules/subscription/validators/subscription.validators.js
+@@ -11,6 +11,11 @@ export const adminCreateSubscriptionSchema = subscribeSchema.extend({
+ 	activateImmediately: z.boolean().optional(),
+ 	startDate: z.coerce.date().optional()
+ });
++export const setAutoRenewSchema = z.object({
++	enabled: z.boolean(),
++	method: z.enum(["wallet", "card", "wallet_then_card"]).optional(),
++	cardId: z.string().min(1).optional()
++});
+ export const changePlanSchema = z.object({ newPlanId: z.string().min(1) });
+ export const customerChangePlanSchema = z.object({
+ 	accountId: z.string().min(1),
+diff --git a/serverv2/src/modules/user/controllers/admin.controller.js b/serverv2/src/modules/user/controllers/admin.controller.js
+index 3450f1e..1a65847 100644
+--- a/serverv2/src/modules/user/controllers/admin.controller.js
++++ b/serverv2/src/modules/user/controllers/admin.controller.js
+@@ -3,8 +3,9 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
+ export class AdminController {
+ 	constructor({
+ 		createUser, getAllUsers, getUserById, adminUpdateUserProfile,
+-		updateRole, banUser, unbanUser, deleteUser, adminSetUserPassword, impersonateUser
++		updateRole, banUser, unbanUser, deleteUser, adminSetUserPassword, impersonateUser, adminChangeUserEmail
+ 	}) {
++		this.adminChangeUserEmailUseCase = adminChangeUserEmail;
+ 		this.createUserUseCase = createUser;
+ 		this.getAllUsersUseCase = getAllUsers;
+ 		this.getUserByIdUseCase = getUserById;
+@@ -72,6 +73,13 @@ export class AdminController {
+ 		return successResponse({ res, message: result.message });
+ 	};
+ 
++	changeUserEmail = async (req, res) => {
++		const user = await this.adminChangeUserEmailUseCase.execute({
++			actorId: req.user.id, actorRole: req.user.role, targetId: req.params.id, email: req.body.email, ip: req.ip
++		});
++		return successResponse({ res, data: user.toJSON(), message: "Email address updated" });
++	};
++
+ 	impersonateUser = async (req, res) => {
+ 		const result = await this.impersonateUserUseCase.execute({
+ 			actorId: req.user.id, actorRole: req.user.role, targetId: req.params.id, ip: req.ip
+diff --git a/serverv2/src/modules/user/controllers/user.controller.js b/serverv2/src/modules/user/controllers/user.controller.js
+index 64e6672..ecda485 100644
+--- a/serverv2/src/modules/user/controllers/user.controller.js
++++ b/serverv2/src/modules/user/controllers/user.controller.js
+@@ -1,7 +1,9 @@
+ import { successResponse } from "../../../shared/utils/api-response.js";
+ 
+ export class UserController {
+-	constructor({ getMyProfile, updateMyProfile, changePassword, uploadAvatar }) {
++	constructor({ getMyProfile, updateMyProfile, changePassword, uploadAvatar, requestEmailChange, confirmEmailChange }) {
++		this.requestEmailChangeUseCase = requestEmailChange;
++		this.confirmEmailChangeUseCase = confirmEmailChange;
+ 		this.getMyProfileUseCase = getMyProfile;
+ 		this.updateMyProfileUseCase = updateMyProfile;
+ 		this.changePasswordUseCase = changePassword;
+@@ -23,6 +25,16 @@ export class UserController {
+ 		return successResponse({ res, message: result.message });
+ 	};
+ 
++	requestEmailChange = async (req, res) => {
++		const result = await this.requestEmailChangeUseCase.execute({ userId: req.user.id, ...req.body, ip: req.ip });
++		return successResponse({ res, data: result, message: "Verification code sent to your new email address" });
++	};
++
++	confirmEmailChange = async (req, res) => {
++		const user = await this.confirmEmailChangeUseCase.execute({ userId: req.user.id, otp: req.body.otp, ip: req.ip });
++		return successResponse({ res, data: user.toJSON(), message: "Email address updated" });
++	};
++
+ 	uploadAvatar = async (req, res) => {
+ 		const result = await this.uploadAvatarUseCase.execute({ userId: req.user.id, file: req.file });
+ 		return successResponse({ res, data: result, message: "Avatar updated successfully" });
+diff --git a/serverv2/src/modules/user/database/user.model.js b/serverv2/src/modules/user/database/user.model.js
+index 0765870..571e305 100644
+--- a/serverv2/src/modules/user/database/user.model.js
++++ b/serverv2/src/modules/user/database/user.model.js
+@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema(
+ 		resetPasswordOTPLockedUntil: { type: Number, select: false },
+ 		lastResetPasswordOtpSentAt: { type: Number },
+ 
++		pendingEmail: { type: String, lowercase: true, trim: true },
++		emailChangeOTP: { type: String, select: false },
++		emailChangeOTPExpiresAt: { type: Number, select: false },
++		emailChangeAttempts: { type: Number, default: 0, select: false },
++		lastEmailChangeOtpSentAt: { type: Number },
++
+ 		googleId: { type: String, select: false },
+ 
+ 		theme: { type: String, enum: THEME_LIST, default: "system" }
+@@ -69,6 +75,7 @@ userSchema.set("toJSON", {
+ 	transform: (doc, ret) => {
+ 		delete ret.password;
+ 		delete ret.verificationOTP;
++		delete ret.emailChangeOTP;
+ 		delete ret.googleId;
+ 		delete ret.failedLoginAttempts;
+ 		delete ret.lockUntil;
+diff --git a/serverv2/src/modules/user/repositories/user.repository.mongo.js b/serverv2/src/modules/user/repositories/user.repository.mongo.js
+index 2933b61..36a04ac 100644
+--- a/serverv2/src/modules/user/repositories/user.repository.mongo.js
++++ b/serverv2/src/modules/user/repositories/user.repository.mongo.js
+@@ -24,6 +24,67 @@ export class UserRepositoryMongo extends BaseRepository {
+ 		return this.mapOne(doc);
+ 	}
+ 
++	async emailTaken(email, exceptId = null) {
++		const filter = { email: String(email).toLowerCase().trim() };
++		if (exceptId && this.isValidId(exceptId)) filter._id = { $ne: exceptId };
++		return Boolean(await this.model.exists(filter));
++	}
++
++	async setPendingEmailChange(id, { pendingEmail, otpHash, expiresAt, sentAt }) {
++		if (!this.isValidId(id)) return null;
++		await this.model.updateOne({ _id: id }, {
++			$set: {
++				pendingEmail: String(pendingEmail).toLowerCase().trim(),
++				emailChangeOTP: otpHash,
++				emailChangeOTPExpiresAt: expiresAt,
++				emailChangeAttempts: 0,
++				lastEmailChangeOtpSentAt: sentAt
++			}
++		});
++	}
++
++	async getEmailChangeState(id) {
++		if (!this.isValidId(id)) return null;
++		const doc = await this.model.findById(id)
++			.select("+emailChangeOTP +emailChangeOTPExpiresAt +emailChangeAttempts pendingEmail lastEmailChangeOtpSentAt email firstName lastName")
++			.lean();
++		if (!doc) return null;
++		return {
++			id: String(doc._id),
++			email: doc.email,
++			firstName: doc.firstName,
++			pendingEmail: doc.pendingEmail ?? null,
++			otpHash: doc.emailChangeOTP ?? null,
++			expiresAt: doc.emailChangeOTPExpiresAt ?? null,
++			attempts: doc.emailChangeAttempts ?? 0,
++			lastSentAt: doc.lastEmailChangeOtpSentAt ?? null
++		};
++	}
++
++	async bumpEmailChangeAttempts(id) {
++		const doc = await this.model.findByIdAndUpdate(id, { $inc: { emailChangeAttempts: 1 } }, { new: true }).select("+emailChangeAttempts").lean();
++		return doc?.emailChangeAttempts ?? 0;
++	}
++
++	async clearPendingEmailChange(id) {
++		await this.model.updateOne({ _id: id }, {
++			$set: { pendingEmail: null, emailChangeOTP: null, emailChangeOTPExpiresAt: null, emailChangeAttempts: 0 }
++		});
++	}
++
++	async commitEmailChange(id, email) {
++		await this.model.updateOne({ _id: id }, {
++			$set: {
++				email: String(email).toLowerCase().trim(),
++				isVerified: true,
++				pendingEmail: null,
++				emailChangeOTP: null,
++				emailChangeOTPExpiresAt: null,
++				emailChangeAttempts: 0
++			}
++		});
++	}
++
+ 	async updatePhone(id, phone) {
+ 		if (!this.isValidId(id)) return null;
+ 		await this.model.updateOne({ _id: id }, { $set: { phone } });
+diff --git a/serverv2/src/modules/user/routes/user.routes.js b/serverv2/src/modules/user/routes/user.routes.js
+index 637a42b..9797704 100644
+--- a/serverv2/src/modules/user/routes/user.routes.js
++++ b/serverv2/src/modules/user/routes/user.routes.js
+@@ -5,7 +5,8 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
+ import { requireStaff, requireSuperAdmin } from "../../../infrastructure/middleware/rbac.middleware.js";
+ import {
+ 	createUserSchema, updateMyProfileSchema, changePasswordSchema,
+-	updateRoleSchema, banUserSchema, adminUpdateUserSchema, adminSetPasswordSchema
++	updateRoleSchema, banUserSchema, adminUpdateUserSchema, adminSetPasswordSchema,
++	adminChangeEmailSchema, requestEmailChangeSchema, confirmEmailChangeSchema
+ } from "../validators/user.validators.js";
+ 
+ const router = Router();
+@@ -22,6 +23,8 @@ router.use(authenticate);
+ router.get("/me", asyncHandler(userController.getMyProfile));
+ router.patch("/me", validate(updateMyProfileSchema), asyncHandler(userController.updateMyProfile));
+ router.patch("/me/password", validate(changePasswordSchema), asyncHandler(userController.changePassword));
++router.post("/me/email/request", validate(requestEmailChangeSchema), asyncHandler(userController.requestEmailChange));
++router.post("/me/email/confirm", validate(confirmEmailChangeSchema), asyncHandler(userController.confirmEmailChange));
+ router.post("/me/avatar", asyncHandler(userController.uploadAvatar));
+ 
+ // ---- Admin ----
+@@ -36,6 +39,7 @@ adminRouter.patch("/:id/role", requireSuperAdmin, validate(updateRoleSchema), as
+ adminRouter.patch("/:id/ban", validate(banUserSchema), asyncHandler(adminController.banUser));
+ adminRouter.patch("/:id/unban", asyncHandler(adminController.unbanUser));
+ adminRouter.delete("/:id", asyncHandler(adminController.deleteUser));
++adminRouter.patch("/:id/email", validate(adminChangeEmailSchema), asyncHandler(adminController.changeUserEmail));
+ adminRouter.patch("/:id/password", validate(adminSetPasswordSchema), asyncHandler(adminController.setUserPassword));
+ adminRouter.post("/:id/impersonate", requireSuperAdmin, asyncHandler(adminController.impersonateUser));
+ 
+diff --git a/serverv2/src/modules/user/usecases/admin/admin-change-user-email.usecase.js b/serverv2/src/modules/user/usecases/admin/admin-change-user-email.usecase.js
+new file mode 100644
+index 0000000..dd3b210
+--- /dev/null
++++ b/serverv2/src/modules/user/usecases/admin/admin-change-user-email.usecase.js
+@@ -0,0 +1,43 @@
++import { NotFoundError, ForbiddenError, ConflictError, ValidationError } from "../../../../shared/errors/domain.errors.js";
++import { USER_ERROR_CODES, USER_ROLE } from "../../domain/user.enum.js";
++
++export class AdminChangeUserEmail {
++	constructor({ userRepository, auditService, mailService }) {
++		this.userRepository = userRepository;
++		this.auditService = auditService;
++		this.mailService = mailService;
++	}
++
++	async execute({ actorId, actorRole, targetId, email, ip = null }) {
++		const target = await this.userRepository.findById(targetId);
++		if (!target) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
++
++		if (target.role === USER_ROLE.SUPERADMIN && actorRole !== USER_ROLE.SUPERADMIN) {
++			throw new ForbiddenError("Only a superadmin can modify a superadmin", USER_ERROR_CODES.CANNOT_MODIFY_SUPERADMIN);
++		}
++
++		const next = String(email ?? "").trim().toLowerCase();
++		const previous = target.email;
++
++		if (next === previous) throw new ValidationError("That is already this user's email address", "EMAIL_UNCHANGED");
++		if (await this.userRepository.emailTaken(next, target.id)) {
++			throw new ConflictError("Email already in use", USER_ERROR_CODES.EMAIL_ALREADY_IN_USE);
++		}
++
++		await this.userRepository.commitEmailChange(target.id, next);
++
++		await this.auditService?.log({
++			actorId, action: "USER_EMAIL_CHANGED_BY_ADMIN", resource: "User",
++			metadata: { targetId, previous, next, ip }
++		}).catch((err) => console.error("Audit log failed:", err.message));
++
++		const notice = (to, message) => this.mailService?.sendNotification({
++			to, name: target.firstName, title: "Your email address was changed", message
++		}).catch((err) => console.error("[AdminChangeUserEmail] Notice failed:", err.message));
++
++		notice(next, `An administrator changed the email address on your account to ${next}. Use this address to sign in from now on.`);
++		notice(previous, `An administrator changed the email address on your account from ${previous} to ${next}. If you did not expect this, please contact our support team.`);
++
++		return this.userRepository.findById(target.id);
++	}
++}
+diff --git a/serverv2/src/modules/user/usecases/user/confirm-email-change.usecase.js b/serverv2/src/modules/user/usecases/user/confirm-email-change.usecase.js
+new file mode 100644
+index 0000000..fb56a35
+--- /dev/null
++++ b/serverv2/src/modules/user/usecases/user/confirm-email-change.usecase.js
+@@ -0,0 +1,54 @@
++import { NotFoundError, ValidationError, ConflictError } from "../../../../shared/errors/domain.errors.js";
++import { USER_ERROR_CODES } from "../../domain/user.enum.js";
++
++const MAX_ATTEMPTS = 5;
++
++export class ConfirmEmailChange {
++	constructor({ userRepository, passwordService, mailService, auditService }) {
++		this.userRepository = userRepository;
++		this.passwordService = passwordService;
++		this.mailService = mailService;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId, otp, ip = null }) {
++		const state = await this.userRepository.getEmailChangeState(userId);
++		if (!state) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
++		if (!state.pendingEmail || !state.otpHash) {
++			throw new ValidationError("There is no pending email change. Request a new code.", "EMAIL_CHANGE_NOT_REQUESTED");
++		}
++		if (!state.expiresAt || state.expiresAt < Date.now()) {
++			await this.userRepository.clearPendingEmailChange(userId);
++			throw new ValidationError("This code has expired. Request a new one.", "OTP_EXPIRED");
++		}
++		if (state.attempts >= MAX_ATTEMPTS) {
++			await this.userRepository.clearPendingEmailChange(userId);
++			throw new ValidationError("Too many wrong attempts. Request a new code.", "OTP_LOCKED");
++		}
++
++		const valid = await this.passwordService.compare(String(otp), state.otpHash);
++		if (!valid) {
++			await this.userRepository.bumpEmailChangeAttempts(userId);
++			throw new ValidationError("That code is not correct", "OTP_INVALID");
++		}
++
++		if (await this.userRepository.emailTaken(state.pendingEmail, userId)) {
++			await this.userRepository.clearPendingEmailChange(userId);
++			throw new ConflictError("Email already in use", USER_ERROR_CODES.EMAIL_ALREADY_IN_USE);
++		}
++
++		const previous = state.email;
++		await this.userRepository.commitEmailChange(userId, state.pendingEmail);
++
++		await this.auditService?.log({
++			actorId: userId, action: "EMAIL_CHANGED", resource: "User", metadata: { previous, next: state.pendingEmail, ip }
++		}).catch((err) => console.error("Audit log failed:", err.message));
++
++		this.mailService?.sendNotification({
++			to: previous, name: state.firstName, title: "Your email address was changed",
++			message: `The email address on your account was changed to ${state.pendingEmail}. If you did not do this, please contact our support team right away.`
++		}).catch((err) => console.error("[ConfirmEmailChange] Notice failed:", err.message));
++
++		return this.userRepository.findById(userId);
++	}
++}
+diff --git a/serverv2/src/modules/user/usecases/user/request-email-change.usecase.js b/serverv2/src/modules/user/usecases/user/request-email-change.usecase.js
+new file mode 100644
+index 0000000..ae07c05
+--- /dev/null
++++ b/serverv2/src/modules/user/usecases/user/request-email-change.usecase.js
+@@ -0,0 +1,51 @@
++import { NotFoundError, ValidationError, ConflictError } from "../../../../shared/errors/domain.errors.js";
++import { USER_ERROR_CODES } from "../../domain/user.enum.js";
++
++const OTP_TTL_MS = 10 * 60 * 1000;
++const RESEND_COOLDOWN_MS = 60 * 1000;
++
++export class RequestEmailChange {
++	constructor({ userRepository, passwordService, mailService, auditService }) {
++		this.userRepository = userRepository;
++		this.passwordService = passwordService;
++		this.mailService = mailService;
++		this.auditService = auditService;
++	}
++
++	async execute({ userId, newEmail, password, ip = null }) {
++		const user = await this.userRepository.findAuthById(userId);
++		if (!user) throw new NotFoundError("User not found", USER_ERROR_CODES.USER_NOT_FOUND);
++
++		const validPassword = await this.passwordService.compare(password, user.hashedPassword);
++		if (!validPassword) throw new ValidationError("Password is incorrect", USER_ERROR_CODES.INVALID_OLD_PASSWORD);
++
++		const next = String(newEmail).trim().toLowerCase();
++		if (next === user.email) throw new ValidationError("That is already your email address", "EMAIL_UNCHANGED");
++		if (await this.userRepository.emailTaken(next, user.id)) {
++			throw new ConflictError("Email already in use", USER_ERROR_CODES.EMAIL_ALREADY_IN_USE);
++		}
++
++		const state = await this.userRepository.getEmailChangeState(user.id);
++		if (state?.lastSentAt && Date.now() - state.lastSentAt < RESEND_COOLDOWN_MS) {
++			throw new ValidationError("Please wait before requesting another code", "RESEND_COOLDOWN_ACTIVE");
++		}
++
++		const otp = String(Math.floor(100000 + Math.random() * 900000));
++		const sentAt = Date.now();
++
++		await this.userRepository.setPendingEmailChange(user.id, {
++			pendingEmail: next,
++			otpHash: await this.passwordService.hash(otp),
++			expiresAt: sentAt + OTP_TTL_MS,
++			sentAt
++		});
++
++		await this.mailService.sendEmailChangeOTP({ to: next, name: user.firstName, otp, expiresIn: 10 });
++
++		await this.auditService?.log({
++			actorId: user.id, action: "EMAIL_CHANGE_REQUESTED", resource: "User", metadata: { next, ip }
++		}).catch((err) => console.error("Audit log failed:", err.message));
++
++		return { pendingEmail: next, expiresAt: new Date(sentAt + OTP_TTL_MS), resendAfter: new Date(sentAt + RESEND_COOLDOWN_MS) };
++	}
++}
+diff --git a/serverv2/src/modules/user/user.container.js b/serverv2/src/modules/user/user.container.js
+index 8e6ced3..4ac0549 100644
+--- a/serverv2/src/modules/user/user.container.js
++++ b/serverv2/src/modules/user/user.container.js
+@@ -15,6 +15,9 @@ import { BanUser } from "./usecases/admin/ban-user.usecase.js";
+ import { UnbanUser } from "./usecases/admin/unban-user.usecase.js";
+ import { DeleteUser } from "./usecases/admin/delete-user.usecase.js";
+ import { AdminSetUserPassword } from "./usecases/admin/admin-set-user-password.usecase.js";
++import { AdminChangeUserEmail } from "./usecases/admin/admin-change-user-email.usecase.js";
++import { RequestEmailChange } from "./usecases/user/request-email-change.usecase.js";
++import { ConfirmEmailChange } from "./usecases/user/confirm-email-change.usecase.js";
+ import { ImpersonateUser } from "./usecases/admin/impersonate-user.usecase.js";
+ 
+ import { UserController } from "./controllers/user.controller.js";
+@@ -37,6 +40,9 @@ export function registerUser(container) {
+ 		deleteUser: asClass(DeleteUser).scoped(),
+ 		adminSetUserPassword: asClass(AdminSetUserPassword).scoped(),
+ 		impersonateUser: asClass(ImpersonateUser).scoped(),
++		adminChangeUserEmail: asClass(AdminChangeUserEmail).scoped(),
++		requestEmailChange: asClass(RequestEmailChange).scoped(),
++		confirmEmailChange: asClass(ConfirmEmailChange).scoped(),
+ 
+ 		userRepository: asClass(UserRepositoryMongo).singleton(),
+ 		userController: asClass(UserController).scoped(),
+diff --git a/serverv2/src/modules/user/validators/user.validators.js b/serverv2/src/modules/user/validators/user.validators.js
+index 5a9dd7c..1bffdb1 100644
+--- a/serverv2/src/modules/user/validators/user.validators.js
++++ b/serverv2/src/modules/user/validators/user.validators.js
+@@ -45,6 +45,19 @@ export const adminUpdateUserSchema = z.object({
+ 	status: z.string().optional()
+ });
+ 
++export const adminChangeEmailSchema = z.object({
++	email: z.string().trim().toLowerCase().email()
++});
++
++export const requestEmailChangeSchema = z.object({
++	newEmail: z.string().trim().toLowerCase().email(),
++	password: z.string().min(1)
++});
++
++export const confirmEmailChangeSchema = z.object({
++	otp: z.union([z.string(), z.number()]).transform((value) => String(value).trim()).pipe(z.string().regex(/^\d{6}$/, "Enter the 6-digit code"))
++});
++
+ export const adminSetPasswordSchema = z.object({
+ 	newPassword: z.string().min(8)
+ });
+\ No newline at end of file
+diff --git a/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js b/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js
+index 77b414b..0a37231 100644
+--- a/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js
++++ b/serverv2/src/modules/wallet/usecases/system/fund-wallet-from-transfer.usecase.js
+@@ -1,7 +1,8 @@
+ import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
+ 
+ export class FundWalletFromTransfer {
+-	constructor({ walletRepository, userRepository, auditService }) {
++	constructor({ walletRepository, userRepository, auditService, autoRenewSubscriptions }) {
++		this.autoRenewSubscriptions = autoRenewSubscriptions;
+ 		this.userRepository = userRepository;
+ 		this.walletRepository = walletRepository;
+ 		this.auditService = auditService;
+@@ -40,6 +41,11 @@ export class FundWalletFromTransfer {
+ 			});
+ 		}
+ 
++		if (!result.duplicate) {
++			this.autoRenewSubscriptions?.execute({ userId: wallet.userId, retryMs: 2 * 60 * 1000 })
++				.catch((error) => console.error("[FundWalletFromTransfer] Auto-renew check failed:", error.message));
++		}
++
+ 		return { handled: true, duplicate: result.duplicate, wallet: result.wallet };
+ 	}
+ }
+diff --git a/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js b/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js
+index fa7f446..faff6f0 100644
+--- a/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js
++++ b/serverv2/src/modules/wallet/usecases/user/pay-with-wallet.usecase.js
+@@ -20,10 +20,10 @@ export class PayWithWallet {
+ 		this.auditService = auditService;
+ 	}
+ 
+-	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, ip = null }) {
++	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, actorId = null, note = null, autoRenew = false, ip = null }) {
+ 		const account = await this.accountRepository.findById(accountId);
+ 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
+-		if (account.userId !== userId) throw new ValidationError("You do not have access to this account");
++		if (!actorId && account.userId !== userId) throw new ValidationError("You do not have access to this account");
+ 
+ 		const plan = await this.planRepository.findByIdOrNull(planId);
+ 		if (!plan) throw new NotFoundError("Plan not found", PLAN_ERROR_CODES.PLAN_NOT_FOUND);
+@@ -64,7 +64,11 @@ export class PayWithWallet {
+ 			gatewayReference: reference,
+ 			status: PAYMENT_STATUSES.INITIATED,
+ 			idempotencyKey: crypto.randomBytes(16).toString("hex"),
+-			metadata: { planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata }
++			metadata: {
++				planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata,
++				...(actorId ? { recordedByAdmin: actorId, note } : {}),
++				...(autoRenew ? { autoRenew: true } : {})
++			}
+ 		}));
+ 
+ 		try {
+@@ -74,7 +78,7 @@ export class PayWithWallet {
+ 				amountKobo: totalKobo,
+ 				source: WALLET_TX_SOURCES.PAYMENT,
+ 				reference: `pay:${payment.id}`,
+-				description: `${plan.name} x${cycles}`,
++				description: autoRenew ? `Auto-renewal: ${plan.name} x${cycles}` : `${plan.name} x${cycles}`,
+ 				metadata: { paymentId: payment.id, accountId, planId }
+ 			});
+ 		} catch (error) {
+@@ -107,7 +111,7 @@ export class PayWithWallet {
+ 		}
+ 
+ 		await this.auditService?.log({
+-			actorId: userId, action: "PAYMENT_WALLET", entity: "Payment", entityId: payment.id,
++			actorId: actorId ?? userId, action: actorId ? "PAYMENT_WALLET_BY_ADMIN" : autoRenew ? "PAYMENT_WALLET_AUTO_RENEW" : "PAYMENT_WALLET", entity: "Payment", entityId: payment.id,
+ 			newValue: { accountId, planId, total }, ip
+ 		});
+ 

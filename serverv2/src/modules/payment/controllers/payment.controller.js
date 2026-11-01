@@ -1,7 +1,11 @@
 import { successResponse, paginatedResponse } from "../../../shared/utils/api-response.js";
 
 export class PaymentController {
-	constructor({ initiatePayment, verifyPayment, getMyPayments }) {
+	constructor({ initiatePayment, verifyPayment, getMyPayments, chargeSavedCard, getMySavedCards, removeSavedCard, setDefaultSavedCard }) {
+		this.chargeSavedCardUseCase = chargeSavedCard;
+		this.getMySavedCardsUseCase = getMySavedCards;
+		this.removeSavedCardUseCase = removeSavedCard;
+		this.setDefaultSavedCardUseCase = setDefaultSavedCard;
 		this.initiatePaymentUseCase = initiatePayment;
 		this.verifyPaymentUseCase = verifyPayment;
 		this.getMyPaymentsUseCase = getMyPayments;
@@ -10,6 +14,31 @@ export class PaymentController {
 	initiatePayment = async (req, res) => {
 		const result = await this.initiatePaymentUseCase.execute({ userId: req.user.id, ...req.body, ip: req.ip });
 		return successResponse({ res, data: { payment: result.payment.toJSON(), authorizationUrl: result.authorizationUrl, reference: result.reference }, message: "Payment initiated", statusCode: 201 });
+	};
+
+	payWithSavedCard = async (req, res) => {
+		const result = await this.chargeSavedCardUseCase.execute({ userId: req.user.id, ...req.body });
+		return successResponse({
+			res,
+			data: { payment: result.payment.toJSON(), card: result.card, provisioning: result.outcome?.provisioning ?? null },
+			message: "Payment successful",
+			statusCode: 201
+		});
+	};
+
+	getMyCards = async (req, res) => {
+		const cards = await this.getMySavedCardsUseCase.execute({ userId: req.user.id });
+		return successResponse({ res, data: cards, message: "Saved cards fetched successfully" });
+	};
+
+	setDefaultCard = async (req, res) => {
+		const card = await this.setDefaultSavedCardUseCase.execute({ userId: req.user.id, cardId: req.params.id });
+		return successResponse({ res, data: card, message: "Default card updated" });
+	};
+
+	removeCard = async (req, res) => {
+		const result = await this.removeSavedCardUseCase.execute({ userId: req.user.id, cardId: req.params.id, ip: req.ip });
+		return successResponse({ res, data: result, message: "Card removed" });
 	};
 
 	verifyPayment = async (req, res) => {

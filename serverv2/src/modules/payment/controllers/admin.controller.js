@@ -24,7 +24,12 @@ getPaymentById = async (req, res) => {
 		const result = await this.recordPaymentUseCase.execute({ actorId: req.user.id, ...req.body, ip: req.ip });
 		return successResponse({
 			res,
-			data: { payment: result.payment.toJSON(), subscription: result.subscription?.toJSON() ?? null },
+			data: {
+				payment: result.payment.toJSON(),
+				subscription: result.subscription?.toJSON() ?? null,
+				provisioning: result.provisioning ?? null,
+				balance: result.balance ?? null
+			},
 			message: "Payment recorded successfully",
 			statusCode: 201
 		});

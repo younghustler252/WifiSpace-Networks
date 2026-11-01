@@ -11,6 +11,11 @@ export const adminCreateSubscriptionSchema = subscribeSchema.extend({
 	activateImmediately: z.boolean().optional(),
 	startDate: z.coerce.date().optional()
 });
+export const setAutoRenewSchema = z.object({
+	enabled: z.boolean(),
+	method: z.enum(["wallet", "card", "wallet_then_card"]).optional(),
+	cardId: z.string().min(1).optional()
+});
 export const changePlanSchema = z.object({ newPlanId: z.string().min(1) });
 export const customerChangePlanSchema = z.object({
 	accountId: z.string().min(1),

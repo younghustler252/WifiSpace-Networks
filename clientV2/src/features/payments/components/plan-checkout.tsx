@@ -20,7 +20,9 @@ import type { Plan } from "@/features/plans/types/plans.types";
 import { useSubscriptions, useUpgradeOptions } from "@/features/subscriptions/hooks/use-subscriptions";
 import { getSubscriptionPhase, pickCurrentSubscription } from "@/features/subscriptions/lib/subscription-phase";
 import { formatCurrency } from "@/lib/format";
-import { useStartPayment } from "../hooks/use-payments";
+import { PAYMENT_ERROR_CODES } from "../constants";
+import { usePayWithSavedCard, useSavedCards, useStartPayment } from "../hooks/use-payments";
+import { cardLabel } from "./saved-cards-card";
 import { useIdempotencyKey } from "@/lib/api/idempotency";
 import { settleFailure } from "@/lib/api/failure";
 import { toastWithProvisioning } from "@/features/subscriptions/lib/provisioning";
@@ -66,7 +68,7 @@ function PlanGroup({ title, description, plans, selectedId, bestValueId, highlig
 	);
 }
 
-type PayMethod = "card" | "wallet";
+type PayMethod = "card" | "wallet" | "saved";
 
 interface MethodOptionProps {
 	icon: typeof CreditCard;
@@ -109,6 +111,8 @@ export function PlanCheckout() {
 	const startPayment = useStartPayment();
 	const payWithWallet = usePayWithWallet();
 	const wallet = useWallet();
+	const payWithSavedCard = usePayWithSavedCard();
+	const savedCards = useSavedCards();
 	const [method, setMethod] = useState<PayMethod>("card");
 	const [chosenAccountId, setChosenAccountId] = useState<string | null>(searchParams.get("account"));
 	const [planId, setPlanId] = useState<string | null>(null);
@@ -132,10 +136,13 @@ export function PlanCheckout() {
 	const bestValueId = useMemo(() => (isActive ? null : getBestValueId(plans.data ?? [])), [isActive, plans.data]);
 	const loading = plans.isLoading || subscriptions.isLoading || (isActive && upgrades.isLoading);
 	const failed = plans.isError || (isActive && upgrades.isError);
-	const busy = startPayment.isPending || payWithWallet.isPending || redirecting;
+	const busy = startPayment.isPending || payWithWallet.isPending || payWithSavedCard.isPending || redirecting;
 	const isUpgrade = isActive && !!selected && selected.id !== current?.planId;
 	const idempotencyKey = useIdempotencyKey(`${account?.id}|${planId}`);
 	const walletKey = useIdempotencyKey(`${account?.id}|${planId}|wallet`);
+	const savedKey = useIdempotencyKey(`${account?.id}|${planId}|saved`);
+	const savedCard = (savedCards.data ?? []).find((c) => c.isDefault && !c.expired) ?? (savedCards.data ?? []).find((c) => !c.expired) ?? null;
+	const useSavedMethod = method === "saved" && !!savedCard && !!selected;
 	const price = selected ? getPlanPricing(selected).final : 0;
 	const balance = wallet.data?.balance ?? null;
 	const walletAvailable = !!selected && balance !== null;
@@ -163,8 +170,37 @@ export function PlanCheckout() {
 		nav.push("/overview");
 	}
 
+	async function handleSavedCardPay() {
+		if (!account || !selected || !savedCard) return;
+
+		const res = await payWithSavedCard.mutateAsync({ accountId: account.id, planId: selected.id, cardId: savedCard.id, idempotencyKey: savedKey });
+
+		if (!res.success) {
+			if (res.code === PAYMENT_ERROR_CODES.CARD_CHARGE_PENDING) {
+				toast.info("Your bank is confirming the payment", { description: res.message, duration: 12_000 });
+				nav.push("/overview");
+				return;
+			}
+			if (
+				res.code === PAYMENT_ERROR_CODES.CARD_CHARGE_FAILED ||
+				res.code === PAYMENT_ERROR_CODES.CARD_EXPIRED ||
+				res.code === PAYMENT_ERROR_CODES.NO_SAVED_CARD ||
+				res.code === PAYMENT_ERROR_CODES.CARD_AMOUNT_MISMATCH
+			) {
+				toast.error(res.message);
+				return;
+			}
+			if (settleFailure(res, "The card payment")) nav.push("/overview");
+			return;
+		}
+
+		toastWithProvisioning(`Paid with ${cardLabel(res.data.card)}`, res.data);
+		nav.push("/overview");
+	}
+
 	async function handlePay() {
 		if (!account || !selected || busy) return;
+		if (useSavedMethod) return handleSavedCardPay();
 		if (useWalletMethod) return handleWalletPay();
 
 		const res = await startPayment.mutateAsync({
@@ -326,18 +362,21 @@ export function PlanCheckout() {
 
 			{renderPlans()}
 
-			{!loading && !failed && walletAvailable && (
+			{!loading && !failed && (walletAvailable || !!savedCard) && (
 				<section className="space-y-3">
 					<h2 className="text-sm font-medium">Pay with</h2>
 					<div role="radiogroup" aria-label="Payment method" className="grid gap-3 sm:grid-cols-2">
-						<MethodOption icon={CreditCard} title="Card or bank" text="Secure checkout by Paystack" active={!useWalletMethod} onSelect={() => setMethod("card")} />
-						<MethodOption
+						<MethodOption icon={CreditCard} title="Card or bank" text="Secure checkout by Paystack" active={!useWalletMethod && !useSavedMethod} onSelect={() => setMethod("card")} />
+						{savedCard && (
+							<MethodOption icon={CreditCard} title={`Pay with card ending ${savedCard.last4}`} text={`${savedCard.brand} · expires ${savedCard.expMonth}/${savedCard.expYear}`} active={useSavedMethod} onSelect={() => setMethod("saved")} />
+						)}
+						{walletAvailable && <MethodOption
 							icon={WalletIcon}
 							title="Wallet"
 							text={`Balance ${formatWalletAmount(balance ?? 0)}`}
 							active={useWalletMethod}
 							onSelect={() => setMethod("wallet")}
-						/>
+						/>}
 					</div>
 					{useWalletMethod && !canAfford && (
 						<Notice
@@ -359,7 +398,7 @@ export function PlanCheckout() {
 					</div>
 					<Button size="lg" disabled={!selected || busy || (useWalletMethod && !canAfford)} onClick={handlePay}>
 						{busy && <Loader2 className="animate-spin" />}
-						{isUpgrade ? "Upgrade and pay" : useWalletMethod ? "Pay from wallet" : "Pay securely"}
+						{isUpgrade ? "Upgrade and pay" : useWalletMethod ? "Pay from wallet" : useSavedMethod ? `Pay with card ${savedCard?.last4}` : "Pay securely"}
 					</Button>
 				</div>
 			)}

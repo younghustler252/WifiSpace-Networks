@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Field } from "@/components/shared/field";
 import { PasswordInput } from "@/components/shared/password-input";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { Role } from "@/types/roles";
@@ -117,6 +118,60 @@ export function PasswordDialog({ user, onClose }: UserDialogProps) {
 					id="admin-new-password"
 					autoComplete="new-password"
 					value={value}
+					onChange={(e) => {
+						setValue(e.target.value);
+						setError(null);
+					}}
+				/>
+			</Field>
+		</ConfirmDialog>
+	);
+}
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function EmailDialog({ user, onClose }: UserDialogProps) {
+	const { setEmail } = useAdminUserActions();
+	const [value, setValue] = useState(user.email);
+	const [error, setError] = useState<string | null>(null);
+
+	return (
+		<ConfirmDialog
+			open
+			onOpenChange={(open) => !open && onClose()}
+			title={`Change email for ${fullName(user)}`}
+			description="They'll sign in with the new address from now on. Both the old and the new address get a notice, and they stay verified."
+			confirmLabel="Change email"
+			onConfirm={async () => {
+				const next = value.trim().toLowerCase();
+				if (!EMAIL_PATTERN.test(next)) {
+					setError("Enter a valid email address");
+					return false;
+				}
+				if (next === user.email.toLowerCase()) {
+					setError("That's already their email");
+					return false;
+				}
+				const res = await setEmail.mutateAsync({ id: user.id, email: next });
+				if (!res.success) {
+					if (res.code === "EMAIL_ALREADY_IN_USE" || res.code === "EMAIL_UNCHANGED") {
+						setError(res.message);
+						return false;
+					}
+					toast.error(res.message);
+					return false;
+				}
+				toast.success("Email changed", { description: "Both addresses were notified." });
+			}}
+		>
+			<Field label="New email" htmlFor="admin-new-email" error={error ?? undefined}>
+				<Input
+					id="admin-new-email"
+					type="email"
+					autoComplete="off"
+					inputMode="email"
+					value={value}
+					aria-invalid={!!error}
 					onChange={(e) => {
 						setValue(e.target.value);
 						setError(null);

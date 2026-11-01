@@ -35,11 +35,25 @@ export class SubscriptionRepositoryMongo extends BaseRepository {
 		return this.mapArray(docs);
 	}
 
-	async findDueForAutoRenewal(now = new Date()) {
-		const docs = await this.model.find({
-			autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE, nextRenewalDate: { $lte: now }
-		}).lean();
+	async findDueForAutoRenewal({ now = new Date(), leadMs = 0, userId = null } = {}) {
+		const filter = {
+			autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE, expiresAt: { $lte: new Date(now.getTime() + leadMs) }
+		};
+		if (userId) filter.userId = userId;
+		const docs = await this.model.find(filter).lean();
 		return this.mapArray(docs);
+	}
+
+	async claimAutoRenewAttempt(id, { now = new Date(), throttleMs }) {
+		const doc = await this.model.findOneAndUpdate(
+			{
+				_id: id, autoRenewEnabled: true, status: SUBSCRIPTION_STATUSES.ACTIVE,
+				$or: [{ lastAutoRenewAttemptAt: null }, { lastAutoRenewAttemptAt: { $lte: new Date(now.getTime() - throttleMs) } }]
+			},
+			{ $set: { lastAutoRenewAttemptAt: now }, $inc: { autoRenewAttempts: 1 } },
+			{ new: true }
+		).lean();
+		return this.mapOne(doc);
 	}
 
 	async update(id, entityOrData) {

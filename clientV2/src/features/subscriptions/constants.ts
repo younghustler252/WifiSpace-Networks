@@ -18,6 +18,8 @@ export const SUBSCRIPTION_ERROR_CODES = {
 	SUBSCRIPTION_ALREADY_CANCELED: "SUBSCRIPTION_ALREADY_CANCELED",
 	CANNOT_SUSPEND_INACTIVE_SUBSCRIPTION: "CANNOT_SUSPEND_INACTIVE_SUBSCRIPTION",
 	INVALID_EXTENSION_DAYS: "INVALID_EXTENSION_DAYS",
+	NO_SAVED_CARD: "NO_SAVED_CARD",
+	CARD_EXPIRED: "CARD_EXPIRED",
 } as const;
 
 export const SUBSCRIPTION_ERROR_MESSAGES: Record<string, string> = {
@@ -30,6 +32,8 @@ export const SUBSCRIPTION_ERROR_MESSAGES: Record<string, string> = {
 	[SUBSCRIPTION_ERROR_CODES.SUBSCRIPTION_NOT_ACTIVE]: "This subscription isn't active.",
 	[SUBSCRIPTION_ERROR_CODES.SUBSCRIPTION_ALREADY_CANCELED]: "This subscription is already canceled.",
 	[SUBSCRIPTION_ERROR_CODES.CANNOT_SUSPEND_INACTIVE_SUBSCRIPTION]: "Only active subscriptions can be suspended.",
+	[SUBSCRIPTION_ERROR_CODES.NO_SAVED_CARD]: "Save a card first by paying once with your card, then turn on card auto-renew.",
+	[SUBSCRIPTION_ERROR_CODES.CARD_EXPIRED]: "That card has expired. Choose another card or use your wallet.",
 	[SUBSCRIPTION_ERROR_CODES.INVALID_EXTENSION_DAYS]: "Enter a valid number of days. It can't be 0.",
 };
 

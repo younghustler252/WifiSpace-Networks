@@ -15,6 +15,9 @@ import { BanUser } from "./usecases/admin/ban-user.usecase.js";
 import { UnbanUser } from "./usecases/admin/unban-user.usecase.js";
 import { DeleteUser } from "./usecases/admin/delete-user.usecase.js";
 import { AdminSetUserPassword } from "./usecases/admin/admin-set-user-password.usecase.js";
+import { AdminChangeUserEmail } from "./usecases/admin/admin-change-user-email.usecase.js";
+import { RequestEmailChange } from "./usecases/user/request-email-change.usecase.js";
+import { ConfirmEmailChange } from "./usecases/user/confirm-email-change.usecase.js";
 import { ImpersonateUser } from "./usecases/admin/impersonate-user.usecase.js";
 
 import { UserController } from "./controllers/user.controller.js";
@@ -37,6 +40,9 @@ export function registerUser(container) {
 		deleteUser: asClass(DeleteUser).scoped(),
 		adminSetUserPassword: asClass(AdminSetUserPassword).scoped(),
 		impersonateUser: asClass(ImpersonateUser).scoped(),
+		adminChangeUserEmail: asClass(AdminChangeUserEmail).scoped(),
+		requestEmailChange: asClass(RequestEmailChange).scoped(),
+		confirmEmailChange: asClass(ConfirmEmailChange).scoped(),
 
 		userRepository: asClass(UserRepositoryMongo).singleton(),
 		userController: asClass(UserController).scoped(),

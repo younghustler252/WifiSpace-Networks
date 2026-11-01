@@ -3,8 +3,9 @@ import { successResponse, paginatedResponse } from "../../../shared/utils/api-re
 export class AdminController {
 	constructor({
 		createUser, getAllUsers, getUserById, adminUpdateUserProfile,
-		updateRole, banUser, unbanUser, deleteUser, adminSetUserPassword, impersonateUser
+		updateRole, banUser, unbanUser, deleteUser, adminSetUserPassword, impersonateUser, adminChangeUserEmail
 	}) {
+		this.adminChangeUserEmailUseCase = adminChangeUserEmail;
 		this.createUserUseCase = createUser;
 		this.getAllUsersUseCase = getAllUsers;
 		this.getUserByIdUseCase = getUserById;
@@ -70,6 +71,13 @@ export class AdminController {
 			actorId: req.user.id, actorRole: req.user.role, targetId: req.params.id, newPassword: req.body.newPassword, ip: req.ip
 		});
 		return successResponse({ res, message: result.message });
+	};
+
+	changeUserEmail = async (req, res) => {
+		const user = await this.adminChangeUserEmailUseCase.execute({
+			actorId: req.user.id, actorRole: req.user.role, targetId: req.params.id, email: req.body.email, ip: req.ip
+		});
+		return successResponse({ res, data: user.toJSON(), message: "Email address updated" });
 	};
 
 	impersonateUser = async (req, res) => {

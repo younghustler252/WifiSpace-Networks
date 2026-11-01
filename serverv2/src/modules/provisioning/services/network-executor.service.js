@@ -31,6 +31,23 @@ export class NetworkExecutor {
 		}
 	}
 
+	switchAccessMethod(subscription, metadata = {}) {
+		if (metadata.provisionNew) {
+			return this._execute(subscription, () => this.mikrotikManager.switchAccessMethod(subscription, metadata));
+		}
+
+		return this._attempt(() => this.mikrotikManager.switchAccessMethod(subscription, metadata));
+	}
+
+	async _attempt(action) {
+		try {
+			const result = await action();
+			return { success: true, result };
+		} catch (error) {
+			return { success: false, error: error.message || "Unknown provisioning error" };
+		}
+	}
+
 	async syncPassword(subscription, metadata = {}) {
 		try {
 			const result = await this.mikrotikManager.syncPassword(subscription, metadata);

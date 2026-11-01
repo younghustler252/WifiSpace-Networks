@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { unwrap } from "@/lib/api/unwrap";
 import type { ApiResponse } from "@/types/api-response";
 import { accountsApi, adminAccountsApi } from "../services/accounts.api";
-import type { AdminAccountListParams, ChangeWsnIdBody, UpdateAccountBody } from "../types/accounts.types";
+import type { ChangeAccessMethodBody, AdminAccountListParams, ChangeWsnIdBody, UpdateAccountBody } from "../types/accounts.types";
 
 
 export const ACCOUNTS_KEY = ["accounts", "me"] as const;
@@ -95,6 +95,7 @@ export function useAdminAccountActions() {
 		pause: useAdminAccountAction((v: { id: string; note?: string }) => adminAccountsApi.pause(v.id, v.note)),
 		resume: useAdminAccountAction(adminAccountsApi.resume),
 		terminate: useAdminAccountAction((v: { id: string; note?: string }) => adminAccountsApi.terminate(v.id, v.note)),
+		changeAccessMethod: useAdminAccountAction((v: { id: string; body: ChangeAccessMethodBody }) => adminAccountsApi.changeAccessMethod(v.id, v.body)),
 		changeWsnId: useAdminAccountAction((v: { id: string; body: ChangeWsnIdBody }) => adminAccountsApi.changeWsnId(v.id, v.body)),
 		revealCredentials: useAdminAccountAction((id: string) => adminAccountsApi.routerCredentials(id)),
 		setRouterPassword: useAdminAccountAction((v: { id: string; password?: string }) => adminAccountsApi.setRouterPassword(v.id, v.password)),

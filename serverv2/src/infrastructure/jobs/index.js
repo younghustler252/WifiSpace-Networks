@@ -6,6 +6,7 @@ import { registerSubscriptionReminderJob } from "./queues/subscription-reminder.
 import { registerUsageSyncJob } from "./queues/usage-sync-queue.js";
 import { registerNetworkConfigJob } from "./queues/network-config.queue.js";
 import { registerWalletReconcileJob } from "./queues/wallet-reconcile.queue.js";
+import { registerAutoRenewJob } from "./queues/auto-renew.queue.js";
 import { registerNotificationDispatchJob } from "./queues/notification-dispatch.queues.js";
 
 import { createRouterSyncWorker } from "./workers/router-sync.worker.js";
@@ -17,6 +18,7 @@ import { createUsageSyncWorker } from "./workers/usage-sync.worker.js";
 import { createNotificationDispatchWorker } from "./workers/notification-dispatch.worker.js";
 import { createNetworkConfigWorker } from "./workers/network-config.worker.js";
 import { createWalletReconcileWorker } from "./workers/wallet-reconcile.worker.js";
+import { createAutoRenewWorker } from "./workers/auto-renew.worker.js";
 import { createProvisioningWorker } from "./workers/provision.worker.js";
 
 export async function startJobs() {
@@ -28,6 +30,7 @@ export async function startJobs() {
     await registerUsageSyncJob();
     await registerNotificationDispatchJob();
     await registerWalletReconcileJob();
+    await registerAutoRenewJob();
     await registerNetworkConfigJob();
 
     createRouterSyncWorker();
@@ -38,6 +41,7 @@ export async function startJobs() {
     createUsageSyncWorker();
     createNotificationDispatchWorker();
     createWalletReconcileWorker();
+    createAutoRenewWorker();
     createNetworkConfigWorker();
     createProvisioningWorker();
 

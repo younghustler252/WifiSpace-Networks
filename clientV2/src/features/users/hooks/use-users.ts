@@ -55,6 +55,23 @@ export function useChangePassword() {
 	return useMutation({ mutationFn: usersApi.changePassword });
 }
 
+export function useEmailChange() {
+	const queryClient = useQueryClient();
+	const setUser = useAuthStore((s) => s.setUser);
+
+	return {
+		request: useMutation({ mutationFn: usersApi.requestEmailChange }),
+		confirm: useMutation({
+			mutationFn: usersApi.confirmEmailChange,
+			onSuccess: (res) => {
+				if (!res.success) return;
+				queryClient.setQueryData(PROFILE_KEY, res.data);
+				setUser(res.data);
+			},
+		}),
+	};
+}
+
 export function useThemePreference() {
 	const { theme, setTheme } = useTheme();
 	const queryClient = useQueryClient();
@@ -102,6 +119,7 @@ export function useAdminUserActions() {
 	return {
 		create: useAdminUserAction(adminUsersApi.create),
 		update: useAdminUserAction((v: { id: string; body: AdminUpdateUserBody }) => adminUsersApi.update(v.id, v.body)),
+		setEmail: useAdminUserAction((v: { id: string; email: string }) => adminUsersApi.setEmail(v.id, v.email)),
 		setRole: useAdminUserAction((v: { id: string; role: Role }) => adminUsersApi.setRole(v.id, v.role)),
 		ban: useAdminUserAction((v: { id: string; reason?: string }) => adminUsersApi.ban(v.id, v.reason)),
 		unban: useAdminUserAction(adminUsersApi.unban),

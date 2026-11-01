@@ -9,6 +9,9 @@ import type {
 	InitPaymentBody,
 	InitPaymentResult,
 	Payment,
+	PaySavedCardBody,
+	PaySavedCardResult,
+	SavedCard,
 	RecordPaymentBody,
 	UpdatePaymentStatusBody,
 	VerifyPaymentResult,
@@ -20,6 +23,10 @@ const withMessages = <T>(request: Promise<ApiResponse<T>>) => request.then((res)
 export const paymentsApi = {
 	init: (body: InitPaymentBody, key?: string) => withMessages(API.post<InitPaymentResult>("/payments", body, withIdempotency(key))),
 	verify: (reference: string) => withMessages(API.get<VerifyPaymentResult>(`/payments/verify/${encodeURIComponent(reference)}`)),
+	cards: () => withMessages(API.get<SavedCard[]>("/payments/cards")),
+	setDefaultCard: (id: string) => withMessages(API.patch<SavedCard>(`/payments/cards/${id}/default`)),
+	removeCard: (id: string) => withMessages(API.delete<unknown>(`/payments/cards/${id}`)),
+	paySavedCard: (body: PaySavedCardBody, key?: string) => withMessages(API.post<PaySavedCardResult>("/payments/saved-card", body, withIdempotency(key))),
 	listMine: (params: { page?: number; limit?: number }) => withMessages(API.get<Payment[]>("/payments/me", { params })),
 };
 

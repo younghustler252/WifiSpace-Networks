@@ -333,6 +333,15 @@ async getAllHosts(router) {
 		return hosts?.[0] ?? null;
 	}
 
+	async removeMacBinding(router, macAddress) {
+		const binding = await this.findMacBinding(router, macAddress);
+		if (!binding) return { success: true, removed: false };
+
+		const request = HotspotCommands.removeMacBinding(binding[".id"]);
+		await this.mikrotikClient.execute(router, request.command, request.params);
+		return { success: true, removed: true };
+	}
+
 	async findMacBinding(
 		router,
 		macAddress

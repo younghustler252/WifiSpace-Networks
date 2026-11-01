@@ -5,7 +5,8 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff, requireSuperAdmin } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	createUserSchema, updateMyProfileSchema, changePasswordSchema,
-	updateRoleSchema, banUserSchema, adminUpdateUserSchema, adminSetPasswordSchema
+	updateRoleSchema, banUserSchema, adminUpdateUserSchema, adminSetPasswordSchema,
+	adminChangeEmailSchema, requestEmailChangeSchema, confirmEmailChangeSchema
 } from "../validators/user.validators.js";
 
 const router = Router();
@@ -22,6 +23,8 @@ router.use(authenticate);
 router.get("/me", asyncHandler(userController.getMyProfile));
 router.patch("/me", validate(updateMyProfileSchema), asyncHandler(userController.updateMyProfile));
 router.patch("/me/password", validate(changePasswordSchema), asyncHandler(userController.changePassword));
+router.post("/me/email/request", validate(requestEmailChangeSchema), asyncHandler(userController.requestEmailChange));
+router.post("/me/email/confirm", validate(confirmEmailChangeSchema), asyncHandler(userController.confirmEmailChange));
 router.post("/me/avatar", asyncHandler(userController.uploadAvatar));
 
 // ---- Admin ----
@@ -36,6 +39,7 @@ adminRouter.patch("/:id/role", requireSuperAdmin, validate(updateRoleSchema), as
 adminRouter.patch("/:id/ban", validate(banUserSchema), asyncHandler(adminController.banUser));
 adminRouter.patch("/:id/unban", asyncHandler(adminController.unbanUser));
 adminRouter.delete("/:id", asyncHandler(adminController.deleteUser));
+adminRouter.patch("/:id/email", validate(adminChangeEmailSchema), asyncHandler(adminController.changeUserEmail));
 adminRouter.patch("/:id/password", validate(adminSetPasswordSchema), asyncHandler(adminController.setUserPassword));
 adminRouter.post("/:id/impersonate", requireSuperAdmin, asyncHandler(adminController.impersonateUser));
 

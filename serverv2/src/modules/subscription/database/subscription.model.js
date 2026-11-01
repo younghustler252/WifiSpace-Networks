@@ -44,6 +44,12 @@ const subscriptionSchema = new mongoose.Schema(
 		renewalStrategy: { type: String, enum: RENEWAL_STRATEGY_LIST, default: "manual", index: true },
 		autoRenewEnabled: { type: Boolean, default: false, index: true },
 		nextRenewalDate: { type: Date, index: true },
+		autoRenewMethod: { type: String, enum: ["wallet", "card", "wallet_then_card"], default: "wallet" },
+		autoRenewCardId: { type: mongoose.Schema.Types.ObjectId, ref: "SavedCard", default: null },
+		autoRenewAttempts: { type: Number, default: 0 },
+		lastAutoRenewAttemptAt: { type: Date, default: null },
+		lastAutoRenewError: { type: String, default: null },
+		autoRenewFailureNotifiedAt: { type: Date, default: null },
 		lastRenewedAt: Date,
 
 		lastPaymentId: { type: mongoose.Schema.Types.ObjectId, ref: "Payment" },

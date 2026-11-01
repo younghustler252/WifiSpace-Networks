@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AutoRenewCard } from "@/features/subscriptions/components/auto-renew-card";
 import { SubscriptionHistory } from "@/features/subscriptions/components/subscription-history";
 import { useSubscriptions } from "@/features/subscriptions/hooks/use-subscriptions";
 import { listAccountSubscriptions, pickCurrentSubscription } from "@/features/subscriptions/lib/subscription-phase";
@@ -79,6 +80,7 @@ export function AccountDetail({ id }: { id: string }) {
 			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
 				<div className="space-y-4">
 					<AccountCard account={acc} subscription={current} showDetailsLink={false} />
+					{current && <AutoRenewCard subscription={current} />}
 					<SubscriptionHistory subscriptions={history} />
 				</div>
 				<div className="space-y-4">

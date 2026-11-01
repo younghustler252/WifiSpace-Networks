@@ -1,7 +1,8 @@
 import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
 
 export class FundWalletFromTransfer {
-	constructor({ walletRepository, userRepository, auditService }) {
+	constructor({ walletRepository, userRepository, auditService, autoRenewSubscriptions }) {
+		this.autoRenewSubscriptions = autoRenewSubscriptions;
 		this.userRepository = userRepository;
 		this.walletRepository = walletRepository;
 		this.auditService = auditService;
@@ -38,6 +39,11 @@ export class FundWalletFromTransfer {
 				actorId: null, actorType: "system", action: "WALLET_FUNDED", entity: "Wallet", entityId: wallet.id,
 				newValue: { amountKobo, reference }
 			});
+		}
+
+		if (!result.duplicate) {
+			this.autoRenewSubscriptions?.execute({ userId: wallet.userId, retryMs: 2 * 60 * 1000 })
+				.catch((error) => console.error("[FundWalletFromTransfer] Auto-renew check failed:", error.message));
 		}
 
 		return { handled: true, duplicate: result.duplicate, wallet: result.wallet };
