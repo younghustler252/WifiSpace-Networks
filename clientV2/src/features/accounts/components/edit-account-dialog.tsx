@@ -44,7 +44,7 @@ export function EditAccountDialog({ account, onClose }: { account: AdminAccount;
 	const moving = isPppoe && !!account.routerId && routerId !== account.routerId;
 
 	const options = (routers.data?.items ?? [])
-		.filter((r) => r.id === account.routerId || (r.isEnabled !== false && (r.supportedServices ?? []).includes("pppoe")))
+		.filter((r) => r.id === account.routerId || r.isEnabled !== false)
 		.sort((a, b) => Number(!!b.isDefaultRouter) - Number(!!a.isDefaultRouter));
 	const target = options.find((r) => r.id === routerId);
 	const targetIssue = moving && target ? describeRouterProblem(target) : null;
