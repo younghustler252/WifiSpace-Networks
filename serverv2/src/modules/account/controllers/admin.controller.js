@@ -4,8 +4,10 @@ export class AdminController {
 	constructor({
 		getAccountById, getAllAccounts, createAccount, approveAccount, rejectAccount,
 		suspendAccount, pauseAccount, resumeAccount, terminateAccount, transferAccount, syncIpoeToRouter, adoptIpoeAccount, deleteAccount,
-		changeWsnId, getRouterCredentials, setRouterPassword, changeAccessMethod
+		changeWsnId, getRouterCredentials, setRouterPassword, changeAccessMethod, updateAccount, reconcileIpoeAccounts
 	}) {
+		this.updateAccountUseCase = updateAccount;
+		this.reconcileIpoeAccountsUseCase = reconcileIpoeAccounts;
 		this.changeAccessMethodUseCase = changeAccessMethod;
 		this.changeWsnIdUseCase = changeWsnId;
 		this.getRouterCredentialsUseCase = getRouterCredentials;
@@ -68,6 +70,25 @@ export class AdminController {
 	setRouterPassword = async (req, res) => {
 		const result = await this.setRouterPasswordUseCase.execute({ actorId: req.user.id, accountId: req.params.id, password: req.body.password, ip: req.ip });
 		return successResponse({ res, data: result, message: result.generated ? "Router password generated" : "Router password updated" });
+	};
+
+	updateAccount = async (req, res) => {
+		const result = await this.updateAccountUseCase.execute({ actorId: req.user.id, accountId: req.params.id, ...req.body, ip: req.ip });
+		return successResponse({
+			res,
+			data: { account: result.account.toJSON(), provisioning: result.provisioning },
+			message: result.provisioning.status === "pending" ? "Account updated. The router change is running." : "Account updated"
+		});
+	};
+
+	reconcileIpoeAccounts = async (req, res) => {
+		const result = await this.reconcileIpoeAccountsUseCase.execute({ ...req.body });
+		return successResponse({ res, data: result, message: result.summary.mode === "applied" ? "IPoE accounts synced from the routers" : "Preview ready. Nothing was changed." });
+	};
+
+	reconcileOneIpoeAccount = async (req, res) => {
+		const result = await this.reconcileIpoeAccountsUseCase.execute({ ...req.body, accountId: req.params.id });
+		return successResponse({ res, data: result, message: result.summary.mode === "applied" ? "Account synced from the router" : "Preview ready. Nothing was changed." });
 	};
 
 	changeAccessMethod = async (req, res) => {

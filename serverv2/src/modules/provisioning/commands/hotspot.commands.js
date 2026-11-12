@@ -13,13 +13,16 @@ export class HotspotCommands {
 		username,
 		password,
 		profile = "default",
-		limitUptime
+		limitUptime,
+		comment = null
 	}) {
 		const params = [
 			`=name=${username}`,
 			`=password=${password}`,
 			`=profile=${profile}`
 		];
+
+		if (comment) params.push(`=comment=${comment}`);
 
 		if (limitUptime && Number(limitUptime) > 0) {
 			params.push(
@@ -43,12 +46,15 @@ export class HotspotCommands {
 	static updateUser({
 		id,
 		profile = "default",
-		limitUptime
+		limitUptime,
+		comment = null
 	}) {
 		const params = [
 			`=.id=${id}`,
 			`=profile=${profile}`
 		];
+
+		if (comment) params.push(`=comment=${comment}`);
 
 		if (limitUptime && Number(limitUptime) > 0) {
 			params.push(

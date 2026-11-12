@@ -27,7 +27,7 @@ export class ReconcileIpoeAccounts {
 		this.auditService = auditService;
 	}
 
-	async execute({ routerFilter = null, apply = false, fixWsnIds = false } = {}) {
+	async execute({ routerFilter = null, apply = false, fixWsnIds = false, accountId = null } = {}) {
 		const [pppoeAccounts, hotspotAccounts, plans, routers] = await Promise.all([
 			this.accountRepository.findAllByServiceType(SERVICE_TYPES.PPPOE),
 			this.accountRepository.findAllByServiceType(SERVICE_TYPES.HOTSPOT),
@@ -44,7 +44,7 @@ export class ReconcileIpoeAccounts {
 
 		const rows = [];
 		const candidates = [];
-		let complete = !routerFilter;
+		let complete = !routerFilter && !accountId;
 
 		for (const router of routers) {
 			const fetched = await this._fetchRouterUsers(router);
@@ -60,13 +60,16 @@ export class ReconcileIpoeAccounts {
 
 		this._flagDuplicates(candidates);
 
-		for (const candidate of candidates) {
+		const selected = accountId ? candidates.filter((candidate) => candidate.account?.id === accountId) : candidates;
+
+		for (const candidate of selected) {
 			rows.push(await this._process(candidate, { apply, fixWsnIds }));
 		}
 
 		return {
 			summary: this._summarize(rows, apply),
 			complete,
+			found: accountId ? selected.length > 0 : null,
 			rows,
 			notFound: complete ? this._notFound(pppoeAccounts, candidates) : null
 		};

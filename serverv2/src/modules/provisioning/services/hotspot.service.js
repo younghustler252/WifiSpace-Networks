@@ -20,7 +20,8 @@ async getAllHosts(router) {
 			username: account.wsnId,
 			password: account.routerPassword,
 			profile: account.routerProfile,
-			limitUptime: account.limitUptime
+			limitUptime: account.limitUptime,
+			comment: account.routerComment
 		});
 
 		return this.mikrotikClient.execute(
@@ -45,7 +46,8 @@ async getAllHosts(router) {
 		const request = HotspotCommands.updateUser({
 			id: user[".id"],
 			profile: account.routerProfile,
-			limitUptime: account.limitUptime
+			limitUptime: account.limitUptime,
+			comment: user.comment ? null : account.routerComment
 		});
 
 		return this.mikrotikClient.execute(
@@ -168,7 +170,7 @@ async getAllHosts(router) {
 
 	async bindMac(
 		router,
-		{ username, macAddress }
+		{ username, macAddress, account = null }
 	) {
 		const existing =
 			await this.findMacBinding(
@@ -183,7 +185,7 @@ async getAllHosts(router) {
 		const request =
 			HotspotCommands.addMacBinding({
 				macAddress,
-				comment: username
+				comment: account?.routerComment ? `${username} - ${account.routerComment}` : username
 			});
 
 		return this.mikrotikClient.execute(

@@ -1,5 +1,18 @@
+const MAC_PATTERN = /^([0-9A-F]{2}:){5}[0-9A-F]{2}$/;
+
+function normalizeMac(value) {
+	if (!value) return null;
+	const mac = String(value).trim().toUpperCase().replace(/-/g, ":");
+	return MAC_PATTERN.test(mac) ? mac : null;
+}
+
+function cleanComment(value) {
+	return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
 export class MikrotikManager {
-	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, routerProvisioningRepository }) {
+	constructor({ accountRepository, routerRepository, hotspotService, pppoeService, routerProvisioningRepository, userRepository }) {
+		this.userRepository = userRepository;
 		this.accountRepository = accountRepository;
 		this.routerRepository = routerRepository;
 		this.hotspotService = hotspotService;
@@ -8,7 +21,9 @@ export class MikrotikManager {
 	}
 
 	async provision(subscription, metadata = {}) {
-		const { account, router } = await this.loadContext(subscription, metadata, { withPassword: true });
+		const context = await this.loadContext(subscription, metadata, { withPassword: true });
+		const { account } = context;
+		let { router } = context;
 
 		const planSnapshot = subscription.planSnapshot || {};
 		const profile = this._profileFor(account, planSnapshot);
@@ -19,7 +34,28 @@ export class MikrotikManager {
 		}
 
 		const service = this.getService(account);
-		const exists = await service.userExists(router, account.wsnId);
+		let exists = await service.userExists(router, account.wsnId);
+
+		if (!exists && account.accessMethod === "ipoe") {
+			const found = await this._locateIpoeUser(account, [router.id, metadata.fromRouterId]);
+			if (found) {
+				router = found.router;
+				exists = true;
+				const changes = { routerId: found.router.id };
+				if (!account.macAddress && found.macAddress) changes.macAddress = found.macAddress;
+				await this.accountRepository.update(account.id, changes);
+				Object.assign(account, changes);
+			}
+		}
+
+		if (exists && account.accessMethod === "ipoe" && !account.macAddress) {
+			const existing = await service.getUser(router, account.wsnId);
+			const mac = normalizeMac(existing?.["mac-address"]);
+			if (mac) {
+				await this.accountRepository.update(account.id, { macAddress: mac });
+				account.macAddress = mac;
+			}
+		}
 
 		if (!exists) {
 			await service.createUser(router, account);
@@ -36,7 +72,7 @@ export class MikrotikManager {
 			if (!account.macAddress) throw new Error(`IPoE account ${account.id} has no MAC address`);
 
 			await service.setUserMac(router, { username: account.wsnId, macAddress: account.macAddress });
-			await service.bindMac(router, { username: account.wsnId, macAddress: account.macAddress });
+			await service.bindMac(router, { username: account.wsnId, macAddress: account.macAddress, account });
 
 			return { autoConnected: true, method: "mac_bypass" };
 		}
@@ -96,6 +132,72 @@ export class MikrotikManager {
 		}
 
 		return service.removeUser(router, account.wsnId);
+	}
+
+	async _commentFor(account) {
+		try {
+			const user = await this.userRepository.findById(account.userId);
+			return cleanComment([user?.firstName, user?.lastName].filter(Boolean).join(" "));
+		} catch {
+			return "";
+		}
+	}
+
+	async _locateIpoeUser(account, excludeRouterIds = []) {
+		const excluded = new Set(excludeRouterIds.filter(Boolean).map(String));
+		const available = await this.routerRepository.findAvailableRouters();
+
+		for (const candidate of available) {
+			if (excluded.has(String(candidate.id))) continue;
+
+			const router = await this.routerRepository.findById(candidate.id);
+			if (!router || router.credentialsMissing) continue;
+
+			try {
+				const user = await this.hotspotService.getUser(router, account.wsnId);
+				if (user) return { router, macAddress: normalizeMac(user["mac-address"]) };
+			} catch (error) {
+				console.error(`[MikrotikManager] Could not search ${router.code} for ${account.wsnId}: ${error.message}`);
+			}
+		}
+
+		return null;
+	}
+
+	async moveRouter(subscription, metadata = {}) {
+		const fromRouterId = metadata.fromRouterId;
+		if (!fromRouterId) throw new Error("fromRouterId is required");
+
+		const account = await this.accountRepository.findById(subscription.accountId);
+		if (!account) throw new Error("Account not found");
+
+		let result = { success: true };
+		if (metadata.provisionNew) result = await this.provision(subscription, metadata);
+
+		const current = await this.accountRepository.findById(subscription.accountId);
+		if (String(current.routerId) === String(fromRouterId)) return result;
+
+		try {
+			const oldRouter = await this.routerRepository.findById(fromRouterId);
+			if (!oldRouter) return { ...result, removedFromOld: false, removalError: "old_router_not_found" };
+
+			const service = this.getService(account);
+
+			if (await service.userExists(oldRouter, account.wsnId)) {
+				if (account.accessMethod === "ipoe") {
+					const mac = metadata.previousMacAddress ?? account.macAddress;
+					if (mac && service.removeMacBinding) await service.removeMacBinding(oldRouter, mac);
+				} else {
+					await service.disconnectUser(oldRouter, account.wsnId).catch(() => {});
+				}
+				await service.removeUser(oldRouter, account.wsnId);
+			}
+
+			return { ...result, removedFromOld: true };
+		} catch (error) {
+			console.error(`[MikrotikManager] Could not clean ${account.wsnId} from the old router: ${error.message}`);
+			return { ...result, removedFromOld: false, removalError: error.message };
+		}
 	}
 
 	async switchAccessMethod(subscription, metadata = {}) {
@@ -160,6 +262,8 @@ export class MikrotikManager {
 
 		const router = await this.routerRepository.findById(routerId);
 		if (!router) throw new Error("Router not found");
+
+		account.routerComment = await this._commentFor(account);
 
 		if (withPassword && !account.routerPassword) {
 			const credentials = await this.accountRepository.ensureRouterCredentials(account.id);

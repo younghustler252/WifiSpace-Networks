@@ -5,7 +5,7 @@ import { validate } from "../../../infrastructure/middleware/validate.middleware
 import { requireStaff, requireSuperAdmin, requireOwnerOrStaff } from "../../../infrastructure/middleware/rbac.middleware.js";
 import {
 	requestAccountSchema, adminCreateAccountSchema, rejectAccountSchema,
-	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema, changeAccessMethodSchema
+	pauseAccountSchema, transferAccountSchema, addDeviceSchema, adoptIpoeAccountSchema, changeWsnIdSchema, setRouterPasswordSchema, changeAccessMethodSchema, updateAccountSchema, reconcileIpoeSchema
 } from "../validators/account.validators.js";
 
 const router = Router();
@@ -30,7 +30,10 @@ adminRouter.use(requireStaff);
 adminRouter.get("/", asyncHandler(adminController.getAllAccounts));
 adminRouter.post("/", validate(adminCreateAccountSchema), asyncHandler(adminController.createAccount));
 adminRouter.get("/:id", asyncHandler(adminController.getAccountById));
+adminRouter.post("/ipoe/reconcile", requireSuperAdmin, validate(reconcileIpoeSchema), asyncHandler(adminController.reconcileIpoeAccounts));
 adminRouter.post("/ipoe/adopt", requireSuperAdmin, validate(adoptIpoeAccountSchema), asyncHandler(adminController.adoptIpoeAccount));
+adminRouter.patch("/:id", validate(updateAccountSchema), asyncHandler(adminController.updateAccount));
+adminRouter.post("/:id/ipoe/reconcile", validate(reconcileIpoeSchema), asyncHandler(adminController.reconcileOneIpoeAccount));
 adminRouter.patch("/:id/wsn-id", validate(changeWsnIdSchema), asyncHandler(adminController.changeWsnId));
 adminRouter.get("/:id/router-credentials", asyncHandler(adminController.getRouterCredentials));
 adminRouter.put("/:id/router-password", validate(setRouterPasswordSchema), asyncHandler(adminController.setRouterPassword));

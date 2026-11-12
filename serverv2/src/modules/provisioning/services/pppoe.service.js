@@ -9,7 +9,8 @@ export class PppoeService {
 		const request = PppoeCommands.createUser({
 			username: account.wsnId,
 			password: account.routerPassword,
-			profile: account.routerProfile
+			profile: account.routerProfile,
+			comment: account.routerComment
 		});
 
 		return this.mikrotikClient.execute(
@@ -33,7 +34,8 @@ export class PppoeService {
 
 		const request = PppoeCommands.updateUser({
 			id: user[".id"],
-			profile: account.routerProfile
+			profile: account.routerProfile,
+			comment: user.comment ? null : account.routerComment
 		});
 
 		return this.mikrotikClient.execute(

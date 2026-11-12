@@ -47,6 +47,31 @@ export const changeWsnIdSchema = z.object({
 	force: z.boolean().optional()
 });
 
+export const updateAccountSchema = z.object({
+	routerId: z.string().min(1).optional(),
+	routerProfile: z.string().trim().min(1).max(60).optional(),
+	accountType: z.enum(ACCOUNT_TYPE_LIST).optional(),
+	businessName: z.string().trim().max(120).optional(),
+	companyRegistrationNumber: z.string().trim().max(60).optional(),
+	taxId: z.string().trim().max(60).optional(),
+	limitUptime: z.number().int().min(0).optional(),
+	staticIp: z.string().refine((value) => isIP(value) === 4, "Enter a valid IPv4 address").optional(),
+	maxDevices: z.number().int().min(1).max(20).optional(),
+	requestedLocation: z.object({
+		address: z.string().min(1),
+		landmark: z.string().optional(),
+		city: z.string().optional(),
+		state: z.string().optional(),
+		coordinates: z.object({ lat: z.number(), lng: z.number() }).optional()
+	}).optional()
+}).strict();
+
+export const reconcileIpoeSchema = z.object({
+	routerFilter: z.string().min(1).optional(),
+	apply: z.boolean().optional(),
+	fixWsnIds: z.boolean().optional()
+});
+
 export const changeAccessMethodSchema = z.object({
 	accessMethod: z.enum(["ppp", "ipoe"]),
 	macAddress: z.string().optional(),

@@ -31,6 +31,14 @@ export class NetworkExecutor {
 		}
 	}
 
+	moveRouter(subscription, metadata = {}) {
+		if (metadata.provisionNew) {
+			return this._execute(subscription, () => this.mikrotikManager.moveRouter(subscription, metadata));
+		}
+
+		return this._attempt(() => this.mikrotikManager.moveRouter(subscription, metadata));
+	}
+
 	switchAccessMethod(subscription, metadata = {}) {
 		if (metadata.provisionNew) {
 			return this._execute(subscription, () => this.mikrotikManager.switchAccessMethod(subscription, metadata));

@@ -2,17 +2,19 @@ export class PppoeCommands {
 	static createUser({
 		username,
 		password,
-		profile = "default"
+		profile = "default",
+		comment = null
 	}) {
-		return {
-			command: "/ppp/secret/add",
-			params: [
-				`=name=${username}`,
-				`=password=${password}`,
-				"=service=pppoe",
-				`=profile=${profile}`
-			]
-		};
+		const params = [
+			`=name=${username}`,
+			`=password=${password}`,
+			"=service=pppoe",
+			`=profile=${profile}`
+		];
+
+		if (comment) params.push(`=comment=${comment}`);
+
+		return { command: "/ppp/secret/add", params };
 	}
 
 	static findUser(username) {
@@ -24,15 +26,17 @@ export class PppoeCommands {
 
 	static updateUser({
 		id,
-		profile = "default"
+		profile = "default",
+		comment = null
 	}) {
-		return {
-			command: "/ppp/secret/set",
-			params: [
-				`=.id=${id}`,
-				`=profile=${profile}`
-			]
-		};
+		const params = [
+			`=.id=${id}`,
+			`=profile=${profile}`
+		];
+
+		if (comment) params.push(`=comment=${comment}`);
+
+		return { command: "/ppp/secret/set", params };
 	}
 
 	static changePassword({
