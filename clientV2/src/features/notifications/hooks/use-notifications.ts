@@ -35,6 +35,39 @@ export function useHasUnread() {
 	return useUnreadCount().count > 0;
 }
 
+export function useMarkAllRead() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: async (unreadIds: string[]) => {
+			const res = await notificationsApi.markAllRead();
+			if (res.success) return res;
+			if (res.status !== 404 && res.code !== "NOT_FOUND") return res;
+
+			const results = await Promise.all(unreadIds.map((id) => notificationsApi.markRead(id)));
+			return results.find((r) => !r.success) ?? results[0] ?? res;
+		},
+		onMutate: async () => {
+			await queryClient.cancelQueries({ queryKey: NOTIFICATIONS_KEY });
+			const previous = queryClient.getQueriesData<NotificationsPage>({ queryKey: NOTIFICATIONS_KEY });
+			const now = new Date().toISOString();
+
+			queryClient.setQueriesData<NotificationsPage>({ queryKey: NOTIFICATIONS_KEY }, (old) =>
+				old ? { ...old, items: old.items.map((n) => (n.isRead ? n : { ...n, status: "READ", readAt: now, isRead: true })) } : old
+			);
+
+			return { previous };
+		},
+		onSuccess: (res, _ids, context) => {
+			if (!res.success) context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+		},
+		onError: (_error, _ids, context) => {
+			context?.previous.forEach(([key, data]) => queryClient.setQueryData(key, data));
+		},
+		onSettled: () => queryClient.invalidateQueries({ queryKey: NOTIFICATIONS_KEY }),
+	});
+}
+
 export function useMarkNotificationRead() {
 	const queryClient = useQueryClient();
 

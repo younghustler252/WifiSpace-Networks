@@ -27,13 +27,25 @@ export const ACCOUNT_ERROR_CODES = {
 	MAC_ADDRESS_INVALID: "MAC_ADDRESS_INVALID",
 	IPOE_PROFILE_MISSING: "IPOE_PROFILE_MISSING",
 	PPP_PROFILE_MISSING: "PPP_PROFILE_MISSING",
+	ROUTER_MOVE_NOT_SUPPORTED: "ROUTER_MOVE_NOT_SUPPORTED",
+	ROUTER_DISABLED: "ROUTER_DISABLED",
+	ROUTER_SERVICE_NOT_SUPPORTED: "ROUTER_SERVICE_NOT_SUPPORTED",
+	SUBSCRIPTION_SUSPENDED: "SUBSCRIPTION_SUSPENDED",
+	FIELD_NOT_EDITABLE: "FIELD_NOT_EDITABLE",
+	NOTHING_TO_UPDATE: "NOTHING_TO_UPDATE",
 } as const;
 
 export const ACCOUNT_ERROR_MESSAGES: Record<string, string> = {
 	[ACCOUNT_ERROR_CODES.ACCESS_METHOD_UNCHANGED]: "This account already uses that access method.",
 	[ACCOUNT_ERROR_CODES.ACCESS_METHOD_NOT_SUPPORTED]: "Hotspot accounts don't have an access method.",
 	[ACCOUNT_ERROR_CODES.ACCOUNT_HAS_NO_ROUTER]: "Assign a router to this account first.",
-	[ACCOUNT_ERROR_CODES.MAC_ADDRESS_INVALID]: "Enter a valid MAC address, like AA:BB:CC:DD:EE:FF.",
+	[ACCOUNT_ERROR_CODES.MAC_ADDRESS_INVALID]: "This account has no valid MAC address. Add it first.",
+	[ACCOUNT_ERROR_CODES.ROUTER_MOVE_NOT_SUPPORTED]: "Hotspot accounts can't be moved to another router.",
+	[ACCOUNT_ERROR_CODES.ROUTER_DISABLED]: "That router is switched off. Pick another one or enable it first.",
+	[ACCOUNT_ERROR_CODES.ROUTER_SERVICE_NOT_SUPPORTED]: "That router isn't set up for home internet. Enable it for home internet first.",
+	[ACCOUNT_ERROR_CODES.SUBSCRIPTION_SUSPENDED]: "This customer's plan is suspended. Resume it before moving them.",
+	[ACCOUNT_ERROR_CODES.FIELD_NOT_EDITABLE]: "That can't be changed on this kind of account.",
+	[ACCOUNT_ERROR_CODES.NOTHING_TO_UPDATE]: "Nothing was changed.",
 	[ACCOUNT_ERROR_CODES.IPOE_PROFILE_MISSING]: "This customer's plan has no IPoE profile. Set one on the plan first.",
 	[ACCOUNT_ERROR_CODES.PPP_PROFILE_MISSING]: "This customer's plan has no PPP profile. Set one on the plan first.",
 };

@@ -138,6 +138,7 @@ export interface RouterPasswordResult {
 }
 
 export interface UpdateAccountBody {
+	macAddress?: string;
 	routerId?: string;
 	routerProfile?: string;
 	accountType?: "personal" | "business";
@@ -148,6 +149,41 @@ export interface UpdateAccountBody {
 	staticIp?: string;
 	maxDevices?: number;
 	requestedLocation?: RequestedLocation;
+}
+
+export type IpoeRowStatus = "would_link" | "linked" | "already_linked" | "skipped" | "unmatched" | "failed" | "router_failed";
+
+export interface IpoeReconcileRow {
+	router: string;
+	wsnId: string | null;
+	status: IpoeRowStatus;
+	reason?: string;
+	macAddress?: string | null;
+	changes?: Record<string, string>;
+	drift?: string;
+}
+
+export interface IpoeReconcileBody {
+	apply: boolean;
+	routerFilter?: string;
+	fixWsnIds?: boolean;
+}
+
+export interface IpoeReconcileResult {
+	summary: {
+		mode: "dry-run" | "apply" | (string & {});
+		linked: number;
+		wouldLink: number;
+		alreadyLinked: number;
+		unmatchedOnRouter: number;
+		failed: number;
+		skipped: Record<string, number>;
+		drift: Record<string, number>;
+	};
+	complete: boolean;
+	found: boolean | null;
+	rows: IpoeReconcileRow[];
+	notFound: string[];
 }
 
 export interface UpdateAccountResult {

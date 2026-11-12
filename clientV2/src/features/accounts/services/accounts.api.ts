@@ -2,7 +2,7 @@ import { API } from "@/lib/api/api-client";
 import { friendly } from "@/lib/api/friendly";
 import { ROUTER_ERROR_MESSAGES } from "@/features/routers/constants";
 import { ACCOUNT_ERROR_MESSAGES } from "../constants";
-import type { Account, AdminAccount, AdminAccountCreated, ChangeAccessMethodBody, ChangeAccessMethodResult, ChangeWsnIdBody, ChangeWsnIdResult, RouterCredentialsView, RouterPasswordResult, AdminAccountListParams, RequestAccountBody, UpdateAccountBody, UpdateAccountResult } from "../types/accounts.types";
+import type { Account, AdminAccount, AdminAccountCreated, ChangeAccessMethodBody, ChangeAccessMethodResult, ChangeWsnIdBody, ChangeWsnIdResult, RouterCredentialsView, RouterPasswordResult, AdminAccountListParams, RequestAccountBody, UpdateAccountBody, UpdateAccountResult, IpoeReconcileBody, IpoeReconcileResult } from "../types/accounts.types";
 import { AdminCreateAccountBody, AdminAccountDetailResponse } from "../types/accounts.types";
 
 export const accountsApi = {
@@ -20,13 +20,16 @@ const ADMIN = "/accounts/admin";
 export const adminAccountsApi = {
 
 	create: (body: AdminCreateAccountBody) => API.post<AdminAccountCreated>(ADMIN, body),
+	reconcileIpoe: async (id: string, body: IpoeReconcileBody) =>
+		friendly(await API.post<IpoeReconcileResult>(`${ADMIN}/${id}/ipoe/reconcile`, { apply: body.apply }), ACCOUNT_ERROR_MESSAGES),
+	reconcileAllIpoe: async (body: IpoeReconcileBody) => friendly(await API.post<IpoeReconcileResult>(`${ADMIN}/ipoe/reconcile`, body), ACCOUNT_ERROR_MESSAGES),
 	changeAccessMethod: async (id: string, body: ChangeAccessMethodBody) =>
 		friendly(await API.patch<ChangeAccessMethodResult>(`${ADMIN}/${id}/access-method`, body), ACCOUNT_ERROR_MESSAGES),
 	changeWsnId: (id: string, body: ChangeWsnIdBody) => API.patch<ChangeWsnIdResult>(`${ADMIN}/${id}/wsn-id`, body),
 	routerCredentials: (id: string) => API.get<RouterCredentialsView>(`${ADMIN}/${id}/router-credentials`),
 	setRouterPassword: (id: string, password?: string) => API.put<RouterPasswordResult>(`${ADMIN}/${id}/router-password`, password ? { password } : {}),
 	update: async (id: string, body: UpdateAccountBody) =>
-	friendly(await API.patch<UpdateAccountResult>(`${ADMIN}/${id}`, body), ROUTER_ERROR_MESSAGES),
+	friendly(await API.patch<UpdateAccountResult>(`${ADMIN}/${id}`, body), { ...ROUTER_ERROR_MESSAGES, ...ACCOUNT_ERROR_MESSAGES }),
 	get: (id: string) => API.get<AdminAccountDetailResponse>(`${ADMIN}/${id}`),
 	list: (params: AdminAccountListParams) => API.get<AdminAccount[]>(ADMIN, { params }),
 	approve: (id: string, body: { routerId?: string }) =>

@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, WifiOff } from "lucide-react";
+import { Bell, CheckCheck, Loader2, WifiOff } from "lucide-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { SimplePagination } from "@/components/shared/simple-pagination";
 import { StatusMessage } from "@/components/shared/status-message";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMarkNotificationRead, useNotifications } from "../hooks/use-notifications";
+import { useMarkAllRead, useMarkNotificationRead, useNotifications } from "../hooks/use-notifications";
 import { getNotificationHref } from "../lib/notification-meta";
 import type { NotificationItem } from "../types/notifications.types";
 import { NotificationRow } from "./notification-row";
@@ -19,11 +20,19 @@ export function NotificationsList() {
 	const [page, setPage] = useState(1);
 	const { data, isLoading, isError, isPlaceholderData, refetch } = useNotifications(page);
 	const markRead = useMarkNotificationRead();
+	const markAll = useMarkAllRead();
+	const unreadIds = (data?.items ?? []).filter((n) => !n.isRead).map((n) => n.id);
 
 	function open(item: NotificationItem) {
 		if (!item.isRead) markRead.mutate(item.id);
 		const href = getNotificationHref(item);
 		if (href) router.push(href);
+	}
+
+	async function markAllAsRead() {
+		const res = await markAll.mutateAsync(unreadIds);
+		if (res.success) toast.success("All notifications marked as read");
+		else toast.error(res.message);
 	}
 
 	function renderBody() {
@@ -55,6 +64,12 @@ export function NotificationsList() {
 					title="Inbox"
 					description={data.meta ? `${data.meta.total} notification${data.meta.total === 1 ? "" : "s"}` : undefined}
 					className="overflow-hidden"
+					actions={
+						<Button variant="outline" size="sm" className="bg-surface-2" disabled={unreadIds.length === 0 || markAll.isPending} onClick={markAllAsRead}>
+							{markAll.isPending ? <Loader2 className="animate-spin" /> : <CheckCheck />}
+							Mark all as read
+						</Button>
+					}
 				>
 					<ul className="-m-4 divide-y">
 						{data.items.map((item) => (

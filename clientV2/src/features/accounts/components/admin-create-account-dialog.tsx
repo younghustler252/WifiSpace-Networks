@@ -9,6 +9,7 @@ import { Field } from "@/components/shared/field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRouters } from "@/features/routers/hooks/use-routers";
 import { UserSelect } from "@/features/users/components/user-select";
@@ -18,7 +19,9 @@ import { useAdminAccountActions } from "../hooks/use-accounts";
 import { AdminCreateAccountValues, adminCreateAccountSchema } from "../schemas/accounts.schemas";
 import type { AdminAccountCreated } from "../types/accounts.types";
 import { ACCOUNT_ERROR_CODES } from "../constants";
+import { parseMac } from "../lib/mac";
 import { CredentialsBox } from "./account-credentials";
+import { MacInput } from "./mac-input";
 
 export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?: UserProfile; onClose: () => void }) {
 	const { create } = useAdminAccountActions();
@@ -31,6 +34,7 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 		control,
 		handleSubmit,
 		watch,
+		setValue,
 		setError,
 		formState: { errors, isSubmitting },
 	} = useForm<AdminCreateAccountValues>({
@@ -44,6 +48,7 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 			routerId: "",
 			accessMethod: "ipoe",
 			macAddress: "",
+			macPending: false,
 			staticIp: "",
 			maxDevices: "",
 			wsnId: "",
@@ -54,6 +59,7 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 	const serviceType = watch("serviceType");
 	const accountType = watch("accountType");
 	const accessMethod = watch("accessMethod");
+	const macPending = watch("macPending");
 	const isPppoe = serviceType === "pppoe";
 
 	const routers = useRouters({ limit: 100 }, isPppoe);
@@ -77,7 +83,7 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 			taxId: isBusiness && values.taxId ? values.taxId : undefined,
 			routerId: isPppoe ? values.routerId : undefined,
 			accessMethod: isPppoe ? values.accessMethod : undefined,
-			macAddress: isPppoe && values.accessMethod === "ipoe" ? values.macAddress.replace(/-/g, ":").toUpperCase() : undefined,
+			macAddress: isPppoe && values.accessMethod === "ipoe" && !values.macPending ? (parseMac(values.macAddress) ?? undefined) : undefined,
 			staticIp: isPppoe && values.staticIp ? values.staticIp : undefined,
 			maxDevices: !isPppoe && values.maxDevices ? Number(values.maxDevices) : undefined,
 			wsnId: values.wsnId ? values.wsnId.toUpperCase() : undefined,
@@ -257,16 +263,26 @@ export function AdminCreateAccountDialog({ user: presetUser, onClose }: { user?:
 							</Field>
 
 							{accessMethod === "ipoe" && (
-								<Field label="Customer router MAC address" htmlFor="create-mac" error={errors.macAddress?.message}>
-									<Input
-										id="create-mac"
-										placeholder="AA:BB:CC:DD:EE:FF"
-										autoCapitalize="characters"
-										autoComplete="off"
-										aria-invalid={!!errors.macAddress}
-										{...register("macAddress")}
-									/>
-								</Field>
+								<div className="space-y-3">
+									{!macPending && (
+										<Field label="Customer router MAC address" htmlFor="create-mac" error={errors.macAddress?.message}>
+											<Controller
+												control={control}
+												name="macAddress"
+												render={({ field }) => <MacInput id="create-mac" value={field.value} onChange={field.onChange} invalid={!!errors.macAddress} />}
+											/>
+										</Field>
+									)}
+									<label className="flex min-h-11 items-center justify-between gap-3 rounded-lg border bg-surface-2 px-3 text-sm">
+										<span>
+											I don&apos;t have the MAC yet
+											<span className="block text-[12px] text-muted-foreground">
+												{macPending ? "The account is created without one. Add it later from the account page." : "Switch on if the installer hasn't read it yet."}
+											</span>
+										</span>
+										<Switch checked={macPending} onCheckedChange={(checked) => setValue("macPending", checked, { shouldValidate: true })} />
+									</label>
+								</div>
 							)}
 
 							<Field label="Static IP (optional)" htmlFor="create-ip" error={errors.staticIp?.message} hint="For reference only.">

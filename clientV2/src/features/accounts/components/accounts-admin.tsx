@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Network, Plus, Search, WifiOff } from "lucide-react";
+import { Network, Plus, RefreshCw, Search, WifiOff } from "lucide-react";
 import { FILTER_ALL as ALL, FilterSelect } from "@/components/shared/filter-select";
+import { Can } from "@/components/shared/can";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionCard } from "@/components/shared/section-card";
 import { SimplePagination } from "@/components/shared/simple-pagination";
@@ -18,6 +19,7 @@ import type { AccountAction } from "./account-actions-menu";
 import { AccountActionDialog } from "./account-dialogs";
 import { AdminAccountsTable } from "./admin-accounts-table";
 import { AdminCreateAccountDialog } from "./admin-create-account-dialog";
+import { SyncFromRouterDialog } from "./ipoe-card";
 
 export function AccountsAdmin() {
 	const [search, setSearch] = useState("");
@@ -26,6 +28,7 @@ export function AccountsAdmin() {
 	const [approval, setApproval] = useState(ALL);
 	const [page, setPage] = useState(1);
 	const [creating, setCreating] = useState(false);
+	const [syncingAll, setSyncingAll] = useState(false);
 	const [dialog, setDialog] = useState<{ action: AccountAction; account: AdminAccount } | null>(null);
 	const debouncedSearch = useDebouncedValue(search, 350);
 
@@ -98,10 +101,18 @@ export function AccountsAdmin() {
 				title="Accounts"
 				description="PPPoE lines and hotspot identities across all customers."
 				actions={
-					<Button onClick={() => setCreating(true)}>
-						<Plus />
-						Create account
-					</Button>
+					<div className="flex flex-wrap gap-2">
+						<Can permission="accounts:sync-ipoe">
+							<Button variant="outline" className="bg-surface-2" onClick={() => setSyncingAll(true)}>
+								<RefreshCw />
+								Sync IPoE
+							</Button>
+						</Can>
+						<Button onClick={() => setCreating(true)}>
+							<Plus />
+							Create account
+						</Button>
+					</div>
 				}
 			/>
 
@@ -125,6 +136,7 @@ export function AccountsAdmin() {
 
 			{dialog && <AccountActionDialog action={dialog.action} account={dialog.account} onClose={() => setDialog(null)} />}
 
+			{syncingAll && <SyncFromRouterDialog onClose={() => setSyncingAll(false)} />}
 			{creating && <AdminCreateAccountDialog onClose={() => setCreating(false)} />}
 		</div>
 	);

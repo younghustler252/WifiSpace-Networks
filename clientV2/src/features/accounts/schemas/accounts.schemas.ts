@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { macMessage, parseMac } from "../lib/mac";
 
 const IPV4 = /^(\d{1,3}\.){3}\d{1,3}$/;
 const isInt = (value: string, min: number) => Number.isInteger(Number(value)) && Number(value) >= min;
@@ -69,11 +70,10 @@ export const addDeviceSchema = z.object({
 	macAddress: z
 		.string()
 		.trim()
-		.regex(/^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/, "Use the format AA:BB:CC:DD:EE:FF"),
+		.refine((value) => parseMac(value) !== null, "A MAC address has exactly 12 characters, 0-9 and A-F"),
 	hostname: z.string().trim().max(60, "Keep it under 60 characters").optional().or(z.literal("")),
 });
 
-const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
 export const WSN_ID_PATTERN = /^[A-Za-z][A-Za-z0-9-]{2,19}$/;
 const IPV4_PATTERN = /^(\d{1,3}\.){3}\d{1,3}$/;
 
@@ -87,6 +87,7 @@ export const adminCreateAccountSchema = z
 		routerId: z.string(),
 		accessMethod: z.enum(["ipoe", "ppp"]),
 		macAddress: z.string().trim(),
+		macPending: z.boolean(),
 		staticIp: z.string().trim(),
 		maxDevices: z.string().trim(),
 		wsnId: z.string().trim(),
@@ -107,8 +108,9 @@ export const adminCreateAccountSchema = z
 			ctx.addIssue({ code: "custom", path: ["routerPassword"], message: "Use 6 to 64 characters with no spaces" });
 		}
 		if (!v.routerId) ctx.addIssue({ code: "custom", path: ["routerId"], message: "Choose a router" });
-		if (v.accessMethod === "ipoe" && !MAC_PATTERN.test(v.macAddress)) {
-			ctx.addIssue({ code: "custom", path: ["macAddress"], message: "Enter the customer router's MAC like AA:BB:CC:DD:EE:FF" });
+		if (v.accessMethod === "ipoe" && !v.macPending) {
+			const message = macMessage(v.macAddress);
+			if (message) ctx.addIssue({ code: "custom", path: ["macAddress"], message });
 		}
 		if (v.staticIp && !IPV4_PATTERN.test(v.staticIp)) {
 			ctx.addIssue({ code: "custom", path: ["staticIp"], message: "Enter a valid IPv4 address" });

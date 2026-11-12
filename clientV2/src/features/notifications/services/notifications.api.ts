@@ -4,6 +4,7 @@ import type { CreateNotificationBody, NotificationPreview } from "../types/notif
 export const notificationsApi = {
 	listMine: (params: { page?: number; limit?: number }) =>
 		API.get<Record<string, unknown>[]>("/notifications/me", { params }),
+	markAllRead: () => API.patch<unknown>("/notifications/me/read-all"),
 	markRead: (id: string) => API.patch<unknown>(`/notifications/me/${encodeURIComponent(id)}/read`),
 };
 

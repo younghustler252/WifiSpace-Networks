@@ -25,6 +25,7 @@ import { approvalOf, getAccountTitle } from "../lib/account-meta";
 import type { AdminAccount } from "../types/accounts.types";
 import { AccountActionsMenu, type AccountAction } from "./account-actions-menu";
 import { ChangeAccessMethodDialog } from "./access-method-dialog";
+import { IpoeCard } from "./ipoe-card";
 import { MoveRouterDialog } from "./move-router-dialog";
 import { ChangeWsnIdDialog, RouterCredentialsCard } from "./account-credentials";
 import { AccountActionDialog } from "./account-dialogs";
@@ -211,6 +212,7 @@ export function AdminAccountView({ id }: { id: string }) {
 			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
 				<div className="min-w-0 space-y-4">
 					<ServiceCard account={account} onAction={setAction} />
+					<IpoeCard account={account} />
 					<AccountSubscriptionsCard accountId={account.id} />
 					<AccountUsage accountId={account.id} />
 					<LinkedPaymentsCard params={{ accountId: account.id }} />

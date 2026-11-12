@@ -9,7 +9,8 @@ export type Permission =
     | "routers:reboot"
     | "payments:reverse"
     | "accounts:force-wsn-id"
-    | "network:manage";
+    | "network:manage"
+    | "accounts:sync-ipoe";
 
 const PERMISSIONS: Record<Permission, Role[]> = {
     "admin:access": ["staff", "superadmin"],
@@ -21,6 +22,7 @@ const PERMISSIONS: Record<Permission, Role[]> = {
     "payments:reverse": ["superadmin"],
     "accounts:force-wsn-id": ["superadmin"],
     "network:manage": ["superadmin"],
+    "accounts:sync-ipoe": ["superadmin"],
 };
 
 export function can(role: Role | undefined, permission: Permission) {

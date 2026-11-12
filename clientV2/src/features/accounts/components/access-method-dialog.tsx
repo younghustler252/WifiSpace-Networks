@@ -8,13 +8,14 @@ import { Notice } from "@/components/shared/notice";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { macMessage, parseMac } from "../lib/mac";
+import { MacInput } from "./mac-input";
 import { settleFailure } from "@/lib/api/failure";
 import { ACCOUNT_ERROR_CODES } from "../constants";
 import { useAdminAccountActions } from "../hooks/use-accounts";
 import type { AdminAccount, ChangeAccessMethodResult } from "../types/accounts.types";
 import { CredentialsBox } from "./account-credentials";
 
-const MAC_PATTERN = /^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$/;
 const LABEL = { ppp: "PPP (username and password)", ipoe: "IPoE (MAC address)" } as const;
 
 export function ChangeAccessMethodDialog({ account, onClose }: { account: AdminAccount; onClose: () => void }) {
@@ -28,8 +29,8 @@ export function ChangeAccessMethodDialog({ account, onClose }: { account: AdminA
 	const [confirming, setConfirming] = useState(false);
 
 	async function submit() {
-		if (target === "ipoe" && !MAC_PATTERN.test(mac.trim())) {
-			setError({ field: "mac", message: "Enter a MAC address like AA:BB:CC:DD:EE:FF" });
+		if (target === "ipoe" && macMessage(mac)) {
+			setError({ field: "mac", message: macMessage(mac)! });
 			return;
 		}
 		const pass = password.trim();
@@ -42,7 +43,7 @@ export function ChangeAccessMethodDialog({ account, onClose }: { account: AdminA
 			id: account.id,
 			body:
 				target === "ipoe"
-					? { accessMethod: "ipoe", macAddress: mac.trim().replace(/-/g, ":").toUpperCase() }
+					? { accessMethod: "ipoe", macAddress: parseMac(mac)! }
 					: { accessMethod: "ppp", routerPassword: pass || undefined },
 		});
 
@@ -115,15 +116,12 @@ export function ChangeAccessMethodDialog({ account, onClose }: { account: AdminA
 				<div className="space-y-5">
 					{target === "ipoe" ? (
 						<Field label="Customer router MAC address" htmlFor="access-mac" error={error?.field === "mac" ? error.message : undefined}>
-							<Input
+							<MacInput
 								id="access-mac"
-								placeholder="AA:BB:CC:DD:EE:FF"
-								autoCapitalize="characters"
-								autoComplete="off"
 								value={mac}
-								aria-invalid={error?.field === "mac"}
-								onChange={(e) => {
-									setMac(e.target.value);
+								invalid={error?.field === "mac"}
+								onChange={(value) => {
+									setMac(value);
 									setError(null);
 								}}
 							/>
@@ -161,8 +159,8 @@ export function ChangeAccessMethodDialog({ account, onClose }: { account: AdminA
 							size="lg"
 							className="w-full"
 							onClick={() => {
-								if (target === "ipoe" && !MAC_PATTERN.test(mac.trim())) {
-									setError({ field: "mac", message: "Enter a MAC address like AA:BB:CC:DD:EE:FF" });
+								if (target === "ipoe" && macMessage(mac)) {
+									setError({ field: "mac", message: macMessage(mac)! });
 									return;
 								}
 								setConfirming(true);

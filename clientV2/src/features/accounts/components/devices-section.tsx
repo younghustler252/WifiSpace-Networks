@@ -13,12 +13,9 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Input } from "@/components/ui/input";
 import { formatDate, formatMac } from "@/lib/format";
 import { useAddDevice, useRemoveDevice } from "../hooks/use-accounts";
+import { parseMac } from "../lib/mac";
 import { AddDeviceValues, addDeviceSchema } from "../schemas/accounts.schemas";
 import type { Account, AccountDevice } from "../types/accounts.types";
-
-function normalizeMac(mac: string) {
-	return mac.trim().replace(/-/g, ":").toUpperCase();
-}
 
 export function DevicesSection({ account }: { account: Account }) {
 	const [open, setOpen] = useState(false);
@@ -42,7 +39,7 @@ export function DevicesSection({ account }: { account: Account }) {
 
 	async function onSubmit(values: AddDeviceValues) {
 		const res = await addDevice.mutateAsync({
-			macAddress: normalizeMac(values.macAddress),
+			macAddress: parseMac(values.macAddress) ?? values.macAddress,
 			hostname: values.hostname || undefined,
 		});
 
