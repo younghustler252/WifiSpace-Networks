@@ -73,7 +73,7 @@ function ServiceCard({ account, onAction }: ServiceCardProps) {
 
 	return (
 		<SectionCard title="Service" description="Where this account stands right now.">
-			<div className="space-y-4">
+			<div className="min-w-0 space-y-4">
 				{approval === "pending" && (
 					<Notice tone="warning" title="Waiting for approval" text="Review the request, then approve it with a router or reject it with a reason." />
 				)}
@@ -143,7 +143,7 @@ export function AdminAccountView({ id }: { id: string }) {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-12 w-72 rounded-lg" />
-				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 					<Skeleton className="h-96 rounded-xl" />
 					<Skeleton className="h-72 rounded-xl" />
 				</div>
@@ -186,7 +186,7 @@ export function AdminAccountView({ id }: { id: string }) {
 					title={account.wsnId}
 					description={`${getAccountTitle(account)} · Created ${formatDate(account.createdAt)}`}
 					actions={
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							<Button variant="outline" size="sm" className="bg-surface-2" onClick={() => setChangingId(true)}>
 								Change ID
 							</Button>
@@ -208,8 +208,8 @@ export function AdminAccountView({ id }: { id: string }) {
 				/>
 			</div>
 
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-				<div className="space-y-4">
+			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+				<div className="min-w-0 space-y-4">
 					<ServiceCard account={account} onAction={setAction} />
 					<AccountSubscriptionsCard accountId={account.id} />
 					<AccountUsage accountId={account.id} />
@@ -217,7 +217,7 @@ export function AdminAccountView({ id }: { id: string }) {
 					<EntityActivityCard entity="Account" entityId={account.id} />
 				</div>
 
-				<div className="space-y-4">
+				<div className="min-w-0 space-y-4">
 					<OwnerCard account={account} />
 					<AccountDetailsCard account={account} />
 					{isHotspot ? (

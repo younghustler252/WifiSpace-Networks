@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Wifi } from "lucide-react";
+import { ChevronRight, Home, Wifi } from "lucide-react";
 import { InfoTile } from "@/components/shared/info-tile";
 import { Notice } from "@/components/shared/notice";
 import { SectionCard } from "@/components/shared/section-card";
@@ -64,13 +64,24 @@ export function AccountCard({ account, subscription, showDetailsLink = true }: A
 	return (
 		<SectionCard title={title} actions={<StatusBadge status={badgeStatus} />}>
 			<div className="space-y-4">
-				<div className="flex items-center gap-3">
-					<Icon className="size-6 shrink-0 text-signal" />
-					<div className="min-w-0">
-						<div className="truncate font-medium">{headline}</div>
-						<div className="text-mono text-[11px] text-muted-foreground">{account.wsnId}</div>
+				{showDetailsLink ? (
+					<Link href={`/accounts/${account.id}`} className="flex min-h-12 items-center gap-3 rounded-lg active:bg-muted/50" aria-label={`Open account ${account.wsnId}`}>
+						<Icon className="size-6 shrink-0 text-signal" />
+						<div className="min-w-0 flex-1">
+							<div className="truncate font-medium">{headline}</div>
+							<div className="text-mono text-[11px] text-signal underline decoration-signal/50 underline-offset-4">{account.wsnId}</div>
+						</div>
+						<ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+					</Link>
+				) : (
+					<div className="flex items-center gap-3">
+						<Icon className="size-6 shrink-0 text-signal" />
+						<div className="min-w-0">
+							<div className="truncate font-medium">{headline}</div>
+							<div className="text-mono text-[11px] text-muted-foreground">{account.wsnId}</div>
+						</div>
 					</div>
-				</div>
+				)}
 
 				{pending && (
 					<Notice
@@ -120,7 +131,7 @@ export function AccountCard({ account, subscription, showDetailsLink = true }: A
 						</Button>
 					)}
 					{showDetailsLink && (
-						<Link href={`/accounts/${account.id}`} className="text-[12px] text-signal hover:underline">
+						<Link href={`/accounts/${account.id}`} className="inline-flex min-h-11 items-center text-[13px] text-signal hover:underline">
 							Account details →
 						</Link>
 					)}

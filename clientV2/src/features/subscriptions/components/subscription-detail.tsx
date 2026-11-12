@@ -155,7 +155,7 @@ export function SubscriptionDetail({ id }: { id: string }) {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-12 w-72 rounded-lg" />
-				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
+				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
 					<Skeleton className="h-96 rounded-xl" />
 					<Skeleton className="h-72 rounded-xl" />
 				</div>
@@ -200,7 +200,7 @@ export function SubscriptionDetail({ id }: { id: string }) {
 					title={subscription.planSnapshot.name}
 					description={`${data.account ? `${data.account.wsnId} · ${getAccountTitle(data.account)}` : "Subscription"}${created}`}
 					actions={
-						<div className="flex items-center gap-2">
+						<div className="flex flex-wrap items-center gap-2">
 							<StatusBadge status={getDisplayStatus(subscription)} />
 							<SubscriptionActionsMenu subscription={subscription} onAction={setAction} />
 						</div>
@@ -216,8 +216,8 @@ export function SubscriptionDetail({ id }: { id: string }) {
 				/>
 			)}
 
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-				<div className="space-y-4">
+			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+				<div className="min-w-0 space-y-4">
 					<SectionCard title="Status">
 						<StatusTiles detail={data} />
 					</SectionCard>
@@ -227,7 +227,7 @@ export function SubscriptionDetail({ id }: { id: string }) {
 					<SubscriptionTimeline events={subscription.events ?? []} />
 				</div>
 
-				<div className="space-y-4">
+				<div className="min-w-0 space-y-4">
 					<CustomerCard detail={data} />
 					<LinkedAccountCard detail={data} />
 					<AutoRenewCard subscription={subscription} admin />

@@ -105,7 +105,7 @@ export function AppShell({ home, groups, headerStart, headerEnd, sidebarFooter, 
 					</div>
 				</header>
 
-				<main className={cn("mx-auto w-full max-w-6xl flex-1 space-y-6 p-4 pb-28 md:p-6 lg:pb-6", contentClassName)}>
+				<main className={cn("mx-auto w-full min-w-0 max-w-6xl flex-1 space-y-6 overflow-x-clip p-4 pb-28 md:p-6 lg:pb-6", contentClassName)}>
 					{children}
 				</main>
 

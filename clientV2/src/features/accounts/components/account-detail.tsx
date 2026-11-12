@@ -25,7 +25,7 @@ export function AccountDetail({ id }: { id: string }) {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-12 w-64 rounded-lg" />
-				<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+				<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
 					<Skeleton className="h-96 rounded-xl" />
 					<Skeleton className="h-64 rounded-xl" />
 				</div>
@@ -77,13 +77,13 @@ export function AccountDetail({ id }: { id: string }) {
 				<PageHeader title="Account details" description={`${getAccountTitle(acc)} · ${acc.wsnId}`} />
 			</div>
 
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-				<div className="space-y-4">
+			<div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+				<div className="min-w-0 space-y-4">
 					<AccountCard account={acc} subscription={current} showDetailsLink={false} />
 					{current && <AutoRenewCard subscription={current} />}
 					<SubscriptionHistory subscriptions={history} />
 				</div>
-				<div className="space-y-4">
+				<div className="min-w-0 space-y-4">
 					<AccountInfo account={acc} />
 					{showDevices && <DevicesSection account={acc} />}
 				</div>

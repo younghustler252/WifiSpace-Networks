@@ -57,17 +57,17 @@ export function AdminAccountsTable({ items, onAction }: AdminAccountsTableProps)
 
 			<ul className="divide-y md:hidden">
 				{items.map((account) => (
-					<li key={account.id} className="flex items-center gap-2 py-3 first:pt-0 last:pb-0">
-						<div className="min-w-0 flex-1 space-y-2">
+					<li key={account.id} className="relative flex items-center gap-2 py-3 first:pt-0 last:pb-0">
+						<Link href={`/admin/accounts/${account.id}`} className="min-w-0 flex-1 space-y-2 rounded-lg py-1 active:bg-muted/50" aria-label={`Open account ${account.wsnId}`}>
 							<OwnerCell account={account} />
 							<p className="text-[12px] text-muted-foreground">
-								<span className="text-mono">{account.wsnId}</span> · {getAccountTitle(account)}
+								<span className="text-mono font-medium text-foreground underline decoration-signal/50 underline-offset-4">{account.wsnId}</span> · {getAccountTitle(account)}
 							</p>
 							<div className="flex flex-wrap items-center gap-2">
 								<StatusBadge status={account.status} />
 								<StatusBadge status={account.approvalStatus} />
 							</div>
-						</div>
+						</Link>
 						<AccountActionsMenu account={account} onAction={(a) => onAction(a, account)} />
 					</li>
 				))}

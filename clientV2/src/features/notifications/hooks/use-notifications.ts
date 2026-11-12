@@ -24,9 +24,15 @@ export function useNotifications(page: number) {
 	});
 }
 
-export function useHasUnread() {
+export function useUnreadCount() {
 	const { data } = useNotifications(1);
-	return !!data?.items.some((n) => !n.isRead);
+	const loaded = data?.items.filter((n) => !n.isRead).length ?? 0;
+	const more = !!data?.meta && data.meta.totalPages > 1 && loaded === data.items.length;
+	return { count: loaded, more };
+}
+
+export function useHasUnread() {
+	return useUnreadCount().count > 0;
 }
 
 export function useMarkNotificationRead() {

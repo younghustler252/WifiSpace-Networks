@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Bell, LayoutDashboard, Receipt, User, Wallet, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/features/notifications/components/notification-bell";
 import { HeaderStatus } from "@/features/accounts/components/header-status";
 import { AppShell, type NavGroup } from "./app-shell";
 
@@ -31,13 +31,7 @@ export function CustomerShell({ children }: { children: React.ReactNode }) {
 			home="/overview"
 			groups={GROUPS}
 			headerStart={<HeaderStatus />}
-			headerEnd={
-				<Button asChild variant="ghost" size="icon">
-					<Link href="/notifications" aria-label="Notifications">
-						<Bell className="size-4" />
-					</Link>
-				</Button>
-			}
+			headerEnd={<NotificationBell />}
 			sidebarFooter={
 				<Link href="/accounts/new" className="card-elevated block bg-surface-2 p-3 transition hover:border-signal/40">
 					<div className="text-[10px] uppercase tracking-wider text-muted-foreground">New service</div>
