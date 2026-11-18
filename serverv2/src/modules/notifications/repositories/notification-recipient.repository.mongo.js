@@ -24,6 +24,15 @@ export class NotificationRecipientRepositoryMongo extends BaseRepository {
 		return this.paginate({ filter, sort: { createdAt: -1 }, page, limit });
 	}
 
+	async markAllReadForUser(userId) {
+		const now = new Date();
+		const result = await this.model.updateMany(
+			{ userId, status: { $nin: ["READ", "FAILED", "CANCELLED"] } },
+			{ $set: { status: "READ", readAt: now } }
+		);
+		return result.modifiedCount ?? 0;
+	}
+
 	async findDueForRetry() {
 		const docs = await this.model.find({ status: "FAILED", nextRetryAt: { $lte: new Date() } }).lean();
 		return this.mapArray(docs);

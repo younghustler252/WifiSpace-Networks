@@ -1,4 +1,4 @@
-import { NotFoundError, ValidationError, AppError } from "../../../../shared/errors/domain.errors.js";
+import { NotFoundError, ValidationError, AppError, ConflictError } from "../../../../shared/errors/domain.errors.js";
 import { WALLET_ERROR_CODES } from "../../domain/wallet.enum.js";
 import { presentWallet } from "./get-my-wallet.usecase.js";
 
@@ -14,6 +14,22 @@ export class EnsureVirtualAccount {
 		const wallet = await this.walletRepository.ensureWallet(userId);
 		if (wallet.virtualAccount?.accountNumber) return presentWallet(wallet);
 
+		const claimed = await this.walletRepository.claimVirtualAccountCreation(userId);
+		if (!claimed) {
+			const latest = await this.walletRepository.findByUserId(userId);
+			if (latest?.virtualAccount?.accountNumber) return presentWallet(latest);
+			throw new ConflictError("Your account number is being created. Please try again in a moment.", "VIRTUAL_ACCOUNT_IN_PROGRESS");
+		}
+
+		try {
+			return await this._create({ userId, phone });
+		} catch (error) {
+			await this.walletRepository.releaseVirtualAccountClaim(userId);
+			throw error;
+		}
+	}
+
+	async _create({ userId, phone }) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) throw new NotFoundError("User not found");
 

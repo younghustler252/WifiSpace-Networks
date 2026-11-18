@@ -4,7 +4,8 @@
   "main": "src/server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/",
+    "audit:wallet": "node src/scripts/audit-wallet-ledger.js",
     "start": "node src/server.js",
     "start:worker": "node src/worker.js",
     "dev": "nodemon",

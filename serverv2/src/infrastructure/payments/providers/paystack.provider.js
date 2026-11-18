@@ -183,7 +183,8 @@ export class PaystackProvider extends PaymentGatewayInterface {
 		return {
 			kind: "wallet_funding",
 			reference: data.reference,
-			status: PAYMENT_STATUSES.SUCCESSFUL,
+			status: String(data.status ?? "").toLowerCase() === "success" ? PAYMENT_STATUSES.SUCCESSFUL : PAYMENT_STATUSES.FAILED,
+			currency: data.currency ?? null,
 			amountKobo: data.amount,
 			accountNumber: data.authorization?.receiver_bank_account_number ?? null,
 			customerCode: data.customer?.customer_code ?? null,

@@ -1,3 +1,4 @@
+import { PAYMENT_STATUSES } from "../../../payment/domain/payment.enum.js";
 import { WALLET_TX_TYPES, WALLET_TX_SOURCES } from "../../domain/wallet.enum.js";
 
 export class FundWalletFromTransfer {
@@ -8,7 +9,24 @@ export class FundWalletFromTransfer {
 		this.auditService = auditService;
 	}
 
-	async execute({ reference, amountKobo, accountNumber, customerCode, email = null, senderName = null }) {
+	async execute({ reference, amountKobo, status, currency, accountNumber, customerCode, email = null, senderName = null }) {
+		if (!reference || typeof reference !== "string") {
+			console.error("[FundWalletFromTransfer] Rejected transfer without a provider reference");
+			return { handled: false, reason: "invalid_reference" };
+		}
+		if (status !== PAYMENT_STATUSES.SUCCESSFUL) {
+			console.error(`[FundWalletFromTransfer] Rejected ${reference}: provider status is not successful`);
+			return { handled: false, reason: "transfer_not_successful" };
+		}
+		if (String(currency ?? "").toUpperCase() !== "NGN") {
+			console.error(`[FundWalletFromTransfer] Rejected ${reference}: currency ${currency ?? "missing"} is not NGN`);
+			return { handled: false, reason: "invalid_currency" };
+		}
+		if (!Number.isInteger(amountKobo) || amountKobo <= 0) {
+			console.error(`[FundWalletFromTransfer] Rejected ${reference}: invalid amount ${amountKobo}`);
+			return { handled: false, reason: "invalid_amount" };
+		}
+
 		let wallet =
 			(accountNumber && (await this.walletRepository.findByAccountNumber(accountNumber))) ||
 			(customerCode && (await this.walletRepository.findByCustomerCode(customerCode))) ||

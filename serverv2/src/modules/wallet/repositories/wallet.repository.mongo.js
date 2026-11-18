@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import WalletModel from "../database/wallet.model.js";
 import WalletTransactionModel from "../database/wallet-transaction.model.js";
-import { ValidationError } from "../../../shared/errors/domain.errors.js";
+import { ValidationError, ConflictError, AppError } from "../../../shared/errors/domain.errors.js";
 import { WALLET_TX_TYPES, WALLET_ERROR_CODES } from "../domain/wallet.enum.js";
 
 const toWallet = (doc) => doc && {
@@ -29,6 +29,7 @@ const toTransaction = (doc) => doc && {
 };
 
 const isDuplicateKey = (error) => error?.code === 11000;
+const allowNonTransactional = () => String(process.env.WALLET_ALLOW_NON_TRANSACTIONAL ?? "true").toLowerCase() !== "false";
 const lacksTransactions = (error) => /replica set|Transaction numbers are only allowed/i.test(error?.message ?? "");
 
 export class WalletRepositoryMongo {
@@ -63,14 +64,35 @@ export class WalletRepositoryMongo {
 		return toWallet(await WalletModel.findOne({ "virtualAccount.customerCode": customerCode }).lean());
 	}
 
-	async saveVirtualAccount(userId, virtualAccount) {
+	async claimVirtualAccountCreation(userId, lockMs = 60000) {
+		const now = new Date();
 		const doc = await WalletModel.findOneAndUpdate(
-			{ userId },
-			{ $set: { virtualAccount: { ...virtualAccount, assignedAt: new Date() } } },
-			{ upsert: true, returnDocument: "after" }
+			{
+				userId,
+				$and: [
+					{ $or: [{ "virtualAccount.accountNumber": null }, { "virtualAccount.accountNumber": { $exists: false } }] },
+					{ $or: [{ virtualAccountLockAt: null }, { virtualAccountLockAt: { $exists: false } }, { virtualAccountLockAt: { $lt: new Date(now.getTime() - lockMs) } }] }
+				]
+			},
+			{ $set: { virtualAccountLockAt: now } },
+			{ returnDocument: "after" }
 		).lean();
 
-		return toWallet(doc);
+		return Boolean(doc);
+	}
+
+	async releaseVirtualAccountClaim(userId) {
+		await WalletModel.updateOne({ userId }, { $set: { virtualAccountLockAt: null } });
+	}
+
+	async saveVirtualAccount(userId, virtualAccount) {
+		const doc = await WalletModel.findOneAndUpdate(
+			{ userId, $or: [{ "virtualAccount.accountNumber": null }, { "virtualAccount.accountNumber": { $exists: false } }] },
+			{ $set: { virtualAccount: { ...virtualAccount, assignedAt: new Date() }, virtualAccountLockAt: null } },
+			{ returnDocument: "after" }
+		).lean();
+
+		return toWallet(doc ?? (await WalletModel.findOne({ userId }).lean()));
 	}
 
 	async listVirtualAccountNumbers() {
@@ -99,7 +121,7 @@ export class WalletRepositoryMongo {
 		if (!Number.isInteger(amountKobo) || amountKobo <= 0) throw new ValidationError("Amount must be a positive whole number of kobo");
 
 		const existing = await this.findTransactionByReference(reference);
-		if (existing) return { duplicate: true, transaction: existing, wallet: await this.findByUserId(userId) };
+		if (existing) return this._duplicateResult(existing, { userId, type, amountKobo, source, reference });
 
 		await this.ensureWallet(userId);
 		const entry = { userId, type, amountKobo, source, reference, description, metadata };
@@ -110,17 +132,40 @@ export class WalletRepositoryMongo {
 		} catch (error) {
 			if (isDuplicateKey(error)) {
 				const transaction = await this.findTransactionByReference(reference);
-				if (transaction) return { duplicate: true, transaction, wallet: await this.findByUserId(userId) };
+				if (transaction) return this._duplicateResult(transaction, entry);
 			}
 
 			if (this.transactionsSupported && lacksTransactions(error)) {
+				if (!allowNonTransactional()) {
+					console.error("[wallet] MongoDB transactions are unavailable and WALLET_ALLOW_NON_TRANSACTIONAL=false. Refusing wallet write.");
+					throw new AppError("Wallet is temporarily unavailable. Please try again later.", 503, "WALLET_UNAVAILABLE");
+				}
 				this.transactionsSupported = false;
-				console.warn("[wallet] MongoDB has no replica set, falling back to non-transactional wallet writes");
+				console.error("[wallet] ALERT: MongoDB has no replica set, falling back to non-transactional wallet writes. Set WALLET_ALLOW_NON_TRANSACTIONAL=false once a replica set is in place.");
 				return this._applyWithoutTransaction(entry);
 			}
 
 			throw error;
 		}
+	}
+
+	async _duplicateResult(existing, { userId, type, amountKobo, source, reference }) {
+		const mismatched = [];
+		if (existing.userId !== String(userId)) mismatched.push("userId");
+		if (existing.type !== type) mismatched.push("type");
+		if (existing.amountKobo !== amountKobo) mismatched.push("amountKobo");
+		if (existing.source !== source) mismatched.push("source");
+
+		if (mismatched.length) {
+			console.error(`[wallet] Reference ${reference} reused with different details: ${mismatched.join(", ")}`);
+			throw new ConflictError("This reference was already used for a different wallet transaction", "WALLET_REFERENCE_CONFLICT", { reference, mismatched });
+		}
+
+		if (existing.balanceAfterKobo === null || existing.balanceAfterKobo === undefined) {
+			console.error(`[wallet] Reference ${reference} exists with an incomplete ledger row (balanceAfterKobo is null). Needs manual review.`);
+		}
+
+		return { duplicate: true, transaction: existing, wallet: await this.findByUserId(userId) };
 	}
 
 	async _applyInTransaction(entry) {

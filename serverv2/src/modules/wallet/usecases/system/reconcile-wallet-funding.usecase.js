@@ -31,7 +31,7 @@ export class ReconcileWalletFunding {
 			}
 
 			const result = await this.fundWalletFromTransfer.execute({
-				reference: transfer.reference, amountKobo: transfer.amountKobo,
+				reference: transfer.reference, amountKobo: transfer.amountKobo, status: transfer.status, currency: transfer.currency,
 				accountNumber: transfer.accountNumber, customerCode: transfer.customerCode,
 				email: transfer.email, senderName: transfer.senderName
 			});

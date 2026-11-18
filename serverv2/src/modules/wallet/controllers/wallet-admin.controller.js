@@ -22,14 +22,14 @@ export class WalletAdminController {
 		const days = Number(req.body.days ?? 7);
 		const result = await this.reconcileWalletFundingUseCase.execute({
 			from: new Date(Date.now() - days * 24 * 60 * 60 * 1000),
-			apply: Boolean(req.body.apply),
-			requery: Boolean(req.body.requery)
+			apply: req.body.apply === true,
+			requery: req.body.requery === true
 		});
 		return successResponse({ res, data: result, message: result.summary.mode === "applied" ? "Wallet funding reconciled" : "Reconciliation preview" });
 	};
 
 	adjust = async (req, res) => {
-		const wallet = await this.adjustWalletUseCase.execute({ actorId: req.user.id, userId: req.params.userId, ...req.body, ip: req.ip });
+		const wallet = await this.adjustWalletUseCase.execute({ actorId: req.user.id, userId: req.params.userId, ...req.body, requestKey: req.headers["idempotency-key"] ?? null, ip: req.ip });
 		return successResponse({ res, data: wallet, message: "Wallet adjusted successfully" });
 	};
 }

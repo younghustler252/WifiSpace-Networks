@@ -24,7 +24,7 @@ export class WalletController {
 	};
 
 	pay = async (req, res) => {
-		const result = await this.payWithWalletUseCase.execute({ userId: req.user.id, ...req.body, ip: req.ip });
+		const result = await this.payWithWalletUseCase.execute({ userId: req.user.id, ...req.body, requestKey: req.headers["idempotency-key"] ?? null, ip: req.ip });
 		return successResponse({
 			res,
 			data: { payment: result.payment.toJSON(), balance: result.balance, provisioning: result.outcome?.provisioning ?? null },

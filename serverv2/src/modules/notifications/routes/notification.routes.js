@@ -14,6 +14,7 @@ const adminController = container.resolve("notificationAdminController");
 router.use(authenticate);
 
 router.get("/me", asyncHandler(notificationController.getMyNotifications));
+router.patch("/me/read-all", asyncHandler(notificationController.markAllRead));
 router.patch("/me/:id/read", asyncHandler(notificationController.markRead));
 
 const adminRouter = Router();

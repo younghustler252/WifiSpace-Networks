@@ -15,6 +15,7 @@ import { GetAllNotifications } from "./usecases/admin/get-all-notifications.usec
 import { GetMyNotifications } from "./usecases/user/get-my-notifications.usecase.js";
 import { GetNotificationRecipients } from "./usecases/user/get-notification-recipents.usecase.js";
 import { MarkNotificationRead } from "./usecases/user/mark-read.usecase.js";
+import { MarkAllNotificationsRead } from "./usecases/user/mark-all-read.usecase.js";
 import { DispatchNotifications } from "./usecases/system/dispatch-notifications.usecase.js";
 import { SendSystemAlert } from "./usecases/system/send-system-alert.usecase.js";
 
@@ -36,6 +37,7 @@ export function registerNotifications(container) {
 		getMyNotifications: asClass(GetMyNotifications).scoped(),
 		getNotificationRecipients: asClass(GetNotificationRecipients).scoped(),
 		markNotificationRead: asClass(MarkNotificationRead).scoped(),
+		markAllNotificationsRead: asClass(MarkAllNotificationsRead).scoped(),
 		dispatchNotifications: asClass(DispatchNotifications).scoped(),
 		sendSystemAlert: asClass(SendSystemAlert).scoped(),
 

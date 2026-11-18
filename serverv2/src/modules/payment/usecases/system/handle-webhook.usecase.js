@@ -26,7 +26,7 @@ export class HandleWebhook {
 
 		if (event.kind === "wallet_funding") {
 			return this.fundWalletFromTransfer.execute({
-				reference: event.reference, amountKobo: event.amountKobo,
+				reference: event.reference, amountKobo: event.amountKobo, status: event.status, currency: event.currency,
 				accountNumber: event.accountNumber, customerCode: event.customerCode, email: event.email, senderName: event.senderName
 			});
 		}

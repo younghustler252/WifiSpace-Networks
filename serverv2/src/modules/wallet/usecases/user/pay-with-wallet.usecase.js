@@ -20,7 +20,7 @@ export class PayWithWallet {
 		this.auditService = auditService;
 	}
 
-	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, actorId = null, note = null, autoRenew = false, ip = null }) {
+	async execute({ userId, accountId, planId, cycles = 1, actionTypeOverride, provisioningMetadata = {}, actorId = null, note = null, autoRenew = false, requestKey = null, ip = null }) {
 		const account = await this.accountRepository.findById(accountId);
 		if (!account) throw new NotFoundError("Account not found", ACCOUNT_ERROR_CODES.ACCOUNT_NOT_FOUND);
 		if (!actorId && account.userId !== userId) throw new ValidationError("You do not have access to this account");
@@ -53,23 +53,35 @@ export class PayWithWallet {
 			});
 		}
 
+		const idempotencyKey = requestKey ? `wallet:${userId}:${requestKey}` : crypto.randomBytes(16).toString("hex");
+		if (requestKey) {
+			const prior = await this.paymentRepository.findByIdempotencyKey(idempotencyKey);
+			if (prior) throw new ConflictError("This payment request was already submitted", "DUPLICATE_REQUEST", { paymentId: prior.id, status: prior.status });
+		}
+
 		const reference = `WSN-W-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
-		const payment = await this.paymentRepository.create(new Payment({
-			userId, accountId, planId, actionType,
-			amount: { total, base: plan.price * cycles, discount: (plan.price - unitPrice) * cycles },
-			cycles,
-			gateway: PAYMENT_GATEWAYS.WALLET,
-			paymentChannel: PAYMENT_CHANNELS.WALLET,
-			gatewayReference: reference,
-			status: PAYMENT_STATUSES.INITIATED,
-			idempotencyKey: crypto.randomBytes(16).toString("hex"),
-			metadata: {
-				planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata,
-				...(actorId ? { recordedByAdmin: actorId, note } : {}),
-				...(autoRenew ? { autoRenew: true } : {})
-			}
-		}));
+		let payment;
+		try {
+			payment = await this.paymentRepository.create(new Payment({
+				userId, accountId, planId, actionType,
+				amount: { total, base: plan.price * cycles, discount: (plan.price - unitPrice) * cycles },
+				cycles,
+				gateway: PAYMENT_GATEWAYS.WALLET,
+				paymentChannel: PAYMENT_CHANNELS.WALLET,
+				gatewayReference: reference,
+				status: PAYMENT_STATUSES.INITIATED,
+				idempotencyKey,
+				metadata: {
+					planName: plan.name, serviceType: plan.serviceType, provisioning: provisioningMetadata,
+					...(actorId ? { recordedByAdmin: actorId, note } : {}),
+					...(autoRenew ? { autoRenew: true } : {})
+				}
+			}));
+		} catch (error) {
+			if (error?.code === 11000 && requestKey) throw new ConflictError("This payment request was already submitted", "DUPLICATE_REQUEST");
+			throw error;
+		}
 
 		try {
 			await this.walletRepository.apply({

@@ -11,7 +11,7 @@ export class AdjustWallet {
 		this.auditService = auditService;
 	}
 
-	async execute({ actorId, userId, direction, amount, reason, ip = null }) {
+	async execute({ actorId, userId, direction, amount, reason, requestKey = null, ip = null }) {
 		const user = await this.userRepository.findById(userId);
 		if (!user) throw new ValidationError("User not found");
 
@@ -21,10 +21,12 @@ export class AdjustWallet {
 			type,
 			amountKobo: toKobo(amount),
 			source: WALLET_TX_SOURCES.ADMIN_ADJUSTMENT,
-			reference: `admin:${crypto.randomUUID()}`,
+			reference: requestKey ? `admin:${userId}:${requestKey}` : `admin:${crypto.randomUUID()}`,
 			description: reason,
-			metadata: { actorId }
+			metadata: { actorId, requestKey, reason, requestedAt: new Date().toISOString() }
 		});
+
+		if (result.duplicate) return presentWallet(result.wallet);
 
 		await this.auditService?.log({
 			actorId, action: "WALLET_ADJUSTED", entity: "Wallet", entityId: result.wallet.id,

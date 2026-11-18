@@ -11,7 +11,8 @@ const walletSchema = new mongoose.Schema(
 			accountName: { type: String, default: null },
 			customerCode: { type: String, default: null, index: true, sparse: true },
 			assignedAt: { type: Date, default: null }
-		}
+		},
+		virtualAccountLockAt: { type: Date, default: null }
 	},
 	{ timestamps: true }
 );
