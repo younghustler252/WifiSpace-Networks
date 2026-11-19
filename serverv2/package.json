@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test test/",
-    "audit:wallet": "node src/scripts/audit-wallet-ledger.js",\n    "audit:account": "node src/scripts/audit-customer-account.js",
+    "audit:wallet": "node src/scripts/audit-wallet-ledger.js",
+    "audit:account": "node src/scripts/audit-customer-account.js",
     "start": "node src/server.js",
     "start:worker": "node src/worker.js",
     "dev": "nodemon",
