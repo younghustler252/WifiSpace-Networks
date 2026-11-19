@@ -32,7 +32,7 @@ function toId(value) {
 	return value ? String(value) : null;
 }
 
-function safeMetadata(metadata = {}) {
+function safeMetadata(metadata = {}) {\n\tmetadata = metadata ?? {};
 	return {
 		gatewayReference: metadata.gatewayReference ?? null,
 		accountNumber: metadata.accountNumber ?? null,
