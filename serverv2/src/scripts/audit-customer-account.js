@@ -42,6 +42,22 @@ function safeMetadata(metadata = {}) {
 	};
 }
 
+function safeAuditValue(value) {
+	if (value == null || typeof value !== "object") return value;
+	if (value instanceof Date) return value.toISOString();
+	if (Array.isArray(value)) return value.map(safeAuditValue);
+	if (value._bsontype === "ObjectId") return String(value);
+
+	return Object.fromEntries(
+		Object.entries(value).map(([key, entry]) => [
+			key,
+			/password|token|secret|otp|authorization|email|phone|nin|useragent|^ip$/i.test(key)
+				? "[REDACTED]"
+				: safeAuditValue(entry)
+		])
+	);
+}
+
 function summarizePayment(payment) {
 	return {
 		id: toId(payment._id),
@@ -357,6 +373,8 @@ async function main() {
 			action: entry.action,
 			entity: entry.entity,
 			entityId: toId(entry.entityId),
+			oldValue: safeAuditValue(entry.oldValue),
+			newValue: safeAuditValue(entry.newValue),
 			createdAt: entry.createdAt
 		})),
 		relationshipChecks: {
